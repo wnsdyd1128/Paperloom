@@ -1,0 +1,19 @@
+# 실행: docker compose -f ops/compose/compose.yaml up -d --build
+# IDE·터미널을 닫아도 유지되고, 재부팅 후 Docker가 시작되면 다시 올라온다 (PLAN A12).
+name: paperloom
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: ops/compose/Dockerfile
+    image: paperloom-app:0.1.0
+    ports:
+      - "127.0.0.1:8000:8000"  # 호스트에서는 loopback에만 공개
+    volumes:
+      # SQLite(W02)를 Windows bind mount 위에 두지 않도록 named volume을 쓴다 (IMPL §15).
+      - paperloom-data:/data
+    restart: unless-stopped
+
+volumes:
+  paperloom-data:

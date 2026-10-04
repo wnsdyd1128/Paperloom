@@ -1,0 +1,11 @@
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/*.egg-info
+apps/web/dist
+apps/web/test-results
+var
+experiments
+docs
+tests

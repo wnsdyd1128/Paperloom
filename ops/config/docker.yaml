@@ -1,0 +1,13 @@
+# 컨테이너 안의 설정 (ops/compose/Dockerfile이 /app/config/paperloom.yaml로 복사).
+# 컨테이너 안에서는 0.0.0.0에 바인딩하고, 호스트 공개 범위는 compose의 127.0.0.1 포트 매핑이 제한한다.
+app:
+  mode: local
+  bind_host: 0.0.0.0
+  port: 8000
+  data_dir: /data
+  web_dist_dir: /app/web
+cost_policy:
+  mode: plan_only
+  paid_model_calls_allowed: false
+  paid_fallback_allowed: false
+  automatic_credit_purchase_allowed: false
