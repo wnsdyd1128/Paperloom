@@ -19,6 +19,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 - [문제 해결](#문제-해결)
 - [개발](#개발)
 - [서드파티](#서드파티)
+- [라이선스](#라이선스)
 
 ## 주요 기능
 
@@ -198,3 +199,7 @@ ops/                            Docker Compose와 실행 설정
 
 - [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`)
 - [PDF.js](https://mozilla.github.io/pdf.js/): Apache License 2.0
+
+## 라이선스
+
+[MIT](LICENSE) © 2026 Jun-Yong Park
