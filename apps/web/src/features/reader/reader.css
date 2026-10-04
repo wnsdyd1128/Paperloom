@@ -1,0 +1,2081 @@
+/*
+ * Reader (시안 Reader v3, docs/UI_PLAN.md U1·U2). 값은 디자인 시스템 토큰만 쓴다: 모서리 0, 큰 구분선 2px,
+ * 띄운 것(메뉴·창)은 위 테두리 2px 글자색과 shadow-lg.
+ */
+
+.reader {
+  display: grid;
+  grid-template-rows: 56px auto minmax(0, 1fr);
+  height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+/* ── 머리 ── */
+.reader-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.reader-head-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.head-rule {
+  flex: none;
+  width: 2px;
+  height: 20px;
+  background: var(--color-divider);
+}
+
+.head-rule.is-thin {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+}
+
+.reader-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-neutral-800);
+  font: 400 13px/1.3 var(--font-body);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-head-center {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reader-head-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.head-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.head-box {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--color-divider);
+  background: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-menu {
+  position: relative;
+  margin-right: 2px;
+}
+
+.zoom-button {
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 84px;
+  padding: 0 8px 0 10px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.zoom-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.page-box {
+  margin-left: 4px;
+}
+
+.page-box input {
+  width: 44px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-right: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  font-weight: 600;
+  text-align: center;
+}
+
+.page-count {
+  padding: 0 10px;
+  color: var(--color-neutral-700);
+}
+
+.page-text-status {
+  overflow: hidden;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 머리의 펼침 메뉴 (배율) */
+.menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 4px 0;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.menu-popover button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-popover button:hover,
+.menu-popover button:focus-visible {
+  background: var(--color-surface);
+}
+
+.menu-popover button[aria-checked="true"] {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.menu-rule {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--color-divider);
+}
+
+.menu-meta {
+  margin-left: auto;
+  color: var(--color-neutral-700);
+}
+
+/* ── 안내 줄 ── */
+.reader-notices .reader-notice {
+  margin: 0;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.reader-toast {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 60;
+  max-width: min(560px, 90vw);
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--color-divider);
+  border-left: 3px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+
+.reader-toast.error {
+  border-left-color: var(--color-accent);
+}
+
+/* ── 본문 ── */
+.reader-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+.reader-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: var(--reader-stage);
+}
+
+.reader-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+/* 키보드로 본문에 들어왔음을 보이되, 머리·사이드바 위로 번지지 않게 안쪽에 그린다. */
+.reader-scroll:focus-visible {
+  outline-offset: -2px;
+}
+
+.reader-scroll .pdfViewer {
+  padding: var(--space-6) 0;
+}
+
+.reader-scroll .pdfViewer .page {
+  box-shadow: var(--shadow-sm);
+}
+
+/* PDF 위 표시. 쪽은 원래 색이므로 테마와 상관없이 같은 색을 쓴다(--mark-*). 선택을 가로막지 않는다. */
+.quad-overlay,
+.annotation-overlay,
+.figure-hover {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.quad-overlay {
+  z-index: 5;
+}
+
+.annotation-overlay,
+.figure-hover {
+  z-index: 4;
+}
+
+.quad-mark {
+  position: absolute;
+  background: var(--mark-selection);
+  outline: 1px solid var(--mark-selection-line);
+}
+
+.annotation-overlay .quad-mark {
+  background: var(--mark-note);
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--mark-note-line);
+}
+
+.annotation-overlay .quad-mark.is-focused {
+  background: var(--mark-focus);
+  outline: 2px solid var(--mark-focus-line);
+}
+
+/* 하이라이트 3색 (U5): 쪽 그림에 곱하기로 칠해 글자는 그대로 보이고, 겹친 하이라이트는 서로 곱해져 진해진다.
+   층 전체도 곱하기여야 쪽 그림과 섞인다(층 안의 표시끼리만 섞이지 않게). 링크로 연 위치의 테두리는 그대로다. */
+.annotation-overlay {
+  mix-blend-mode: multiply;
+}
+
+.annotation-overlay .quad-mark[data-color] {
+  box-shadow: none;
+  mix-blend-mode: multiply;
+}
+
+.annotation-overlay .quad-mark[data-color="c1"],
+.color-swatch[data-color="c1"] {
+  background: var(--mark-c1);
+}
+
+.annotation-overlay .quad-mark[data-color="c2"],
+.color-swatch[data-color="c2"] {
+  background: var(--mark-c2);
+}
+
+.annotation-overlay .quad-mark[data-color="c3"],
+.color-swatch[data-color="c3"] {
+  background: var(--mark-c3);
+}
+
+/* 색 견본 단추: 선택 메뉴의 하이라이트 줄, 하이라이트 패널의 거르기·색 바꾸기. 견본 색은 테마와 상관없이 쪽과 같다. */
+.color-swatch {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-divider);
+  color: #2d2b2b;
+  cursor: pointer;
+}
+
+.color-swatch:hover:not(:disabled),
+.color-swatch:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 1px;
+}
+
+.color-swatch.is-small {
+  width: 16px;
+  height: 16px;
+}
+
+.color-swatch.is-small[aria-pressed="true"] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* 선택 메뉴의 하이라이트 줄: 줄을 누르면(H) 마지막 색, 견본을 누르면 그 색 */
+.selection-menu-highlight {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.highlight-swatches {
+  position: absolute;
+  top: 50%;
+  right: 44px;
+  display: flex;
+  gap: 4px;
+  transform: translateY(-50%);
+}
+
+.highlight-swatches .color-swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.figure-hover .quad-mark {
+  background: rgb(236 48 19 / 5%);
+  outline: 2px dashed var(--mark-focus-line);
+}
+
+/* 영역 선택 모드 (W04a): 끄는 동안 텍스트 선택을 막고, 끈 사각형을 점선으로 보인다. */
+.reader-scroll.region-mode {
+  cursor: crosshair;
+}
+
+.reader-scroll.region-mode .textLayer {
+  pointer-events: none;
+}
+
+.reader-scroll.over-figure {
+  cursor: pointer;
+}
+
+/* Ctrl을 누르고 참고문헌 번호 위에 있으면 링크처럼 손가락 (referenceLinks). PDF.js는 글자 조각에 글자 커서를 준다. */
+.reader-scroll.over-citation,
+.reader-scroll.over-citation .textLayer :is(span, br) {
+  cursor: pointer;
+}
+
+/* 참고문헌에서 돌아가기 (viewReturn): 본문 아래 가운데에 띄운다(스크롤과 함께 움직이지 않는다). */
+.reader-return {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+.reader-return .btn-plain {
+  gap: 6px;
+}
+
+.reader-return .btn-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.region-band {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  border: 2px solid var(--mark-focus-line);
+  background: rgb(236 48 19 / 6%);
+}
+
+/* ── 고른 것 곁의 메뉴 ── */
+.selection-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: 270px;
+  padding: 4px 0;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.selection-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-menu-item:hover:not(:disabled),
+.selection-menu-item:focus-visible {
+  background: var(--color-surface);
+}
+
+.selection-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.selection-menu-label {
+  flex: 1;
+}
+
+.selection-menu-rule {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--color-divider);
+}
+
+.selection-menu-note {
+  margin: 0;
+  padding: 9px 12px;
+  color: var(--color-neutral-700);
+}
+
+.region-toolbar {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+}
+
+.region-toolbar .seg {
+  border: 0;
+  border-right: 1px solid var(--color-divider);
+}
+
+.region-tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--color-divider);
+  background: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.region-tool.is-primary {
+  border-left: 0;
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.region-tool:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* ── 원문 위 창 (설명·번역·질문·메모)과 접은 칩 ── */
+.inline-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  width: 0;
+  height: 0;
+}
+
+.inline-window-host {
+  position: absolute;
+}
+
+/* 본문에서 끌어 고르는 동안에는 칩·창 아래의 글도 고를 수 있게 포인터를 통과시킨다. */
+.reader-scroll.is-selecting .inline-layer {
+  pointer-events: none;
+}
+
+.inline-window {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--reading-font-size);
+}
+
+.inline-window-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--color-divider);
+  /* 머리를 끌어 창을 옮긴다(InlineLayer). 끄는 동안 글이 선택되거나 화면이 밀리지 않게 한다. */
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.inline-window-head:active {
+  cursor: grabbing;
+}
+
+.inline-window-icon {
+  flex: none;
+  color: var(--color-accent);
+}
+
+.inline-window-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: 600 14px/1.3 var(--font-body);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-tool {
+  width: 28px;
+  height: 28px;
+  color: var(--color-neutral-700);
+}
+
+/* 번역 창 글꼴 (번역 창 머리의 A−/A+, 2026-10-04부터 늘 보인다) */
+.inline-font-size {
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
+}
+
+.inline-font-size .inline-tool {
+  width: 26px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.inline-font-value {
+  min-width: 20px;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.inline-window-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow: auto;
+  padding: 14px;
+  line-height: 1.6;
+}
+
+.inline-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-question {
+  align-self: flex-end;
+  max-width: 80%;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.inline-original {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-neutral-700);
+  font-family: var(--font-paper);
+  font-size: 13px;
+}
+
+.inline-window-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px 14px;
+  border-top: 2px solid var(--color-divider);
+}
+
+.inline-window-foot.is-translation {
+  padding: 8px 14px 10px;
+  font-size: 12px;
+}
+
+.inline-window-foot.is-translation .btn-ghost {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.inline-input {
+  flex: 1;
+  min-height: 24px;
+  max-height: 120px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+}
+
+.inline-input::placeholder,
+.ask-input::placeholder {
+  color: var(--color-neutral-600);
+}
+
+.send-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  cursor: pointer;
+}
+
+.send-button:hover:not(:disabled) {
+  background: var(--color-accent-600);
+}
+
+.send-button:disabled {
+  background: var(--color-neutral-300);
+  color: var(--color-neutral-700);
+  cursor: not-allowed;
+}
+
+.send-button.is-large {
+  width: 34px;
+  height: 34px;
+}
+
+/* 답을 만드는 중에는 보내기 자리가 중단 단추다 (2026-10-02 사용자 요청) */
+.send-button.is-stop {
+  background: var(--color-text);
+}
+
+.send-button.is-stop:hover:not(:disabled) {
+  background: var(--color-neutral-700);
+}
+
+/* 원문 위 창의 중단 (답을 만드는 중인 차례 아래) */
+.inline-stop {
+  align-self: flex-start;
+  font-size: 12px;
+}
+
+/* 갈래가 이어받은 차례와 그 뒤의 경계, 지금 대화의 컨텍스트 길이 */
+.chat-turn.is-inherited {
+  opacity: 0.6;
+}
+
+.chat-fork-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.chat-fork-divider::before,
+.chat-fork-divider::after {
+  flex: 1;
+  height: 1px;
+  background: var(--color-divider);
+  content: "";
+}
+
+/* 입력칸 도구줄의 컨텍스트 원형 아이콘: 채운 만큼이 쓴 비율, 마우스를 올리면 숫자 (2026-10-02 사용자 요청) */
+.context-ring {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  cursor: help;
+}
+
+.context-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.context-ring-track {
+  stroke: var(--color-divider);
+}
+
+.context-ring-value {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+}
+
+.ask-input {
+  min-height: 84px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 10px 14px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.ask-close {
+  gap: 6px;
+  padding: 2px 4px;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+}
+
+.ask-hint {
+  margin-left: auto;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+/* 펼친 주석의 메모 */
+.note-window .note-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.note-window .note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memo-window .inline-original {
+  padding: 10px 14px 0;
+  border-top: 0;
+}
+
+.memo-save {
+  margin-left: auto;
+}
+
+/* 스위치 (원문 함께 보기) */
+.switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.switch-track {
+  position: relative;
+  order: 2;
+  width: 28px;
+  height: 16px;
+  background: var(--color-neutral-400);
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--color-bg);
+}
+
+.switch input:checked + .switch-track {
+  background: var(--color-accent);
+}
+
+.switch input:checked + .switch-track::after {
+  left: 14px;
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* 보낸 근거 */
+.evidence-summary {
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-surface);
+}
+
+.evidence-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 14px;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.evidence-kicker {
+  color: var(--color-neutral-700);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.evidence-roles {
+  flex: 1;
+}
+
+.evidence-detail {
+  max-height: 260px;
+  overflow: auto;
+  padding: 0 14px 10px;
+  font-size: 12px;
+}
+
+.evidence-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.evidence-text {
+  margin: 4px 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--color-neutral-400);
+  font-family: var(--font-paper);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.evidence-notes {
+  margin: 2px 0;
+  font-size: 11px;
+}
+
+.evidence-image {
+  max-width: 100%;
+  max-height: 160px;
+  margin: 4px 0;
+  border: 1px solid var(--color-divider);
+  background: #fff;
+}
+
+.evidence-show {
+  font-size: 12px;
+}
+
+.packet-limits,
+.packet-excluded {
+  margin: 6px 0 0;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+/* 접은 창: 원문 위 제목 칩 (시안 3i) */
+.thread-chip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text);
+  font: 600 12.5px/1.2 var(--font-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.thread-chip:hover {
+  background: var(--color-surface);
+}
+
+/* 칩은 끌어 옮긴다(MarginChips). 끄는 동안 글이 선택되거나 화면이 밀리지 않게 한다. */
+.thread-chip {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.thread-chip:active {
+  cursor: grabbing;
+}
+
+/* 메모가 있는 주석의 칩: 주석 표시 색 */
+.thread-chip.is-note {
+  border-color: var(--mark-note-line);
+  font-weight: 400;
+}
+
+.thread-chip.is-note .thread-chip-icon {
+  color: var(--mark-note-line);
+}
+
+/* 칩과 고른 곳을 잇는 선, 마우스를 올리면 고른 곳 테두리 */
+.chip-leader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chip-leader line {
+  stroke: var(--color-neutral-500);
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.chip-leader.is-active line {
+  stroke: var(--color-accent);
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+  opacity: 1;
+}
+
+.chip-anchor-box {
+  position: absolute;
+  border: 2px solid var(--color-accent);
+  pointer-events: none;
+}
+
+.thread-chip-icon {
+  flex: none;
+  color: var(--color-accent);
+}
+
+.thread-chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-chip-meta {
+  color: var(--color-neutral-700);
+  font-weight: 400;
+}
+
+.thread-chip > svg:last-child {
+  flex: none;
+  padding-left: 6px;
+  border-left: 1px solid var(--color-divider);
+  box-sizing: content-box;
+  color: var(--color-neutral-700);
+}
+
+/* ── 사이드바 ── */
+.reader-side {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 420px; /* 끌어 바꾼 너비는 style로 온다(SideResizer) */
+  min-height: 0;
+  border-left: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.reader-side[hidden],
+.side-panel[hidden] {
+  display: none;
+}
+
+/* 사이드바 왼쪽 경계: 마우스를 대면 손잡이가 보이고 끌어 너비를 바꾼다 (2026-10-02 사용자 요청) */
+.side-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 5;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.side-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  content: "";
+}
+
+.side-resizer:hover::after,
+.side-resizer:focus-visible::after,
+body.is-resizing-side .side-resizer::after {
+  background: var(--color-accent);
+}
+
+.side-resizer:focus-visible {
+  outline: none;
+}
+
+body.is-resizing-side {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.side-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.side-chat {
+  overflow: hidden;
+}
+
+.side-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 12px var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.side-head.is-strong {
+  border-bottom-width: 2px;
+}
+
+.side-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+}
+
+.side-note {
+  color: var(--color-neutral-700);
+  font-size: 12px;
+}
+
+.side-tool {
+  width: 30px;
+  height: 30px;
+}
+
+.side-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.side-filters .seg {
+  align-self: flex-start;
+}
+
+.side-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-neutral-600);
+  font-size: 13px;
+  cursor: text;
+}
+
+.side-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font-size: 13px;
+  outline: none;
+}
+
+.side-search:focus-within {
+  border-color: var(--color-accent);
+}
+
+.side-empty {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: 13px;
+}
+
+/* 주석 목록 */
+.note-list,
+.thread-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.note-item.is-focused {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.note-page,
+.thread-page {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.note-page:hover {
+  color: var(--color-accent-700);
+  text-decoration: underline;
+}
+
+.note-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.quote {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--color-text);
+  font-family: var(--font-paper);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.display-quote {
+  margin: 0;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+}
+
+.note-main .comment {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 하이라이트 패널 (U5) */
+.color-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.color-filter > span {
+  flex: 1;
+}
+
+/* 인용의 왼쪽 선(QuoteView .quote)을 그 하이라이트 색으로 (시안) */
+.highlight-quote[data-color="c1"] .quote {
+  border-left-color: var(--mark-c1);
+}
+
+.highlight-quote[data-color="c2"] .quote {
+  border-left-color: var(--mark-c2);
+}
+
+.highlight-quote[data-color="c3"] .quote {
+  border-left-color: var(--mark-c3);
+}
+
+.color-choices {
+  display: inline-flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.note-edit {
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+.note-remove {
+  width: 24px;
+  height: 24px;
+  color: var(--color-neutral-600);
+}
+
+.region-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.region-preview img {
+  max-height: 120px;
+  border: 1px solid var(--color-divider);
+  background: #fff;
+}
+
+.note-kind {
+  padding: 2px 4px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  font-size: 12px;
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.annotation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 선택 설명·질문 목록 */
+.thread-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.thread-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.thread-row.is-active {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.thread-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.thread-meta .tag {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.thread-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.thread-quote {
+  overflow: hidden;
+  color: var(--color-neutral-800);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 레일 ── */
+.reader-rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 56px;
+  padding: var(--space-2) 0;
+  border-left: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.rail-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.rail-button:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.rail-item[aria-pressed="true"] {
+  background: var(--color-surface);
+  box-shadow: inset -3px 0 0 var(--color-accent);
+  color: var(--color-accent);
+}
+
+.rail-rule {
+  width: 28px;
+  height: 2px;
+  margin: 4px 0;
+  background: var(--color-divider);
+}
+
+.rail-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+}
+
+/* ── Claude와 대화 ── */
+.chat-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: none;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-title-row:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.chat-title {
+  flex: 1;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history {
+  max-height: 40%;
+  overflow: auto;
+  margin: 0;
+  padding: 4px 0;
+  border-bottom: 2px solid var(--color-divider);
+  list-style: none;
+}
+
+.chat-history button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px var(--space-4);
+  border: 0;
+  background: none;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-history button:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.chat-history button.is-active {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+  font-weight: 600;
+}
+
+.chat-history small {
+  flex: none;
+  color: var(--color-neutral-700);
+}
+
+/* 대화마다 이름 바꾸기·지우기 (2026-10-02 사용자 요청). 줄에 마우스를 올리거나 포커스가 있을 때 진하게 보인다. */
+.chat-history-item {
+  display: flex;
+  align-items: center;
+}
+
+.chat-history .chat-history-tool {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-neutral-700);
+  opacity: 0.45;
+}
+
+.chat-history-item:hover .chat-history-tool,
+.chat-history .chat-history-tool:focus-visible {
+  opacity: 1;
+}
+
+.chat-history .chat-history-tool:last-child {
+  margin-right: 8px;
+}
+
+.chat-rename {
+  margin: 2px var(--space-4);
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.chat-panel > .bridge-status {
+  margin: 8px var(--space-4) 0;
+  font-size: 12px;
+}
+
+.bridge-status p {
+  margin: 0 0 6px;
+}
+
+.chat-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.chat-guide {
+  color: var(--color-neutral-700);
+  font-size: 13px;
+}
+
+.chat-guide ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.chat-guide li + li {
+  margin-top: 4px;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.chat-prompt {
+  max-width: 86%;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-quote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 86%;
+  padding: 6px 10px;
+  border: 0;
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-surface);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-quote span {
+  font-family: var(--font-paper);
+}
+
+.chat-quote img {
+  max-width: 100%;
+  max-height: 160px;
+  background: #fff;
+}
+
+.chat-quote small {
+  color: var(--color-neutral-700);
+}
+
+.chat-answer {
+  font-size: var(--reading-font-size);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chat-answer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.chat-answer-bar .btn-ghost {
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+/* 답 도구(복사·여기서 갈래·버리기): 아이콘 단추, 이름은 title과 화면 낭독기로 (2026-10-02 사용자 요청) */
+.chat-answer-bar .answer-tool {
+  width: 24px;
+  height: 24px;
+  color: var(--color-neutral-700);
+}
+
+.chat-answer-bar .answer-tool:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+.chat-thinking::after {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: chat-dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes chat-dots {
+  from {
+    width: 0;
+  }
+}
+
+.chat-error {
+  margin: 0 var(--space-4) 8px;
+  font-size: 13px;
+}
+
+.chat-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 2px solid var(--color-divider);
+}
+
+.chat-input {
+  min-height: 72px;
+  max-height: 200px;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.chat-composer-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chat-composer-bar .send-button {
+  margin-left: auto;
+}
+
+/* 컨텍스트 아이콘은 보내기 단추 바로 왼쪽(오른쪽 끝 묶음) (2026-10-02 사용자 요청) */
+.chat-composer-bar .context-ring {
+  margin-left: auto;
+}
+
+.chat-composer-bar .context-ring + .send-button {
+  margin-left: 0;
+}
+
+.chip-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--color-divider);
+  font-size: 12px;
+}
+
+.chip-select select {
+  height: 100%;
+  padding: 0 22px 0 8px;
+  border: 0;
+  background: var(--color-bg);
+  font-size: 12px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.chip-select svg {
+  position: absolute;
+  right: 6px;
+  pointer-events: none;
+}
+
+.chip-select-label {
+  padding-left: 8px;
+  color: var(--color-neutral-700);
+}
+
+.chip-select-label + select {
+  padding-left: 4px;
+}
+
+.chat-note {
+  margin: 0;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.chat-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-surface);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.chat-chip span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.chat-chip b {
+  font-weight: 600;
+}
+
+.chat-chip button {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+/* 좁은 창(A14): 사이드바를 본문 위로 겹친다. */
+/* ── 탐색 (U4) ── */
+/* 머리 왼쪽의 목차 단추 (시안 36px) */
+.toc-toggle {
+  width: 36px;
+  height: 36px;
+}
+
+/* 논문 정보 창: 정보 단추 아래에 연다 */
+.info-menu {
+  position: relative;
+}
+
+.paper-info {
+  width: 360px;
+  padding: var(--space-3);
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.paper-info-title {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.paper-info-list {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 6px var(--space-2);
+  margin: 0;
+}
+
+.paper-info-list dt {
+  color: var(--color-neutral-700);
+}
+
+.paper-info-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.paper-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.paper-info-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.paper-info-form .input {
+  font-weight: 400;
+}
+
+.paper-info-form .field-error {
+  color: var(--color-accent-700);
+  font-weight: 400;
+}
+
+.paper-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* 왼쪽 목차 패널 232px (시안 Reader v3 "논문 목차") */
+.toc-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 232px;
+  min-height: 0;
+  border-right: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.toc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.toc-head .seg-opt {
+  padding: 6px 8px;
+}
+
+.toc-message {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--color-neutral-700);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.toc-outline,
+.toc-thumbs {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.toc-outline {
+  padding: var(--space-2) 0;
+}
+
+.toc-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 8px;
+  width: 100%;
+  padding: 6px var(--space-3);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 400 13px/1.35 var(--font-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.toc-entry[data-level="1"] {
+  font-weight: 600;
+}
+
+.toc-entry:hover,
+.toc-entry:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.toc-entry[aria-current="location"] {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+  font-weight: 600;
+}
+
+.toc-entry-page {
+  color: var(--color-neutral-700);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.toc-foot {
+  margin: 0;
+  padding: 8px var(--space-3);
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.toc-thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+}
+
+.toc-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+/* 그리기 전에는 시안 크기(150×194)의 빈 쪽이다 */
+.toc-thumb canvas {
+  display: block;
+  width: 150px;
+  height: 194px;
+  background: var(--color-neutral-100);
+  box-shadow: var(--shadow-sm);
+}
+
+.toc-thumb[aria-current="page"] canvas {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.toc-thumb-number {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.toc-thumb[aria-current="page"] .toc-thumb-number {
+  color: var(--color-accent-700);
+  font-weight: 600;
+}
+
+/* 본문 찾기 줄: 본문 오른쪽 위에 띄운다. 찾은 곳 강조는 PDF.js(.textLayer .highlight)가 그린다. */
+.find-bar {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.find-bar .find-input {
+  width: 220px;
+  height: 30px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.find-count {
+  min-width: 56px;
+  padding: 0 6px;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.find-bar .btn-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.reader-scroll .textLayer .highlight {
+  --highlight-bg-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  --highlight-selected-bg-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .reader-side {
+    position: absolute;
+    top: 0;
+    right: 56px;
+    bottom: 0;
+    z-index: 40;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .reader-head-right .page-text-status {
+    display: none;
+  }
+
+  /* 좁은 창에서는 목차도 본문 위로 겹친다 (A14) */
+  .toc-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    box-shadow: var(--shadow-lg);
+  }
+}

@@ -1,0 +1,537 @@
+/* 서재·답변 화면 (U6, 시안 Library 1440×900). 값은 디자인 시스템 토큰에서 온다. */
+
+.library-shell {
+  display: grid;
+  grid-template-rows: 56px auto minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* — 머리 — */
+.library-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.library-head .brand {
+  cursor: default;
+}
+
+.library-head .brand:hover {
+  background: none;
+}
+
+.library-head .brand-name {
+  margin: 0;
+  line-height: 1;
+}
+
+.library-nav {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 14px;
+}
+
+.library-nav button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.library-nav button:hover {
+  color: var(--color-accent-700);
+}
+
+.library-nav button[aria-current="page"] {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.library-head-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.title-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--color-neutral-600);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+}
+
+.title-search:focus-within {
+  border-color: var(--color-accent);
+}
+
+.title-search svg {
+  flex: none;
+}
+
+.title-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.title-search input::placeholder {
+  color: var(--color-neutral-600);
+}
+
+.upload-button {
+  min-width: 132px;
+}
+
+/* 머리 아래 한 줄 안내 (검색 결과 수, 올리기 진행·오류) */
+.library-notices {
+  padding: 0 var(--space-8);
+}
+
+.library-notices .status,
+.search-status {
+  margin: var(--space-2) 0 0;
+  font-size: 13px;
+}
+
+.search-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-neutral-700);
+}
+
+.library-main {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-6) var(--space-8) var(--space-8);
+}
+
+/* — 서재 표 — */
+.shelf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.shelf-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.shelf-title h2 {
+  margin: 0;
+}
+
+.shelf-count {
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+.drop-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border: 2px dashed var(--color-neutral-400);
+  font-size: 13px;
+}
+
+.drop-hint .muted {
+  margin: 0;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 12px;
+  font-size: 13px;
+}
+
+.filter-chips .muted {
+  margin: 0;
+}
+
+.filter-chip {
+  padding: 3px 8px 3px 10px;
+  border: 0;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shelf-table {
+  table-layout: fixed;
+}
+
+.shelf-table .col-status {
+  width: 160px;
+}
+
+.shelf-table .col-count {
+  width: 56px;
+}
+
+.shelf-table .col-tags {
+  position: relative;
+  width: 260px;
+}
+
+.shelf-table .col-opened {
+  width: 108px;
+}
+
+.shelf-table td {
+  vertical-align: middle;
+}
+
+.shelf-title-cell {
+  padding: 11px 8px;
+}
+
+.paper-open {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-open:hover {
+  color: var(--color-accent-700);
+  text-decoration: underline;
+}
+
+.paper-open mark {
+  color: inherit;
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.shelf-table td[data-status] .tag {
+  font-size: 10px;
+}
+
+.retry-parse {
+  margin-left: 6px;
+  font-size: 12px;
+}
+
+.shelf-table .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.shelf-table td.muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+.shelf-empty {
+  padding: var(--space-8) 0;
+  font-size: 14px;
+}
+
+/* — 태그 — */
+.tag-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tag-chip {
+  flex: none;
+  max-width: 120px;
+  overflow: hidden;
+  padding: 3px 8px;
+  border: 0;
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-800);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tag-chip.is-on {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.tag-editor,
+.tag-filter {
+  position: relative;
+}
+
+.tag-add {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px dashed var(--color-neutral-400);
+  background: none;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tag-add:hover,
+.tag-add[aria-expanded="true"] {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.tag-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.tag-filter-button.is-active {
+  color: var(--color-accent-700);
+}
+
+.tag-filter-button.is-active svg {
+  fill: currentColor;
+}
+
+.tag-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tag-popover > .input {
+  width: auto;
+  min-height: 30px;
+  margin: 8px 10px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tag-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tag-check:hover {
+  background: var(--color-surface);
+}
+
+.tag-check input {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-text);
+}
+
+.tag-check-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-check .muted {
+  margin: 0;
+}
+
+/* 거르기 메뉴의 태그 줄: 고르기와 이름 바꾸기·지우기(2026-10-04) */
+.tag-row {
+  display: flex;
+  align-items: center;
+  padding-right: 6px;
+}
+
+.tag-row .tag-check {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-tool {
+  flex: none;
+  opacity: 0.45;
+}
+
+.tag-row:hover .tag-tool,
+.tag-tool:focus-visible {
+  opacity: 1;
+}
+
+.tag-rename {
+  width: auto;
+  flex: 1;
+  min-height: 30px;
+  margin: 4px 10px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tag-check.is-untagged {
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-neutral-700);
+}
+
+.tag-filter-mode,
+.tag-filter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.tag-filter-mode .muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+.tag-filter-mode .seg-opt {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* — 끌어 놓기 — */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  border: 3px dashed var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+  pointer-events: none;
+}
+
+.drop-overlay p {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* — 답변 화면 (모든 논문의 대화) — */
+.conversation-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--color-divider);
+}
+
+.conversation-list li {
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.conversation-row {
+  display: grid;
+  grid-template-columns: 52px 88px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "kind when title count"
+    ". . paper paper";
+  gap: 2px 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 10px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversation-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.conversation-row .tag {
+  grid-area: kind;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.conversation-when {
+  grid-area: when;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+}
+
+.conversation-title {
+  grid-area: title;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-paper {
+  grid-area: paper;
+  overflow: hidden;
+  color: var(--color-neutral-700);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-count {
+  grid-area: count;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-answers {
+  margin-top: var(--space-8);
+}
+
+.desktop-answers h3 {
+  font-size: 16px;
+}

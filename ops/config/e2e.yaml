@@ -1,0 +1,14 @@
+# 브라우저 검증(apps/web/e2e) 전용. 상대 경로는 이 파일 위치 기준이다.
+# 데이터는 var/e2e에 쌓이며, 같은 fixture를 다시 올리면 중복(409)으로 기존 것을 쓴다.
+app:
+  mode: test
+  bind_host: 127.0.0.1
+  port: 8791  # 8000은 사용자 컨테이너, 8765는 llm-wiki-backend 컨테이너가 쓴다
+  data_dir: ../../var/e2e
+  web_dist_dir: ../../apps/web/dist
+  claude_code_url: http://127.0.0.1:8794  # 가짜 Claude Code CLI로 도는 E2E 브리지 (playwright.config.ts)
+cost_policy:
+  mode: plan_only
+  paid_model_calls_allowed: false
+  paid_fallback_allowed: false
+  automatic_credit_purchase_allowed: false

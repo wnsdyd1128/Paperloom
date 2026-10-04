@@ -1,0 +1,309 @@
+/* 설정 창 (U6, 시안 Settings 880×720). Library와 Reader가 함께 쓴다. */
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, #000 50%, transparent); /* neutral-900은 어두운 판에서 밝다 */
+}
+
+.settings-dialog {
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr);
+  width: min(880px, 100%);
+  height: min(720px, 100%);
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-top: 4px solid var(--color-accent);
+  box-shadow: var(--shadow-lg);
+  font-size: 14px;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4) 0 var(--space-6);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.settings-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+}
+
+.settings-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) 0;
+  border-right: 2px solid var(--color-divider);
+}
+
+.settings-tabs button {
+  padding: 10px var(--space-6);
+  border: 0;
+  background: transparent;
+  color: var(--color-neutral-700);
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.settings-tabs button:hover {
+  color: var(--color-text);
+}
+
+.settings-tabs button[aria-selected="true"] {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-6) var(--space-8);
+}
+
+.settings-panel > .status {
+  margin: 0 0 var(--space-3);
+}
+
+/* 한 항목: 아이콘 · 제목과 설명 · (오른쪽 스위치) / 아래 내용 */
+.settings-section {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: start;
+  padding-bottom: var(--space-6);
+}
+
+.settings-section + .settings-section {
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-divider);
+}
+
+.settings-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: var(--color-surface);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.settings-section-head h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.settings-section-head .muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+.settings-aside {
+  align-self: center;
+}
+
+.settings-section-body {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: 8px;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.settings-fields .field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.settings-options {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid var(--color-divider);
+}
+
+.settings-options .radio {
+  padding: 11px 14px;
+}
+
+.settings-options .radio + .radio {
+  border-top: 1px solid var(--color-divider);
+}
+
+.settings-options .radio:has(input:checked) {
+  background: var(--color-surface);
+}
+
+.settings-option-note {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+}
+
+code.settings-option-note {
+  padding: 2px 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+/* 논문 본문 한도: 글자 수 아래 쪽 수 어림 */
+.settings-limits .seg-opt {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 92px;
+}
+
+.settings-limit-pages {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.settings-hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-section-body .bridge-status {
+  margin: 0;
+}
+
+/* 스위치: 40×22 (시안) */
+.settings-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: var(--color-neutral-400);
+  cursor: pointer;
+}
+
+.settings-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-bg);
+}
+
+.settings-switch[aria-checked="true"] {
+  background: var(--color-accent);
+}
+
+.settings-switch[aria-checked="true"]::after {
+  left: 21px;
+}
+
+.settings-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.settings-range-value {
+  width: 40px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-range input {
+  flex: 1;
+  accent-color: var(--color-accent);
+}
+
+/* 프롬프트 개인화: 아래 막대는 늘 보인다 */
+.settings-prompts {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-prompts > .muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+.settings-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-prompt-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-prompt-label .tag {
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.settings-prompt textarea {
+  min-height: 62px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-foot {
+  position: sticky;
+  bottom: calc(-1 * var(--space-6));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: auto calc(-1 * var(--space-8)) calc(-1 * var(--space-6));
+  padding: var(--space-3) var(--space-8);
+  border-top: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.settings-foot > .muted {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-foot .btn-primary {
+  min-width: 120px;
+}

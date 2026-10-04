@@ -1,0 +1,487 @@
+/* 쪽 번역 (U7, 시안 Reader v3·Translation Tab). PDF 쪽과 그 위의 번역 상자는 테마와 상관없이 밝은 색이다. */
+
+/* ── 번역 줄 (본문 위) ── */
+.translation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 6px 12px 6px 14px;
+  border-bottom: 1px solid var(--color-divider);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg);
+  font-size: 12.5px;
+}
+
+.translation-bar > b {
+  font-weight: 600;
+}
+
+.translation-bar .muted {
+  margin: 0;
+}
+
+.translation-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-neutral-700);
+}
+
+.translation-bar-status .btn-ghost {
+  padding-block: 2px;
+  font-size: 12.5px;
+}
+
+.translation-bar .translation-mode {
+  margin-left: auto;
+}
+
+.translation-bar.is-tab .translation-bar-link {
+  margin-left: auto;
+}
+
+/* ── 번역 도구: 모든 쪽 [시작] · 24 / 29 · 다시 번역 · 글꼴 · 닫기 ── */
+.translation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.translation-batch,
+.translation-page,
+.translation-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.translation-batch .muted {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.translation-chip {
+  padding: 1px 7px;
+  border: 0;
+  background: var(--color-neutral-600);
+  color: var(--color-bg);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.translation-chip:hover,
+.translation-chip.is-on {
+  background: var(--color-text);
+}
+
+.translation-page {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.translation-page b {
+  font-size: 15px;
+}
+
+.translation-tool {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--color-divider);
+  color: var(--color-neutral-800);
+}
+
+.translation-font,
+.translation-mode {
+  position: relative;
+}
+
+.translation-font-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.translation-font-menu .translation-tool {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.translation-font-value {
+  min-width: 38px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ── 보기 방식 메뉴 ── */
+.translation-mode-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-divider);
+  background: none;
+  color: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.translation-mode-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  width: 360px;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.translation-mode-title {
+  padding: 10px 14px 6px;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.translation-mode-item {
+  display: grid;
+  grid-template-columns: 18px 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.translation-mode-item:hover,
+.translation-mode-item[aria-checked="true"] {
+  background: var(--color-surface);
+}
+
+.translation-mode-item b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.translation-mode-item .muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+.translation-mode-dot {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1.5px solid var(--color-divider);
+  border-radius: 50%;
+}
+
+.translation-mode-item[aria-checked="true"] .translation-mode-dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 3px var(--color-bg);
+}
+
+.translation-mode-note {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-neutral-700);
+  font-size: 12px;
+}
+
+/* ── 레이아웃 유지: 원문 쪽 오른쪽의 번역 쪽 (같은 스크롤 영역) ── */
+.reader-scroll.is-translating .pdfViewer {
+  margin-right: calc(var(--translation-width, 0px) + 16px);
+}
+
+.translation-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.translation-slot {
+  position: absolute;
+}
+
+.translated-page {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  color: #1b1a19;
+}
+
+/* 쪽 내용(그림·바탕·번역문)은 viewport 크기로 놓고 원문 쪽 상자의 실제 크기에 맞춰 늘이고 줄인다(PDF.js 쪽과 같게) */
+.translated-page-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.translated-page-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 원문 글을 가리는 바탕(번역문 아래 층) */
+.translated-mask {
+  position: absolute;
+  background: #fff;
+}
+
+/* 글꼴 크기·줄 간격은 원문을 따라 문단마다 준다(typeset.blockFrame). 바탕은 없다(.translated-mask) */
+.translated-block {
+  position: absolute;
+  overflow: hidden;
+  color: #1b1a19;
+  font-family: var(--font-body);
+  text-align: justify;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.translated-block.is-single {
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* 번역문 안 위·아래첨자는 줄 높이를 바꾸지 않는다(원문 줄 간격을 지킨다) */
+.translated-block :is(sub, sup),
+.translation-text :is(sub, sup) {
+  font-size: 0.72em;
+  line-height: 0;
+}
+
+/* 원문 문단 전체가 굵게·기울임이면(제목 등) 번역도 (번역문 안 <b>·<i>는 브라우저 기본 모양) */
+.translated-block.is-bold,
+.translation-paragraph.is-bold {
+  font-weight: 700;
+}
+
+.translated-block.is-italic,
+.translation-paragraph.is-italic {
+  font-style: italic;
+}
+
+.translated-page-message {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid #d7d3d3;
+  background: #fff;
+  color: #5a5757;
+  font-size: 12px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* 번역 문장과 그 원문 문장 (마우스를 올린 동안, 2026-10-03 사용자 요청) */
+.translated-sentence {
+  cursor: default;
+}
+
+/* 원문 문장에 마우스를 올린 동안 그 번역 문장(is-linked, 2026-10-04 사용자 요청: 반대 방향) */
+.translated-sentence:hover,
+.translated-sentence.is-linked {
+  background: rgb(0 0 0 / 11%);
+}
+
+.source-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.source-overlay .quad-mark {
+  background: rgb(0 0 0 / 13%);
+  outline: none;
+}
+
+/* ── 글로 읽기: 본문 오른쪽 칸 ── */
+.reader-stage {
+  --reflow-width: min(46%, 640px);
+}
+
+.reader-stage.is-reflow .reader-scroll {
+  right: var(--reflow-width);
+}
+
+.translation-reflow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--reflow-width);
+  border-left: 2px dashed var(--color-divider);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.translation-reflow .translation-toolbar {
+  justify-content: space-between;
+  padding: 8px 12px 8px 20px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.translation-reflow-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 28px 40px;
+}
+
+.translation-text {
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.translation-paragraph {
+  margin: 0 0 1.1em;
+}
+
+.translation-text .translated-sentence:hover,
+.translation-text .translated-sentence.is-linked {
+  background: color-mix(in srgb, var(--color-text) 13%, transparent);
+}
+
+.translation-text-status {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ── 별도 탭 ── */
+.translation-tab {
+  display: grid;
+  grid-template-rows: 56px auto minmax(0, 1fr);
+  height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.translation-tab-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.translation-tab-head .brand {
+  cursor: default;
+}
+
+.translation-tab-kind {
+  padding: 1px 6px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  font-size: 11px;
+}
+
+.translation-tab-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.translation-tab-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+}
+
+.translation-tab-link[data-connected="false"] .bridge-dot {
+  background: var(--color-neutral-500);
+}
+
+.translation-tab-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.translation-tab-language {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.translation-tab-tools .translation-toolbar {
+  margin-left: auto;
+}
+
+.translation-tab-body {
+  overflow: auto;
+  padding: var(--space-6) var(--space-4);
+  background: var(--reader-stage);
+}
+
+/* 모든 쪽을 이어 스크롤한다 (2026-10-03 사용자 요청) */
+/* 확대해 창보다 넓어진 쪽도 왼쪽부터 가로로 스크롤한다(가운데 맞춤은 auto 여백으로) */
+.translation-tab-page {
+  display: flex;
+  margin: 0 0 var(--space-4);
+}
+
+.translation-tab-page > .translated-page {
+  flex: none;
+  margin: 0 auto;
+}
+
+.translation-tab-page.is-text {
+  display: block;
+  max-width: 760px;
+  margin: 0 auto var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  background: var(--color-bg);
+}
+
+.translation-tab-page-number {
+  margin: 0 0 12px;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  font-weight: 600;
+}
