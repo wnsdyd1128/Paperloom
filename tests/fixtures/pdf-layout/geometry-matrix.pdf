@@ -1,0 +1,92 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 174 >>
+stream
+BT /F1 18 Tf 72 700 Td (GEOMETRY LINE ONE) Tj ET
+BT /F1 18 Tf 72 676 Td (GEOMETRY LINE TWO) Tj ET
+0.85 0.1 0.1 rg 300 400 60.0 60 re f
+0.1 0.1 0.85 rg 360.0 400 60.0 60 re f
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 127 >>
+stream
+BT /F1 18 Tf 72 700 Td (ROTATED PAGE MARKER) Tj ET
+0.85 0.1 0.1 rg 300 400 60.0 60 re f
+0.1 0.1 0.85 rg 360.0 400 60.0 60 re f
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 90 /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 128 >>
+stream
+BT /F1 18 Tf 100 600 Td (CROPPED PAGE MARKER) Tj ET
+0.85 0.1 0.1 rg 300 400 60.0 60 re f
+0.1 0.1 0.85 rg 360.0 400 60.0 60 re f
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /CropBox [36 72 576 756] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 123 >>
+stream
+BT /F1 18 Tf 0 600 Td (USER UNIT MARKER) Tj ET
+0.85 0.1 0.1 rg 300 400 60.0 60 re f
+0.1 0.1 0.85 rg 360.0 400 60.0 60 re f
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [-100 -50 512 742] /UserUnit 2 /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 154 >>
+stream
+BT /F1 0 Tf [( )] TJ ET
+BT /F1 18 Tf 72 700 Td (ZERO SIZE FIRST MARKER) Tj ET
+0.85 0.1 0.1 rg 300 400 60.0 60 re f
+0.1 0.1 0.85 rg 360.0 400 60.0 60 re f
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Title (Paperloom geometry matrix \(synthetic\)) >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000141 00000 n 
+0000000211 00000 n 
+0000000435 00000 n 
+0000000561 00000 n 
+0000000738 00000 n 
+0000000875 00000 n 
+0000001053 00000 n 
+0000001204 00000 n 
+0000001378 00000 n 
+0000001523 00000 n 
+0000001728 00000 n 
+0000001856 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R /Info 14 0 R >>
+startxref
+1927
+%%EOF

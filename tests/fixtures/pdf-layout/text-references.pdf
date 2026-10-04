@@ -1,0 +1,116 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [9 0 R 11 0 R 13 0 R 15 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [1 /fi] >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>
+endobj
+6 0 obj
+<< /Length 334 >>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Paperloom-PUA def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+1 beginbfrange
+<21> <7E> <E021>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 12 >>
+stream
+ZZZ      ZZZ
+endstream
+endobj
+8 0 obj
+<< /Title (Paperloom text fixture references \(synthetic\)) >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 268 >>
+stream
+BT /F1 18 Tf 72 720 Td (Paperloom References Sample) Tj ET
+BT /F1 12 Tf 72 690 Td (1 Introduction) Tj ET
+BT /F1 10 Tf 84 666 Td (Prior work [1] measured cache delays and [2] split) Tj ET
+BT /F1 10 Tf 72 654 Td (the cache so that the rhoword term stays bounded.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 356 >>
+stream
+BT /F1 12 Tf 72 720 Td (2 Method) Tj ET
+BT /F1 10 Tf 84 696 Td (The method page holds the sigmaword term and) Tj ET
+BT /F1 10 Tf 72 684 Td (cites [3] once more.) Tj ET
+BT /F1 12 Tf 72 600 Td (References) Tj ET
+BT /F1 10 Tf 72 576 Td ([1] A. Author. Cache delay analysis. 2020.) Tj ET
+BT /F1 10 Tf 72 564 Td ([2] B. Author. Cache partitioning. 2021.) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 141 >>
+stream
+BT /F1 10 Tf 72 700 Td ([3] C. Author. Shared caches. 2022.) Tj ET
+BT /F1 10 Tf 72 688 Td ([4] D. Author. Real-time scheduling. 2023.) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 110 >>
+stream
+BT /F1 12 Tf 72 720 Td (A Appendix) Tj ET
+BT /F1 10 Tf 84 696 Td (The appendix holds the tauword term.) Tj ET
+endstream
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000136 00000 n 
+0000000233 00000 n 
+0000000387 00000 n 
+0000000501 00000 n 
+0000000885 00000 n 
+0000001040 00000 n 
+0000001118 00000 n 
+0000001291 00000 n 
+0000001610 00000 n 
+0000001784 00000 n 
+0000002191 00000 n 
+0000002365 00000 n 
+0000002557 00000 n 
+0000002731 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R /Info 8 0 R >>
+startxref
+2892
+%%EOF

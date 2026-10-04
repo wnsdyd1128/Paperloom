@@ -1,0 +1,12 @@
+# 로컬 실행: python -m paperloom --config ops/config/local.yaml
+# 상대 경로는 이 파일 위치 기준이다 (data_dir → 저장소의 var/).
+app:
+  mode: local
+  bind_host: 127.0.0.1
+  port: 8000
+  data_dir: ../../var
+cost_policy:
+  mode: plan_only
+  paid_model_calls_allowed: false
+  paid_fallback_allowed: false
+  automatic_credit_purchase_allowed: false

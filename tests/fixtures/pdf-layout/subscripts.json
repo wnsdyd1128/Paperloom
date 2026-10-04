@@ -1,0 +1,251 @@
+{
+  "schema_version": "subscript-fixture.v1",
+  "title": "Paperloom subscript fixture (synthetic)",
+  "font_size": 18,
+  "lines": [
+    {
+      "name": "stacked",
+      "v_range": [
+        0.09343434343434344,
+        0.12979797979797975
+      ],
+      "text": "fjk = djk + rk",
+      "display_quote": "f^j_k = d^j_k + r_k",
+      "segments": [
+        {
+          "text": "f",
+          "role": "main",
+          "x": 72,
+          "y": 700,
+          "size": 18
+        },
+        {
+          "text": "j",
+          "role": "sup",
+          "x": 77.004,
+          "y": 707.2,
+          "size": 12.6
+        },
+        {
+          "text": "k",
+          "role": "sub",
+          "x": 77.004,
+          "y": 695.5,
+          "size": 12.6
+        },
+        {
+          "text": " = d",
+          "role": "main",
+          "x": 83.304,
+          "y": 700,
+          "size": 18
+        },
+        {
+          "text": "j",
+          "role": "sup",
+          "x": 113.832,
+          "y": 707.2,
+          "size": 12.6
+        },
+        {
+          "text": "k",
+          "role": "sub",
+          "x": 113.832,
+          "y": 695.5,
+          "size": 12.6
+        },
+        {
+          "text": " + r",
+          "role": "main",
+          "x": 120.132,
+          "y": 700,
+          "size": 18
+        },
+        {
+          "text": "k",
+          "role": "sub",
+          "x": 146.646,
+          "y": 695.5,
+          "size": 12.6
+        }
+      ]
+    },
+    {
+      "name": "multi-letter",
+      "v_range": [
+        0.1691919191919192,
+        0.2055555555555555
+      ],
+      "text": "xij + y2",
+      "display_quote": "x_{ij} + y^2",
+      "segments": [
+        {
+          "text": "x",
+          "role": "main",
+          "x": 72,
+          "y": 640,
+          "size": 18
+        },
+        {
+          "text": "ij",
+          "role": "sub",
+          "x": 81.0,
+          "y": 635.5,
+          "size": 12.6
+        },
+        {
+          "text": " + y",
+          "role": "main",
+          "x": 86.594,
+          "y": 640,
+          "size": 18
+        },
+        {
+          "text": "2",
+          "role": "sup",
+          "x": 116.114,
+          "y": 647.2,
+          "size": 12.6
+        }
+      ]
+    },
+    {
+      "name": "fraction",
+      "v_range": [
+        0.24494949494949494,
+        0.28131313131313124
+      ],
+      "text": "Ui=CiTi.",
+      "display_quote": "U_i = \\frac{C_i}{T_i}.",
+      "segments": [
+        {
+          "text": "U",
+          "role": "main",
+          "x": 72,
+          "y": 580,
+          "size": 18
+        },
+        {
+          "text": "i",
+          "role": "sub",
+          "x": 84.996,
+          "y": 575.5,
+          "size": 12.6
+        },
+        {
+          "text": "=",
+          "role": "main",
+          "x": 92.833,
+          "y": 580,
+          "size": 18
+        },
+        {
+          "text": "C",
+          "role": "numerator-main",
+          "x": 110.185,
+          "y": 587.2,
+          "size": 12.6
+        },
+        {
+          "text": "i",
+          "role": "numerator-sub",
+          "x": 119.282,
+          "y": 585.4,
+          "size": 9.9
+        },
+        {
+          "text": "T",
+          "role": "denominator-main",
+          "x": 110.885,
+          "y": 571.9,
+          "size": 12.6
+        },
+        {
+          "text": "i",
+          "role": "denominator-sub",
+          "x": 118.584,
+          "y": 570.1,
+          "size": 9.9
+        },
+        {
+          "text": ".",
+          "role": "main",
+          "x": 123.28,
+          "y": 580,
+          "size": 18
+        }
+      ]
+    },
+    {
+      "name": "split-subscript",
+      "v_range": [
+        0.3207070707070707,
+        0.3570707070707071
+      ],
+      "text": "Ici,k term",
+      "display_quote": "I^c_{i,k} term",
+      "segments": [
+        {
+          "text": "I",
+          "role": "main",
+          "x": 72,
+          "y": 520,
+          "size": 18
+        },
+        {
+          "text": "c",
+          "role": "sup",
+          "x": 77.004,
+          "y": 527.2,
+          "size": 12.6
+        },
+        {
+          "text": "i",
+          "role": "sub",
+          "x": 77.004,
+          "y": 515.5,
+          "size": 12.6
+        },
+        {
+          "text": ",",
+          "role": "sub",
+          "x": 79.801,
+          "y": 515.5,
+          "size": 12.6
+        },
+        {
+          "text": "k",
+          "role": "sub",
+          "x": 83.304,
+          "y": 515.5,
+          "size": 12.6
+        },
+        {
+          "text": " term",
+          "role": "main",
+          "x": 89.604,
+          "y": 520,
+          "size": 18
+        }
+      ]
+    },
+    {
+      "name": "plain",
+      "v_range": [
+        0.39646464646464646,
+        0.43282828282828284
+      ],
+      "text": "NO SCRIPTS HERE",
+      "display_quote": null,
+      "segments": [
+        {
+          "text": "NO SCRIPTS HERE",
+          "role": "main",
+          "x": 72,
+          "y": 460,
+          "size": 18
+        }
+      ]
+    }
+  ]
+}

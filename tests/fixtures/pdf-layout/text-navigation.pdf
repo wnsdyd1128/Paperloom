@@ -1,0 +1,141 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 17 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [9 0 R 11 0 R 13 0 R 15 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [1 /fi] >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>
+endobj
+6 0 obj
+<< /Length 334 >>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Paperloom-PUA def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+1 beginbfrange
+<21> <7E> <E021>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 12 >>
+stream
+ZZZ      ZZZ
+endstream
+endobj
+8 0 obj
+<< /Title (Paperloom text fixture navigation \(synthetic\)) >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 329 >>
+stream
+BT /F1 18 Tf 72 720 Td (Paperloom Navigation Sample) Tj ET
+BT /F1 10 Tf 72 700 Td (DOI: 10.5555/paperloom.2026.0001) Tj ET
+BT /F1 12 Tf 72 670 Td (1 Introduction) Tj ET
+BT /F1 10 Tf 84 646 Td (Navigation fixture text for the outline and the) Tj ET
+BT /F1 10 Tf 72 634 Td (find bar. Section one introduces the cache model.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 384 >>
+stream
+BT /F1 12 Tf 72 720 Td (2 Method) Tj ET
+BT /F1 10 Tf 84 696 Td (The method section describes how the cache is) Tj ET
+BT /F1 10 Tf 72 684 Td (split between the tasks of the system.) Tj ET
+BT /F1 12 Tf 72 400 Td (2.1 Setup) Tj ET
+BT /F1 10 Tf 84 376 Td (The setup paragraph sits in the middle of the) Tj ET
+BT /F1 10 Tf 72 364 Td (page so the outline target is not the page top.) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 114 >>
+stream
+BT /F1 12 Tf 72 720 Td (2.2 Results) Tj ET
+BT /F1 10 Tf 84 696 Td (The results show a smaller cache delay.) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 112 >>
+stream
+BT /F1 12 Tf 72 720 Td (References) Tj ET
+BT /F1 10 Tf 72 696 Td ([1] A. Author. Navigation study. 2024.) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Outlines /First 18 0 R /Last 20 0 R /Count 5 >>
+endobj
+18 0 obj
+<< /Title (1 Introduction) /Parent 17 0 R /Dest [9 0 R /XYZ 0 682 2] /Next 19 0 R >>
+endobj
+19 0 obj
+<< /Title (2 Method) /Parent 17 0 R /Dest [11 0 R /XYZ 0 732 null] /Prev 18 0 R /Next 20 0 R /First 21 0 R /Last 22 0 R /Count 2 >>
+endobj
+20 0 obj
+<< /Title (References) /Parent 17 0 R /Dest [15 0 R /XYZ 0 732 null] /Prev 19 0 R >>
+endobj
+21 0 obj
+<< /Title (2.1 Experimental setup) /Parent 19 0 R /Dest [11 0 R /XYZ 0 412 null] /Next 22 0 R >>
+endobj
+22 0 obj
+<< /Title (2.2 Results) /Parent 19 0 R /Dest [13 0 R /XYZ 0 732 null] /Prev 21 0 R >>
+endobj
+xref
+0 23
+0000000000 65535 f 
+0000000009 00000 n 
+0000000075 00000 n 
+0000000153 00000 n 
+0000000250 00000 n 
+0000000404 00000 n 
+0000000518 00000 n 
+0000000902 00000 n 
+0000001057 00000 n 
+0000001135 00000 n 
+0000001308 00000 n 
+0000001688 00000 n 
+0000001862 00000 n 
+0000002297 00000 n 
+0000002471 00000 n 
+0000002636 00000 n 
+0000002810 00000 n 
+0000002973 00000 n 
+0000003047 00000 n 
+0000003148 00000 n 
+0000003296 00000 n 
+0000003397 00000 n 
+0000003510 00000 n 
+trailer
+<< /Size 23 /Root 1 0 R /Info 8 0 R >>
+startxref
+3612
+%%EOF

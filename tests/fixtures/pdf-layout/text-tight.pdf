@@ -1,0 +1,55 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 8 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 656 >>
+stream
+BT /F1 9 Tf 82 700 Td (Aerospace and satellite systems increasingly adopt multiprocessor) Tj ET
+BT /F1 9 Tf 72 689 Td (architectures to support real time missions such as autonomous) Tj ET
+BT /F1 9 Tf 72 678 Td (control. These modern schedulers manage the tasks at once) Tj ET
+BT /F1 9 Tf 72 667 Td (within the same RTEMS kernel on the chosen hardware.) Tj ET
+BT /F1 9 Tf 82 656 Td (To address this gap we present a framework that characterizes) Tj ET
+BT /F1 9 Tf 72 645 Td (workloads via reuse distance analysis and selects the most suitable) Tj ET
+BT /F1 9 Tf 72 634 Td (scheduler for each mission in the end.) Tj ET
+BT /F2 9 Tf 260 600 Td (x a e) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /SynthTight /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 126 /Widths [480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480] /FontDescriptor 6 0 R >>
+endobj
+6 0 obj
+<< /Type /FontDescriptor /FontName /SynthTight /Flags 32 /FontBBox [-200 -250 1000 900] /ItalicAngle 0 /Ascent 455 /Descent -2 /CapHeight 650 /StemV 80 >>
+endobj
+7 0 obj
+<< /Title (Paperloom text fixture tight font metrics \(synthetic\)) >>
+endobj
+8 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+rtxmi /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 126 /Widths [480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480 480] /FontDescriptor 9 0 R >>
+endobj
+9 0 obj
+<< /Type /FontDescriptor /FontName /ABCDEF+rtxmi /Flags 32 /FontBBox [-200 -250 1000 900] /ItalicAngle 0 /Ascent 0 /Descent -210 /CapHeight 650 /StemV 80 >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000957 00000 n 
+0000001495 00000 n 
+0000001665 00000 n 
+0000001751 00000 n 
+0000002291 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R /Info 7 0 R >>
+startxref
+2463
+%%EOF

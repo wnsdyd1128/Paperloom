@@ -1,0 +1,69 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 584 >>
+stream
+BT /F1 10 Tf 72 700 Td (Recovered math symbols keep their meaning in a paragraph:) Tj ET
+BT /F1 10 Tf 72 688 Td (the bound C) Tj ET
+BT /F2 7 Tf 126.5 692 Td ( ) Tj ET
+BT /F1 10 Tf 134 688 Td (is small and the sum) Tj ET
+BT /F3 10 Tf 240 688 Td ( ) Tj ET
+BT /F1 10 Tf 250 688 Td (of all terms is finite.) Tj ET
+BT /F1 10 Tf 250 640 Td (x =) Tj ET
+BT /F3 10 Tf 270 632 Td ( ) Tj ET
+BT /F3 10 Tf 278 632 Td ( ) Tj ET
+BT /F1 10 Tf 296 640 Td (a) Tj ET
+BT /F4 10 Tf 72 590 Td (The analysis of every single compo-) Tj ET
+BT /F4 10 Tf 72 578 Td (nent stays the same in this test.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+txsy /Encoding << /Type /Encoding /Differences [2 /arrowright /element 12 /prime] >> /ToUnicode 9 0 R >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEG+txex /Encoding << /Type /Encoding /Differences [2 /parenleftBigg /parenrightBigg /summationdisplay 8 /summationtext] >> >>
+endobj
+8 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEH+SynthSerif /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [2 /bullet] >> >>
+endobj
+9 0 obj
+<< /Length 231 >>
+stream
+/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SynthSy def
+1 begincodespacerange <00> <FF> endcodespacerange
+1 beginbfchar <03> <2208> endbfchar
+endcmap CMapName currentdict /CMap defineresource pop end end
+endstream
+endobj
+10 0 obj
+<< /Title (Paperloom text fixture glyphs \(synthetic\)) >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000271 00000 n 
+0000000905 00000 n 
+0000001002 00000 n 
+0000001171 00000 n 
+0000001358 00000 n 
+0000001524 00000 n 
+0000001806 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /Info 10 0 R >>
+startxref
+1881
+%%EOF

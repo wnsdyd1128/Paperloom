@@ -1,0 +1,110 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [9 0 R 11 0 R 13 0 R 15 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [1 /fi] >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>
+endobj
+6 0 obj
+<< /Length 334 >>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Paperloom-PUA def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+1 beginbfrange
+<21> <7E> <E021>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 12 >>
+stream
+ZZZ      ZZZ
+endstream
+endobj
+8 0 obj
+<< /Title (Paperloom text fixture mixed \(synthetic\)) >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 143 >>
+stream
+BT /F1 10 Tf 84 700 Td (A normal paragraph with the kappaword marker) Tj ET
+BT /F1 10 Tf 72 688 Td (followed by a second ordinary line.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 31 >>
+stream
+q 612 0 0 792 0 0 cm /Im1 Do Q
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 87 >>
+stream
+q 612 0 0 792 0 0 cm /Im1 Do Q
+BT /F1 8 Tf 72 20 Td (Downloaded copy lambdaword) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 221 >>
+stream
+BT /F1 10 Tf 84 700 Td (Readable text with the nuword marker comes first) Tj ET
+BT /F1 10 Tf 72 688 Td (and the next line is also readable.) Tj ET
+BT /F3 10 Tf 72 660 Td (This line maps to private use codes muword) Tj ET
+endstream
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000136 00000 n 
+0000000233 00000 n 
+0000000387 00000 n 
+0000000501 00000 n 
+0000000885 00000 n 
+0000001040 00000 n 
+0000001113 00000 n 
+0000001286 00000 n 
+0000001480 00000 n 
+0000001654 00000 n 
+0000001735 00000 n 
+0000001909 00000 n 
+0000002046 00000 n 
+0000002220 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R /Info 8 0 R >>
+startxref
+2492
+%%EOF

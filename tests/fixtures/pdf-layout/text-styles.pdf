@@ -1,0 +1,54 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /R 5 0 R /B 6 0 R /I 7 0 R /BI 8 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 720 >>
+stream
+BT /B 1 Tf 12 0 0 12 72 720 Tm (3 Styled Section) Tj ET
+BT 72 690 Td /R 10 Tf (Styled fixture text keeps the ) Tj /I 10 Tf (kappaword) Tj /R 10 Tf ( term in italic and the rest of) Tj ET
+BT 72 678 Td /R 10 Tf (this line plain for the reader. ) Tj /B 10 Tf (Bold lead in.) Tj /R 10 Tf ( The last sentence) Tj ET
+BT 72 666 Td /R 10 Tf (ends with the ) Tj /BI 10 Tf (lambdaword) Tj /R 10 Tf ( marker and a short tail of plain) Tj ET
+BT 72 654 Td /R 10 Tf (words.) Tj ET
+BT /R 10 Tf 72 620 Td (The bound uses t) Tj /R 7 Tf 4 Ts (max) Tj -2.5 Ts [1889 (p)] TJ /R 10 Tf 0 Ts ( and C) Tj /R 7 Tf -2.5 Ts (k) Tj /R 10 Tf 0 Ts ( for every task in the set.) Tj ET
+BT /R 10 Tf 72 608 Td (The second line ends the paragraph.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
+endobj
+8 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-BoldOblique /Encoding /WinAnsiEncoding >>
+endobj
+9 0 obj
+<< /Title (Paperloom text fixture styles \(synthetic\)) >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000268 00000 n 
+0000001038 00000 n 
+0000001135 00000 n 
+0000001237 00000 n 
+0000001342 00000 n 
+0000001451 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R /Info 9 0 R >>
+startxref
+1525
+%%EOF

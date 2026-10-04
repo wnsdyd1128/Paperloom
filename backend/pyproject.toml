@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paperloom"
+version = "0.1.0"
+description = "Paperloom Core: 논문 원문·앵커·문맥을 관리하는 로컬 백엔드"
+requires-python = ">=3.13"
+# 모델 API·임베딩·OCR SDK는 넣지 않는다 (PLAN §2.2, tests/contract/test_dependency_policy.py).
+dependencies = [
+    "fastapi>=0.141",
+    "pydantic>=2.11",
+    "pypdf>=6.19",  # 수식 글꼴의 /Differences 글리프 이름(유니코드가 없는 수식 기호 되찾기, documents.glyphs). 테스트의 합성 PDF 생성에도 쓴다
+    "pypdfium2>=5.13",
+    "pyyaml>=6.0",
+    "uvicorn>=0.54",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=2.13",  # starlette.testclient가 httpx 대신 요구
+    "pytest>=9.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

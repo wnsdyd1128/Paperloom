@@ -1,0 +1,150 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [1 /fi] >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>
+endobj
+6 0 obj
+<< /Length 334 >>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Paperloom-PUA def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+1 beginbfrange
+<21> <7E> <E021>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 12 >>
+stream
+ZZZ      ZZZ
+endstream
+endobj
+8 0 obj
+<< /Title (Paperloom text fixture digital \(synthetic\)) >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 725 >>
+stream
+BT /F1 18 Tf 72 720 Td (Paperloom Extraction Sample) Tj ET
+BT /F1 12 Tf 72 690 Td (1 Introduction) Tj ET
+BT /F1 10 Tf 84 666 Td (Paperloom keeps the source text of every page so that a later search) Tj ET
+BT /F1 10 Tf 72 654 Td (finds the alphaword passage on the right page and the compo-) Tj ET
+BT /F1 10 Tf 72 642 Td (sitional parts of the layout stay attached to their original) Tj ET
+BT /F1 10 Tf 72 630 Td (coordinates on the page.) Tj ET
+BT /F2 10 Tf 84 618 Td (A second paragraph starts with an indented line and mentions the) Tj ET
+BT /F2 10 Tf 72 606 Td (xture word with a ligature and the betaword marker so the) Tj ET
+BT /F2 10 Tf 72 594 Td (search can find both of them.) Tj ET
+BT /F1 10 Tf 303 40 Td (1) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 872 >>
+stream
+BT /F1 12 Tf 72 720 Td (2 Two Column Section) Tj ET
+BT /F1 10 Tf 336 690 Td (The right column is drawn first in) Tj ET
+BT /F1 10 Tf 324 678 Td (the content stream but it holds the) Tj ET
+BT /F1 10 Tf 324 666 Td (epsilonword paragraph that a reader) Tj ET
+BT /F1 10 Tf 324 654 Td (reaches after the left column.) Tj ET
+BT /F1 10 Tf 336 630 Td (Its second paragraph holds the) Tj ET
+BT /F1 10 Tf 324 618 Td (zetaword term near the bottom.) Tj ET
+BT /F1 10 Tf 84 690 Td (The left column opens with the) Tj ET
+BT /F1 10 Tf 72 678 Td (gammaword paragraph that runs over) Tj ET
+BT /F1 10 Tf 72 666 Td (several short lines in a narrow) Tj ET
+BT /F1 10 Tf 72 654 Td (column of text.) Tj ET
+BT /F1 10 Tf 84 630 Td (Another paragraph in the left) Tj ET
+BT /F1 10 Tf 72 618 Td (column holds the deltaword term.) Tj ET
+BT /F1 8 Tf 230 60 Td (Footnote with the thetaword marker) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 203 >>
+stream
+BT /F1 10 Tf 72 700 Td (Each task t) Tj /F1 7 Tf -2 Ts (k) Tj /F1 10 Tf 0 Ts ( has period T) Tj /F1 7 Tf -2 Ts (k) Tj /F1 10 Tf 0 Ts ( and x) Tj /F1 7 Tf 4 Ts (2) Tj /F1 10 Tf 0 Ts ( term etaword) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /CropBox [36 36 576 756] /Rotate 90 /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 54 >>
+stream
+BT /F1 10 Tf 100 600 Td (Rotated page iotaword) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 90 /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 18 0 R >>
+endobj
+18 0 obj
+<< /Length 150 >>
+stream
+BT /F1 10 Tf 0 1 -1 0 300 100 Tm (Landscape text with the omicronword marker runs) Tj ET
+BT /F1 10 Tf 0 1 -1 0 312 100 Tm (upward on the page.) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 20 0 R >>
+endobj
+20 0 obj
+<< /Length 0 >>
+stream
+endstream
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000150 00000 n 
+0000000247 00000 n 
+0000000401 00000 n 
+0000000515 00000 n 
+0000000899 00000 n 
+0000001054 00000 n 
+0000001129 00000 n 
+0000001302 00000 n 
+0000002078 00000 n 
+0000002252 00000 n 
+0000003175 00000 n 
+0000003349 00000 n 
+0000003603 00000 n 
+0000003813 00000 n 
+0000003917 00000 n 
+0000004102 00000 n 
+0000004303 00000 n 
+0000004477 00000 n 
+trailer
+<< /Size 21 /Root 1 0 R /Info 8 0 R >>
+startxref
+4526
+%%EOF
