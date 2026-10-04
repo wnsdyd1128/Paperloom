@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+node_modules/
+apps/web/dist/
+var/
+system-prompt-extraction/
+apps/web/test-results/
+*.tsbuildinfo
+experiments/
+.env
+*.lock
+!backend/requirements*.lock
+.claude
+docs/
