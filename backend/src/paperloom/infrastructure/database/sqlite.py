@@ -314,9 +314,15 @@ ALTER TABLE text_blocks ADD COLUMN styles_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE text_blocks ADD COLUMN font_size REAL;
 """
 
+# 답변 화면(U6)은 대화마다 첫 답을 찾는다. 대화 ID로 찾는 색인이 없으면 대화마다 answers 전체를 훑어 답이 쌓이면 느려졌다
+# (2026-10-05: 답 3,900개에서 3.5초 → 0.03초, E2E 데이터 폴더에서 드러남).
+_SCHEMA_V17 = """
+CREATE INDEX answers_by_session ON answers (chat_session, created_at);
+"""
+
 MIGRATIONS = [
     _SCHEMA_V1, _SCHEMA_V2, _SCHEMA_V3, _SCHEMA_V4, _SCHEMA_V5, _SCHEMA_V6, _SCHEMA_V7, _SCHEMA_V8, _SCHEMA_V9, _SCHEMA_V10, _SCHEMA_V11,
-    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16,
+    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17,
 ]
 
 

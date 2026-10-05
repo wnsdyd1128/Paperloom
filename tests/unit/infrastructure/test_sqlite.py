@@ -35,7 +35,7 @@ def test_migrate_v6_adds_answers_and_chat_columns_and_keeps_shared_packets(tmp_p
     migrate(db_path)
 
     with closing(connect(db_path)) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 16
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 17
         assert connection.execute("SELECT status FROM context_packets").fetchone()[0] == "HANDED_OFF"
         assert connection.execute("SELECT resource_id FROM share_grants").fetchone()[0] == "k1"
         assert connection.execute("SELECT COUNT(*) FROM answers").fetchone()[0] == 0
@@ -120,6 +120,21 @@ def test_migrate_refuses_newer_schema(tmp_path):
 
     with pytest.raises(RuntimeError, match="새롭습니다"):
         migrate(db_path)
+
+
+def test_migrate_v17_indexes_answers_by_conversation(tmp_path):
+    """답변 화면이 대화마다 첫 답을 찾을 때 answers 전체를 훑지 않는다(2026-10-05: 답 3,900개에서 3.5초 → 0.03초)."""
+    db_path = tmp_path / "paperloom.sqlite3"
+    migrate(db_path)
+    with closing(connect(db_path)) as connection:
+        plan = " ".join(
+            row[3]
+            for row in connection.execute(
+                "EXPLAIN QUERY PLAN SELECT answer_id FROM answers WHERE chat_session = ? AND discarded_at IS NULL ORDER BY created_at, answer_id LIMIT 1",
+                ("session",),
+            )
+        )
+    assert "answers_by_session" in plan
 
 
 def test_migrate_v16_adds_block_styles_and_font_size(tmp_path):
