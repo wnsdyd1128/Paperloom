@@ -14,6 +14,10 @@
 
 </div>
 
+<div align="center">
+<img src=".github/assets/image.png" alt='Paperloom 예시(Vaswani, Ashish, et al. "Attention is all you need". Advances in neural information processing systems 30 (2017).'>
+</div>
+
 Paperloom은 논문 PDF를 읽으면서 고른 문장·그림·수식을 바로 설명·번역·질문하는 개인용 논문 리더입니다.
 AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하므로 API 키가 필요 없고 논문과 기록은 모두 내 PC에 저장됩니다.
 
