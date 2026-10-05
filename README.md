@@ -1,6 +1,20 @@
-# Paperloom
+<div align="center">
 
-논문 PDF를 읽으면서 고른 문장·그림·수식을 바로 설명·번역·질문하는 개인용 논문 리더입니다.
+<img src=".github/assets/logo.svg" alt="Paperloom 로고" width="160" height="160">
+
+# 🧵 Paperloom
+
+***읽다가 고른 문장을 바로 묻고 답의 근거를 논문에서 확인하는 개인용 논문 리더***
+
+[![CI](https://github.com/wnsdyd1128/Paperloom/actions/workflows/ci.yml/badge.svg)](https://github.com/wnsdyd1128/Paperloom/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/wnsdyd1128/Paperloom?label=release)](https://github.com/wnsdyd1128/Paperloom/releases)
+[![Stars](https://img.shields.io/github/stars/wnsdyd1128/Paperloom?style=social)](https://github.com/wnsdyd1128/Paperloom/stargazers)
+[![license](https://img.shields.io/github/license/wnsdyd1128/Paperloom)](LICENSE)
+[![image](https://img.shields.io/badge/image-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/wnsdyd1128/Paperloom/pkgs/container/paperloom)
+
+</div>
+
+Paperloom은 논문 PDF를 읽으면서 고른 문장·그림·수식을 바로 설명·번역·질문하는 개인용 논문 리더입니다.
 AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하므로 API 키가 필요 없고 논문과 기록은 모두 내 PC에 저장됩니다.
 
 - **근거가 보이는 답**: 답에 붙은 `근거 n`을 누르면 논문의 그 문단으로 바로 갑니다.
@@ -18,6 +32,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 - [업데이트](#업데이트)
 - [문제 해결](#문제-해결)
 - [개발](#개발)
+- [기여](#기여)
 - [서드파티](#서드파티)
 - [라이선스](#라이선스)
 
@@ -68,6 +83,12 @@ docker compose -f ops/compose/compose.yaml up -d --build
 ```
 
 브라우저에서 <http://127.0.0.1:8000>을 엽니다. 서버는 재부팅 뒤 Docker가 시작되면 자동으로 다시 올라옵니다.
+
+빌드하지 않고 [릴리스 이미지](https://github.com/wnsdyd1128/Paperloom/pkgs/container/paperloom)를 받아 쓸 수도 있습니다. 위 Compose와 같은 데이터 볼륨을 쓰므로 둘 가운데 하나만 실행합니다.
+
+```powershell
+docker run -d --name paperloom --restart unless-stopped -p 127.0.0.1:8000:8000 -v paperloom_paperloom-data:/data ghcr.io/wnsdyd1128/paperloom:latest
+```
 
 ### 2. Claude Code 로그인
 
@@ -152,6 +173,7 @@ git pull
 docker compose -f ops/compose/compose.yaml up -d --build
 ```
 
+- 릴리스 이미지로 실행했다면 `docker pull ghcr.io/wnsdyd1128/paperloom:latest` 뒤 `docker rm -f paperloom`으로 컨테이너를 지우고 위 `docker run`을 다시 실행합니다. 데이터는 볼륨에 남습니다.
 - 열려 있던 탭에 `새로고침` 띠가 뜨면 눌러 새 화면을 받습니다.
 - 브리지도 껐다가 다시 켭니다.
 - 본문 추출 방식이 바뀐 버전이면 서버가 시작할 때 등록한 논문을 한 번 다시 추출합니다. 그동안 쪽 번역은 잠시 기다리고 문단이 바뀐 쪽은 열 때 다시 번역합니다.
@@ -194,6 +216,12 @@ ops/                            Docker Compose와 실행 설정
 ```
 
 유료 모델 API·SDK는 의존성에 넣지 않습니다. `tests/contract/test_dependency_policy.py`가 잠금 파일과 소스를 검사합니다.
+
+푸시와 PR마다 [GitHub Actions](https://github.com/wnsdyd1128/Paperloom/actions)가 백엔드·웹 시험, Docker 이미지 빌드, Windows에서 Edge로 브라우저 시험을 돌립니다. `v*` 태그를 올리면 같은 검사를 거쳐 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고 GitHub Release를 만듭니다.
+
+## 기여
+
+버그 제보와 제안은 [Issues](https://github.com/wnsdyd1128/Paperloom/issues)에 남겨 주세요. 코드를 보내기 전에 [기여 안내](CONTRIBUTING.md)를 읽어 주세요. 보안 문제는 공개 이슈 대신 [보안 정책](SECURITY.md)의 방법으로 알려 주세요.
 
 ## 서드파티
 
