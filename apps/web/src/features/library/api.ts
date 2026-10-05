@@ -95,6 +95,11 @@ export async function deleteTag(name: string): Promise<void> {
   await expectOk(await fetch(`/api/v1/tags/${encodeURIComponent(name)}`, { method: "DELETE" }));
 }
 
+/** 논문과 그 논문의 모든 기록·원본 PDF를 지운다(되돌릴 수 없다, 2026-10-05). 본문 추출 중이면 409다. */
+export async function deletePaper(paperId: string): Promise<void> {
+  await expectOk(await fetch(`/api/v1/papers/${encodeURIComponent(paperId)}`, { method: "DELETE" }));
+}
+
 /** Reader로 열었다 (U6 서재의 마지막 열람). 실패해도 읽기에는 영향이 없다. */
 export async function markOpened(paperId: string): Promise<void> {
   await fetch(`/api/v1/papers/${encodeURIComponent(paperId)}/opened`, { method: "POST" });

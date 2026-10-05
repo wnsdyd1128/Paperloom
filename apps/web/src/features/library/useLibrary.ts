@@ -5,7 +5,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "../../shared/http";
-import { deleteTag as deleteTagRequest, listPapers, type Paper, renameTag as renameTagRequest, requestParse, setPaperTags, uploadPaper } from "./api";
+import {
+  deletePaper,
+  deleteTag as deleteTagRequest,
+  listPapers,
+  type Paper,
+  renameTag as renameTagRequest,
+  requestParse,
+  setPaperTags,
+  uploadPaper,
+} from "./api";
 
 export type ListState = Readonly<{ kind: "loading" }> | Readonly<{ kind: "ready"; papers: readonly Paper[] }> | Readonly<{ kind: "failed" }>;
 export type Notice = Readonly<{ tone: "ok" | "error" | "pending"; text: string }> | null;
@@ -115,7 +124,18 @@ export function useLibrary() {
   const renameTag = (name: string, next: string) => changeTag(() => renameTagRequest(name, next), "태그 이름을 바꾸지 못했습니다.");
   const deleteTag = (name: string) => changeTag(() => deleteTagRequest(name), "태그를 지우지 못했습니다.");
 
-  return { list, papers, notice, uploading, upload, retry, setTags, renameTag, deleteTag };
+  /** 논문을 지운다(서재 지우기, 2026-10-05). 되면 목록에서 빼고 알린다. 본문 추출 중이면 서버가 거절한 까닭을 보인다. */
+  async function removePaper(paper: Paper) {
+    try {
+      await deletePaper(paper.paper_id);
+      setList((current) => (current.kind === "ready" ? { kind: "ready", papers: current.papers.filter((item) => item.paper_id !== paper.paper_id) } : current));
+      setNotice({ tone: "ok", text: `삭제됨: ${paper.title}` });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof ApiError ? error.message : "논문을 지우지 못했습니다. 백엔드 연결을 확인하세요." });
+    }
+  }
+
+  return { list, papers, notice, uploading, upload, retry, setTags, renameTag, deleteTag, removePaper };
 }
 
 export type Library = ReturnType<typeof useLibrary>;

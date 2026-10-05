@@ -5,6 +5,7 @@ DB commit이 끝나야 Library에 보인다. 실패하면 이번 업로드의 �
 """
 
 import json
+import logging
 import sqlite3
 import uuid
 from contextlib import closing
@@ -37,6 +38,8 @@ from paperloom.infrastructure.files.source_store import ReceivedFile, SourceStor
 
 READY_TO_READ = "READY_TO_READ"
 
+log = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class UploadLimits:
@@ -61,6 +64,10 @@ class DuplicateSource(Exception):
 
 class TextNotReady(Exception):
     """버전의 본문 추출이 아직 끝나지 않았다."""
+
+
+class PaperBusy(Exception):
+    """본문을 추출하는 중이라 지울 수 없다(worker가 그 논문에 쓰는 중이다)."""
 
 
 class DocumentService:
@@ -168,6 +175,23 @@ class DocumentService:
         """서재 태그 메뉴의 지우기 (2026-10-04). 태그가 없으면 False."""
         with closing(connect(self._db_path)) as connection, connection:
             return repository.delete_tag(connection, name)
+
+    def delete_paper(self, paper_id: str) -> bool:
+        """논문과 그 기록을 모두 지운다(되돌릴 수 없다, 2026-10-05 서재 지우기). 없으면 False, 본문 추출 중이면 PaperBusy.
+        DB를 한 트랜잭션으로 지운 뒤 원본 PDF를 지운다. 파일을 지우지 못하면(다른 곳에서 열려 있는 등) 기록만 남긴다."""
+        with closing(connect(self._db_path)) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")  # worker가 대기 중인 작업을 가져가지 못하게 쓰기 잠금부터 잡는다
+            if repository.extracting(connection, paper_id):
+                raise PaperBusy()
+            storage_refs = repository.delete_paper(connection, paper_id)
+        if storage_refs is None:
+            return False
+        for storage_ref in storage_refs:
+            try:
+                self.store.delete(storage_ref)
+            except OSError:
+                log.warning("지운 논문의 원본 파일을 지우지 못했습니다: %s", storage_ref, exc_info=True)
+        return True
 
     def mark_opened(self, paper_id: str) -> bool:
         """Reader로 연 때를 남긴다 (U6 서재의 마지막 열람). 논문이 없으면 False."""

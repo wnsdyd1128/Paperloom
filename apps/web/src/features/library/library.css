@@ -201,6 +201,22 @@
   width: 108px;
 }
 
+.shelf-table .col-actions {
+  width: 48px;
+}
+
+/* 줄 끝의 삭제 단추: 평소에는 흐리게, 줄에 마우스를 올리거나 포커스가 오면 또렷하게 */
+.paper-delete {
+  width: 30px;
+  height: 30px;
+  opacity: 0.45;
+}
+
+.shelf-table tr:hover .paper-delete,
+.paper-delete:focus-visible {
+  opacity: 1;
+}
+
 .shelf-table td {
   vertical-align: middle;
 }

@@ -221,3 +221,33 @@ test("논문을 열면 마지막 열람이 오늘이 되고 맨 위로 온다. �
     await expect(cells.nth(3)).toHaveText(paper.conversation_count ? String(paper.conversation_count) : "—");
   }
 });
+
+test("논문 삭제: 확인 창에서 취소하면 그대로, 확인하면 서재와 서버에서 모두 지운다(되돌릴 수 없다고 알린다)", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "dpr-1", "서재 표는 DPR과 무관하다");
+  // 실행마다 다른 바이트라야 중복 등록이 아니다: 합성 PDF 끝에 주석 한 줄을 붙인다
+  const bytes = Buffer.concat([pdf("text-mixed.pdf"), Buffer.from(`\n% delete test ${Date.now()}\n`)]);
+  const uploaded = await uploadPdf(page, bytes, "delete-me.pdf");
+  const status = async () => (await (await page.request.get(`/api/v1/papers/${uploaded.paperId}`)).json()).current_version.status;
+  await expect.poll(status, { timeout: 60_000 }).not.toMatch(/^(READY_TO_READ|PARSING)$/); // 추출 중에는 지울 수 없다
+  await page.goto("/");
+  const target = row(page, uploaded.paperId);
+  const title = await target.locator(".paper-open").innerText();
+  const remove = target.getByRole("button", { name: `${title} 삭제` });
+
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await remove.click();
+  await expect(target).toBeVisible();
+  expect((await page.request.get(`/api/v1/papers/${uploaded.paperId}`)).status()).toBe(200);
+
+  page.once("dialog", (dialog) => {
+    expect(dialog.message()).toContain(`"${title}" 논문을 지울까요?`);
+    expect(dialog.message()).toContain("되돌릴 수 없습니다");
+    void dialog.accept();
+  });
+  await remove.click();
+  await expect(target).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: `삭제됨: ${title}` })).toBeVisible();
+  expect((await page.request.get(`/api/v1/papers/${uploaded.paperId}`)).status()).toBe(404);
+  await page.reload();
+  await expect(row(page, uploaded.paperId)).toHaveCount(0);
+});

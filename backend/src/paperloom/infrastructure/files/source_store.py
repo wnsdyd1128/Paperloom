@@ -77,5 +77,12 @@ class SourceStore:
         target.chmod(stat.S_IWUSR | stat.S_IRUSR)
         target.unlink()
 
+    def delete(self, storage_ref: str) -> None:
+        """지운 논문의 원본을 지운다(서재 지우기, 2026-10-05). 이미 없으면 그대로 둔다."""
+        target = self._root / storage_ref
+        if target.exists():
+            target.chmod(stat.S_IWUSR | stat.S_IRUSR)
+            target.unlink()
+
     def path_for(self, storage_ref: str) -> Path:
         return self._root / storage_ref

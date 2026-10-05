@@ -138,6 +138,47 @@ def delete_tag(connection: sqlite3.Connection, name: str) -> bool:
     return True
 
 
+def extracting(connection: sqlite3.Connection, paper_id: str) -> bool:
+    """그 논문의 본문을 worker가 지금 추출하는 중(RUNNING)인지"""
+    return connection.execute(
+        "SELECT 1 FROM parse_runs AS r JOIN source_versions AS v ON v.version_id = r.version_id WHERE v.paper_id = ? AND r.status = 'RUNNING'",
+        (paper_id,),
+    ).fetchone() is not None
+
+
+def delete_paper(connection: sqlite3.Connection, paper_id: str) -> list[str] | None:
+    """논문과 그 논문의 모든 기록을 지우고 원본 파일 자리(storage_ref)를 돌려준다. 논문이 없으면 None (2026-10-05 서재 지우기).
+    외래 키가 연쇄 삭제를 하지 않으므로 다른 모듈의 표도 여기서 딸린 것부터 지운다: 문맥(출처에 그 논문이 든 packet)과
+    그 답변·예전 공유 허락, 대화·대화 이름, 원문 위치와 주석, 쪽 번역, 추출한 본문(검색 색인은 트리거가 지운다)·추출 작업,
+    태그(다른 논문에 없는 태그는 함께). 본문 추출 중(RUNNING)인지는 호출자가 먼저 본다."""
+    if connection.execute("SELECT 1 FROM papers WHERE paper_id = ? AND owner_id = ?", (paper_id, LOCAL_OWNER_ID)).fetchone() is None:
+        return None
+    versions = connection.execute("SELECT version_id, storage_ref FROM source_versions WHERE paper_id = ?", (paper_id,)).fetchall()
+    packets = [
+        row["packet_id"]
+        for row in connection.execute(
+            "SELECT packet_id FROM context_packets AS p WHERE EXISTS (SELECT 1 FROM json_each(p.content_json, '$.sources') AS s"
+            " WHERE json_extract(s.value, '$.paper_id') = ?)",
+            (paper_id,),
+        )
+    ]
+    for packet_id in packets:
+        connection.execute("DELETE FROM answers WHERE packet_id = ?", (packet_id,))
+        connection.execute("DELETE FROM share_grants WHERE resource_type = 'packet' AND resource_id = ?", (packet_id,))
+        connection.execute("DELETE FROM context_packets WHERE packet_id = ?", (packet_id,))
+    connection.execute("DELETE FROM chat_threads WHERE paper_id = ?", (paper_id,))
+    connection.execute("DELETE FROM chat_titles WHERE paper_id = ?", (paper_id,))
+    for version in versions:
+        connection.execute("DELETE FROM annotations WHERE anchor_id IN (SELECT anchor_id FROM anchors WHERE version_id = ?)", (version["version_id"],))
+        for table in ("anchors", "page_translations", "text_blocks", "pages", "parse_runs"):  # 문단·쪽이 추출 작업을 가리킨다
+            connection.execute(f"DELETE FROM {table} WHERE version_id = ?", (version["version_id"],))
+    connection.execute("DELETE FROM paper_tags WHERE paper_id = ?", (paper_id,))
+    connection.execute("DELETE FROM tags WHERE owner_id = ? AND tag_id NOT IN (SELECT tag_id FROM paper_tags)", (LOCAL_OWNER_ID,))
+    connection.execute("DELETE FROM source_versions WHERE paper_id = ?", (paper_id,))  # papers.current_version_id는 커밋 때 확인한다
+    connection.execute("DELETE FROM papers WHERE paper_id = ?", (paper_id,))
+    return [version["storage_ref"] for version in versions]
+
+
 def mark_opened(connection: sqlite3.Connection, paper_id: str, now: str) -> bool:
     """Reader로 연 때를 남긴다. 논문이 없으면 False."""
     cursor = connection.execute(

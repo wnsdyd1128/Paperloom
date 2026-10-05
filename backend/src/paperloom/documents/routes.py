@@ -20,7 +20,7 @@ from paperloom.documents.models import (
     VersionOut,
 )
 from paperloom.documents.parsing import ParseInProgress, ParseService
-from paperloom.documents.service import DocumentService, DuplicateSource, TextNotReady, UploadRejected
+from paperloom.documents.service import DocumentService, DuplicateSource, PaperBusy, TextNotReady, UploadRejected
 from paperloom.infrastructure.files.source_store import UploadTooLarge
 
 _REJECTION_MESSAGES = {
@@ -72,6 +72,17 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
         if paper is None:
             raise _not_found()
         return paper
+
+    @router.delete("/papers/{paper_id}", status_code=204)
+    def delete_paper(paper_id: str) -> Response:
+        """논문과 그 논문의 모든 기록·원본 PDF를 지운다(되돌릴 수 없다, 2026-10-05 서재 지우기)."""
+        try:
+            deleted = service.delete_paper(paper_id)
+        except PaperBusy:
+            raise ApiError(409, "TEXT_EXTRACTION_RUNNING", "본문을 추출하는 중이라 지울 수 없습니다. 추출이 끝난 뒤 다시 지우세요.", retryable=True) from None
+        if not deleted:
+            raise _not_found()
+        return Response(status_code=204)
 
     @router.put("/papers/{paper_id}/metadata")
     def update_metadata(paper_id: str, metadata: PaperMetadataIn) -> PaperOut:

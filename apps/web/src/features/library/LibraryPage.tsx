@@ -1,10 +1,12 @@
 /**
- * 서재 표 (U6, 시안 Library): 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람. 최근에 연 논문이 먼저다(서버 차례).
+ * 서재 표 (U6, 시안 Library): 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람 · 삭제. 최근에 연 논문이 먼저다(서버 차례).
+ * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
  */
 import { useState } from "react";
 
+import { Icon } from "../../shared/Icon";
 import type { SnippetPart } from "../search/api";
 import type { Paper, SourceVersion } from "./api";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
@@ -128,6 +130,9 @@ export function LibraryPage({ library, hits, onOpen }: Props) {
               <th scope="col" className="col-opened">
                 마지막 열람
               </th>
+              <th scope="col" className="col-actions">
+                <span className="sr-only">삭제</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -142,6 +147,7 @@ export function LibraryPage({ library, hits, onOpen }: Props) {
                 onRetry={(item) => void library.retry(item)}
                 onToggleTag={toggleTag}
                 onSetTags={(item, tags) => void library.setTags(item, tags)}
+                onDelete={(item) => void library.removePaper(item)}
               />
             ))}
           </tbody>
@@ -170,9 +176,17 @@ type RowProps = Readonly<{
   onRetry: (paper: Paper) => void;
   onToggleTag: (name: string) => void;
   onSetTags: (paper: Paper, tags: readonly string[]) => void;
+  onDelete: (paper: Paper) => void;
 }>;
 
-function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, onSetTags }: RowProps) {
+/** 지우기 전에 묻는 말. 함께 지워지는 기록을 알린다 */
+function deleteQuestion(paper: Paper): string {
+  const counts = [paper.annotation_count && `주석 ${paper.annotation_count}개`, paper.conversation_count && `대화 ${paper.conversation_count}개`].filter(Boolean);
+  const records = ["원본 PDF와 본문", ...counts, "하이라이트·쪽 번역"].join(", ");
+  return `"${paper.title}" 논문을 지울까요?\n\n${records}이 모두 지워지며 되돌릴 수 없습니다.`;
+}
+
+function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
   const version = paper.current_version;
   const chosen = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
   return (
@@ -206,6 +220,17 @@ function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, o
         </div>
       </td>
       <td className="num muted">{paper.last_opened_at ? new Date(paper.last_opened_at).toLocaleDateString("ko-KR") : "—"}</td>
+      <td className="row-actions">
+        <button
+          type="button"
+          className="btn btn-icon paper-delete"
+          aria-label={`${paper.title} 삭제`}
+          title="논문 삭제"
+          onClick={() => window.confirm(deleteQuestion(paper)) && onDelete(paper)}
+        >
+          <Icon name="trash" size={14} />
+        </button>
+      </td>
     </tr>
   );
 }
