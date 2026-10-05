@@ -195,7 +195,7 @@ test("글을 고르면 곁에 메뉴가 뜨고, 설명은 원문 위 창에서 �
   expect(thirdRun.args[thirdRun.args.indexOf("--model") + 1]).toBe("haiku");
 
   // 7) 새 대화를 시작했다가, 대화 기록에서 앞 대화로 돌아간다. 옮겨 온 대화는 첫 질문이 아니라 그 대화의 제목으로 보인다
-  await chat.getByRole("button", { name: "새 대화" }).click();
+  await chat.getByRole("button", { name: "새 대화", exact: true }).click();
   await expect(chat.locator(".chat-turn")).toHaveCount(0);
   await expect(chat.locator(".chat-guide")).toBeVisible();
   await chat.getByRole("button", { name: "대화 기록", exact: true }).click();
@@ -344,7 +344,7 @@ test("그림을 누르면 영역 도구줄이 뜨고, AI에게 질문은 원문 
   const chat = page.locator(CHAT);
   await expect(chat.locator(".chat-attachments li")).toContainText(["그림 · p.1"]);
   await expect(chat.getByRole("textbox", { name: "질문" })).toHaveValue("이 그림의 캡션은 뭐라고 하나요?");
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click(); // 앞 실행의 대화가 있으면 새로 시작한다
   runsBefore = fakeRuns().length;
   await chat.getByRole("button", { name: "보내기" }).click();
@@ -364,7 +364,7 @@ test("대화 범위: 논문 본문은 대화에 한 번만, 현재 쪽은 그 �
   await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   const scope = chat.getByLabel("범위");
   await expect(scope).toHaveValue("paper"); // 기본은 논문 본문 (시안 3a·D2)
@@ -413,7 +413,7 @@ test("대화 범위: 논문 본문은 대화에 한 번만, 현재 쪽은 그 �
   expect(again.message.message.content).toEqual([{ type: "text", text: "한 문장으로 줄이면?" }]);
 
   // 4) 범위는 논문 본문·현재 쪽뿐이다(2026-10-04 사용자 요청으로 "선택만"을 뺐다. 고른 위치는 첨부로 붙인다)
-  await chat.getByRole("button", { name: "새 대화" }).click();
+  await chat.getByRole("button", { name: "새 대화", exact: true }).click();
   await expect(scope.locator("option")).toHaveText(["논문 본문", "현재 쪽"]);
   await input.fill("쓰던 질문");
 
@@ -446,7 +446,7 @@ test("사이드바 대화마다 이름을 바꾸고(Enter 저장·Esc 취소, �
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   const startChat = async (question: string) => {
     if (await newChat.isEnabled()) await newChat.click();
     await input.fill(question);
@@ -501,7 +501,7 @@ test("답을 만드는 중에 중단하면 답을 저장하지 않고 질문을 
   await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   const input = chat.getByRole("textbox", { name: "질문" });
   const answersBefore = (await (await page.request.get(`/api/v1/answers?origin=claude_code&limit=200`)).json()).answers.length;
@@ -541,7 +541,7 @@ test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화�
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   const stamp = Date.now();
   const lastPrompt = () => chat.locator(".chat-turn:not(.is-pending)").last().locator(".chat-prompt");
@@ -600,7 +600,7 @@ test("답마다 갈래: 앞 답에서 가르면 그 답까지만 이어받는다
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   const stamp = Date.now();
   for (const question of [`첫 질문 ${stamp}`, `둘째 질문 ${stamp}`]) {
@@ -765,7 +765,7 @@ test("문단 근거: 논문 본문의 문단마다 ¶를 달아 보내고, 답�
   const { paperId } = await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   await chat.getByLabel("범위").selectOption("paper");
   const input = chat.getByRole("textbox", { name: "질문" });

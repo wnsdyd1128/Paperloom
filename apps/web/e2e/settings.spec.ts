@@ -44,7 +44,7 @@ async function openReader(page: Page, file = "text-digital.pdf") {
 async function askInSidebar(page: Page, question: string) {
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화" });
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   if (await newChat.isEnabled()) await newChat.click();
   await chat.getByRole("textbox", { name: "질문" }).fill(question);
   await chat.getByRole("textbox", { name: "질문" }).press("Enter");
