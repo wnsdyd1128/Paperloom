@@ -1,6 +1,7 @@
 """FastAPI 애플리케이션 조립. 도메인 라우터는 각 작업 패키지에서 여기에 연결한다."""
 
 import logging
+import mimetypes
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -106,6 +107,10 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
         def reader_page(path: str) -> FileResponse:
             return index_page()
 
+        # StaticFiles는 mimetypes로 형식을 정하는데, Windows에서는 레지스트리 값이 기본값을 덮어쓴다. 스크립트가 JS가 아니면
+        # 브라우저가 module(웹앱, PDF.js worker .mjs)을 거부해 PDF가 열리지 않는다(2026-10-05 GitHub Actions Windows E2E).
+        mimetypes.add_type("text/javascript", ".js")
+        mimetypes.add_type("text/javascript", ".mjs")
         app.mount("/", StaticFiles(directory=web_dist_dir, html=True), name="web")
     return app
 

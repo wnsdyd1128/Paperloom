@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 
 import pytest
@@ -74,3 +75,18 @@ def test_the_web_page_is_revalidated_every_time_but_hashed_assets_are_not(tmp_pa
         assert "<title>Paperloom</title>" in response.text
         assert response.headers["cache-control"] == "no-cache", path
     assert "cache-control" not in client.get("/assets/index-abc123.js").headers
+
+
+@pytest.mark.parametrize("name", ["index-abc123.js", "pdf.worker.min-abc123.mjs"])
+def test_scripts_are_served_as_javascript_even_if_the_registry_says_otherwise(tmp_path, web_dist, monkeypatch, name):
+    """정적 파일 형식은 mimetypes가 정하고, Windows에서는 레지스트리 값이 기본값을 덮어쓴다. .mjs가 JS가 아니면 브라우저가
+    PDF.js worker(module)를 거부해 PDF를 열지 못한다(2026-10-05 GitHub Actions Windows E2E의 실패와 같은 모습)."""
+    if not mimetypes.inited:
+        mimetypes.init()
+    monkeypatch.setitem(mimetypes.types_map, ".js", "text/plain")
+    monkeypatch.setitem(mimetypes.types_map, ".mjs", "text/plain")
+    (web_dist / "assets").mkdir()
+    (web_dist / "assets" / name).write_text("export {}", encoding="utf-8")
+    client = TestClient(create_app(make_settings(tmp_path, web_dist_dir=web_dist)))
+
+    assert client.get(f"/assets/{name}").headers["content-type"].startswith("text/javascript")
