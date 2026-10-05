@@ -1,0 +1,83 @@
+name: 버그 제보
+description: 기대와 다르게 동작하는 것을 알려 주세요
+title: "[버그] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제보해 주셔서 고맙습니다. 보안 문제는 이 양식 대신 [비공개 보고](https://github.com/wnsdyd1128/Paperloom/security/advisories/new)로 알려 주세요.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 무슨 일이 있었나요
+      description: 본 화면이나 메시지를 그대로 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      placeholder: |
+        1. 서재에서 PDF를 등록한다
+        2. 3쪽에서 문단을 고르고 `번역`을 누른다
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+  - type: dropdown
+    id: area
+    attributes:
+      label: 어디에서 일어났나요
+      options:
+        - 서재 (등록·검색·태그)
+        - 리더 (보기·목차·찾기·확대)
+        - 고른 부분에 묻기 (설명·번역·질문)
+        - Claude와 대화
+        - 쪽 번역
+        - 하이라이트·주석
+        - 설정
+        - 설치·실행·업데이트
+        - 기타
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Paperloom 판
+      description: 릴리스 태그나 커밋 해시
+      placeholder: v0.1.0
+  - type: dropdown
+    id: install
+    attributes:
+      label: 실행 방법
+      options:
+        - Docker Compose (소스에서 빌드)
+        - 릴리스 이미지 (ghcr.io)
+        - 로컬 개발 실행
+  - type: input
+    id: browser
+    attributes:
+      label: 브라우저
+      placeholder: Microsoft Edge 141
+  - type: textarea
+    id: pdf
+    attributes:
+      label: 논문 PDF
+      description: 문제가 난 논문과 쪽 번호. 공개된 논문이면 링크를, 아니면 출판사·형식(두 단, 스캔본 등)만 적어 주세요. 저작권이 있는 PDF는 올리지 마세요.
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그
+      description: 서버(`docker compose ... logs`)나 브리지 창에 나온 오류. 스크린샷은 위 칸에 붙여 주세요.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 확인
+      options:
+        - label: 같은 내용의 이슈가 이미 있는지 찾아봤습니다
+          required: true

@@ -12,7 +12,7 @@ Paperloom에 관심을 가져 주셔서 고맙습니다. 버그 제보, 제안, 
 
 필요한 것과 설치·실행 명령은 [README의 개발](README.md#개발) 절에 있습니다. 명령은 Windows PowerShell 기준입니다.
 
-## 시험
+## 테스트
 
 PR을 보내기 전에 아래가 모두 통과해야 합니다. CI도 같은 검사를 돌립니다.
 
@@ -26,7 +26,7 @@ npx playwright test
 
 브라우저 시험은 실제 Claude Code 대신 가짜 Claude CLI(`tests/fixtures/fake_claude`)를 띄우므로 구독 사용량을 쓰지 않습니다.
 
-## 지켜 주세요
+## 준수 사항
 
 - **유료 모델 API를 쓰지 않습니다.** 모델 SDK, API 키, 유료 API 호스트를 의존성이나 소스에 넣으면 `tests/contract/test_dependency_policy.py`가 실패합니다. AI 기능은 이 PC의 Claude Code(구독)로만 실행합니다.
 - **시험용 PDF는 합성 파일만 씁니다.** 실제 논문은 저작권이 있어 저장소에 넣지 않습니다. `tests/fixtures/pdf-layout/generate_*.py`처럼 PDF를 만드는 스크립트와 그 결과를 함께 올려 주세요.
