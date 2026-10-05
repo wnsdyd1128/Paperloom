@@ -10,3 +10,12 @@ experiments
 docs
 tests
 system-prompt-extraction
+.env
+.env.*
+.claude
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.*
