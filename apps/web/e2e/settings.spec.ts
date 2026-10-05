@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { clearThreads, fakeRuns, FIXTURE_DIR, openPanel, showPage, uploadPdf } from "./fixture";
+import { clearThreads, fakeRuns, FIXTURE_DIR, openPanel, showPage, startNewChat, uploadPdf } from "./fixture";
 
 const CHAT = 'section[aria-labelledby="chat-heading"]';
 const DEFAULTS = {
@@ -44,8 +44,7 @@ async function openReader(page: Page, file = "text-digital.pdf") {
 async function askInSidebar(page: Page, question: string) {
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   await chat.getByRole("textbox", { name: "질문" }).fill(question);
   await chat.getByRole("textbox", { name: "질문" }).press("Enter");
   const turn = chat.locator(".chat-turn:not(.is-pending)").last();

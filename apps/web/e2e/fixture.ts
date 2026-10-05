@@ -4,7 +4,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export type Marker = { text: string; pdf_point: [number, number]; normalized: [number, number]; advance_width: number };
 export type FixturePage = {
@@ -189,6 +189,16 @@ export async function openPanel(page: Page, label: "Claude와 대화" | "선택 
   const button = page.getByRole("navigation", { name: "사이드바 패널" }).getByRole("button", { name: label, exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
+}
+
+/**
+ * 대화 패널(chat)이 대화 목록을 다 받은 뒤, 지금 대화가 있으면 새 대화를 시작한다. 받기 전에는 새 대화 단추가 꺼져 있다가
+ * 받으면 가장 최근 대화가 열린다. 기다리지 않고 단추를 보면 질문이 앞 대화에 이어질 수 있다(2026-10-05 릴리스 CI).
+ */
+export async function startNewChat(chat: Locator) {
+  await expect(chat).toHaveAttribute("aria-busy", "false");
+  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
+  if (await newChat.isEnabled()) await newChat.click();
 }
 
 /**

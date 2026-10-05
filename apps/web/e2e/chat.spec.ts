@@ -21,6 +21,7 @@ import {
   saveNote,
   SELECTION_STATUS,
   showPage,
+  startNewChat,
   uploadPdf,
 } from "./fixture";
 
@@ -344,8 +345,7 @@ test("그림을 누르면 영역 도구줄이 뜨고, AI에게 질문은 원문 
   const chat = page.locator(CHAT);
   await expect(chat.locator(".chat-attachments li")).toContainText(["그림 · p.1"]);
   await expect(chat.getByRole("textbox", { name: "질문" })).toHaveValue("이 그림의 캡션은 뭐라고 하나요?");
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click(); // 앞 실행의 대화가 있으면 새로 시작한다
+  await startNewChat(chat); // 앞 실행의 대화가 있으면 새로 시작한다
   runsBefore = fakeRuns().length;
   await chat.getByRole("button", { name: "보내기" }).click();
   const turn = chat.locator(".chat-turn:not(.is-pending)").last();
@@ -364,8 +364,7 @@ test("대화 범위: 논문 본문은 대화에 한 번만, 현재 쪽은 그 �
   await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   const scope = chat.getByLabel("범위");
   await expect(scope).toHaveValue("paper"); // 기본은 논문 본문 (시안 3a·D2)
   const input = chat.getByRole("textbox", { name: "질문" });
@@ -435,7 +434,7 @@ test("대화 범위: 논문 본문은 대화에 한 번만, 현재 쪽은 그 �
   await page.reload();
   await openPanel(page, "Claude와 대화");
   await expect(scope).toHaveValue("paper");
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   const reopened = await askAndWait("범위 확인"); // 보이는 값만이 아니라 실제로 논문 본문을 보낸다
   expect(reopened.message.message.content.at(-1)!.text!).toContain("- 범위: 논문 본문");
 });
@@ -446,9 +445,8 @@ test("사이드바 대화마다 이름을 바꾸고(Enter 저장·Esc 취소, �
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
   const startChat = async (question: string) => {
-    if (await newChat.isEnabled()) await newChat.click();
+    await startNewChat(chat);
     await input.fill(question);
     await input.press("Enter");
     await expect(chat.locator(".chat-turn:not(.is-pending)").last().locator(".chat-prompt")).toHaveText(question, { timeout: 15_000 });
@@ -501,8 +499,7 @@ test("답을 만드는 중에 중단하면 답을 저장하지 않고 질문을 
   await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   const input = chat.getByRole("textbox", { name: "질문" });
   const answersBefore = (await (await page.request.get(`/api/v1/answers?origin=claude_code&limit=200`)).json()).answers.length;
 
@@ -541,8 +538,7 @@ test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화�
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   const stamp = Date.now();
   const lastPrompt = () => chat.locator(".chat-turn:not(.is-pending)").last().locator(".chat-prompt");
   await input.fill(`원래 질문 ${stamp}`);
@@ -600,8 +596,7 @@ test("답마다 갈래: 앞 답에서 가르면 그 답까지만 이어받는다
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
   const input = chat.getByRole("textbox", { name: "질문" });
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   const stamp = Date.now();
   for (const question of [`첫 질문 ${stamp}`, `둘째 질문 ${stamp}`]) {
     await input.fill(question);
@@ -765,8 +760,7 @@ test("문단 근거: 논문 본문의 문단마다 ¶를 달아 보내고, 답�
   const { paperId } = await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
   const chat = page.locator(CHAT);
-  const newChat = chat.getByRole("button", { name: "새 대화", exact: true });
-  if (await newChat.isEnabled()) await newChat.click();
+  await startNewChat(chat);
   await chat.getByLabel("범위").selectOption("paper");
   const input = chat.getByRole("textbox", { name: "질문" });
   await input.fill("(문단) 둘째 문단은 무엇을 말하나요?");

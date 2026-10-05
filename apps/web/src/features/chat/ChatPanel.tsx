@@ -93,6 +93,8 @@ const LIST_LIMIT = 200;
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onDiscarded, onSessionRenamed, onSessionDeleted }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
+  // 답을 처음 받는 동안은 지금 대화(가장 최근 대화)를 아직 모른다. 그동안 패널을 aria-busy로 둔다.
+  const [loading, setLoading] = useState(true);
   // undefined: 아직 고르지 않음(가장 최근 대화를 연다), null: 새 대화
   const [chosen, setChosen] = useState<string | null | undefined>(undefined);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -122,7 +124,10 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const reloadMeta = () => listSessionMeta(paperId).then(setMeta);
 
   useEffect(() => {
-    void reload().catch(() => undefined);
+    setLoading(true);
+    void reload()
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
     void reloadMeta().catch(() => undefined);
   }, [paperId]);
 
@@ -317,7 +322,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const title = fork?.title ?? sessions.find((item) => item.id === session)?.title ?? "새 대화";
   const measured = [...turns].reverse().find((answer) => answer.context_tokens !== null);
   return (
-    <section className="chat-panel" aria-labelledby="chat-heading">
+    <section className="chat-panel" aria-labelledby="chat-heading" aria-busy={loading}>
       <header className="side-head is-strong">
         <h2 id="chat-heading" className="side-title">
           Claude와 대화
