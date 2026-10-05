@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
 from paperloom.documents import repository, text_repository
+from paperloom.documents.extract import ExtractFailed, extract_pages
 from paperloom.documents.headings import headings
 from paperloom.documents.inspect import PdfRejected, clean_text, inspect_pdf
 from paperloom.documents.models import (
@@ -29,6 +30,7 @@ from paperloom.documents.models import (
     VersionOut,
 )
 from paperloom.documents.parsing import ParseService
+from paperloom.documents.titles import looks_like_filename, title_from_blocks
 from paperloom.infrastructure.clock import utc_now
 from paperloom.infrastructure.database.sqlite import connect
 from paperloom.infrastructure.files.source_store import ReceivedFile, SourceStore
@@ -85,6 +87,9 @@ class DocumentService:
             raise UploadRejected("MALFORMED_PDF")
         if info.page_count > self.limits.max_pages:
             raise UploadRejected("RESOURCE_LIMIT")
+        # 메타데이터 제목이 없거나 파일 이름 같으면 첫 쪽에서 찾는다(2026-10-05). 못 찾으면 파일 이름이다.
+        metadata_title = info.title if info.title and not looks_like_filename(info.title) else None
+        title = metadata_title or self._first_page_title(received.path) or info.title or title_from_filename(filename)
 
         with closing(connect(self._db_path)) as connection:
             existing = repository.find_paper_id_by_sha256(connection, received.sha256)
@@ -98,7 +103,7 @@ class DocumentService:
                         connection,
                         paper_id=paper_id,
                         version_id=version_id,
-                        title=info.title or title_from_filename(filename),
+                        title=title,
                         sha256=received.sha256,
                         size_bytes=received.size_bytes,
                         page_count=info.page_count,
@@ -121,6 +126,14 @@ class DocumentService:
         assert paper is not None
         self._parsing.notify()
         return paper
+
+    def _first_page_title(self, path: Path) -> str | None:
+        """첫 쪽에서 찾은 제목(documents.titles). 첫 쪽을 읽지 못하면 None이다(등록은 그대로 하고 파일 이름을 쓴다)."""
+        try:
+            [page] = extract_pages(path, 0, 1, self.limits.inspect_timeout_seconds)
+        except (ExtractFailed, OSError, ValueError):
+            return None
+        return title_from_blocks(page["blocks"])
 
     def list_papers(self) -> list[PaperOut]:
         with closing(connect(self._db_path)) as connection:

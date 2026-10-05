@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 
 from paperloom.documents.models import PaperOut, SourceVersionOut, VersionOut
+from paperloom.documents.titles import looks_like_filename
 
 # 단일 사용자 로컬 모드의 소유자. 인증 주체 연결은 W07에서 한다.
 LOCAL_OWNER_ID = "local"
@@ -154,6 +155,12 @@ def titles_with_markup(connection: sqlite3.Connection) -> list[tuple[str, str]]:
     """태그 모양(<…>)이 든 제목의 (paper_id, 제목). 메타데이터 제목을 그대로 저장한 예전 논문."""
     rows = connection.execute("SELECT paper_id, title FROM papers WHERE title LIKE '%<%>%'").fetchall()
     return [(row["paper_id"], row["title"]) for row in rows]
+
+
+def filename_titles(connection: sqlite3.Connection) -> list[tuple[str, str]]:
+    """파일 이름에서 온 것 같은 제목(titles.looks_like_filename)의 (paper_id, 지금 버전 ID). 첫 쪽에서 제목을 찾기 전에 등록한 논문."""
+    rows = connection.execute("SELECT paper_id, current_version_id, title FROM papers WHERE owner_id = ?", (LOCAL_OWNER_ID,)).fetchall()
+    return [(row["paper_id"], row["current_version_id"]) for row in rows if looks_like_filename(row["title"])]
 
 
 def fix_title(connection: sqlite3.Connection, paper_id: str, title: str) -> None:

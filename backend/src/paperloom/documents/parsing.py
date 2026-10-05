@@ -10,6 +10,7 @@
   가져가고도 끝내지 못하면 FAILED(PARSER_ERROR)다. 그 뒤는 사용자가 다시 요청한다(request).
 """
 
+import json
 import logging
 import sqlite3
 import threading
@@ -30,6 +31,7 @@ from paperloom.documents.inspect import clean_text
 from paperloom.documents.references import REFERENCES_FLAG, REFERENCES_VERSION, reference_blocks, reference_pages
 from paperloom.documents.running import running_lines
 from paperloom.documents.text_layout import LAYOUT_VERSION, config_hash, document_status
+from paperloom.documents.titles import looks_like_filename, title_from_blocks
 from paperloom.infrastructure.clock import utc_now
 from paperloom.infrastructure.database.sqlite import connect
 from paperloom.infrastructure.files.source_store import SourceStore
@@ -51,6 +53,11 @@ class ParseSettings:
 
 class ParseInProgress(Exception):
     pass
+
+
+def _stored_block(row: sqlite3.Row) -> dict:
+    """저장된 문단(text_repository.page_blocks)을 제목 찾기(titles.title_from_blocks)가 읽는 꼴로"""
+    return {"text": row["text"], "regions": json.loads(row["regions_json"]), "font_size": row["font_size"], "quality_flags": json.loads(row["quality_flags_json"])}
 
 
 def _marked(page: dict, marks: dict[tuple[int, int], list[str]]) -> dict:
@@ -116,6 +123,10 @@ class ParseService:
             for paper_id, title in documents.titles_with_markup(connection):
                 if (cleaned := clean_text(title)) and cleaned != title:
                     documents.fix_title(connection, paper_id, cleaned)
+            # 첫 쪽에서 제목을 찾기 전(2026-10-05)에 파일 이름(1706.03762v7)으로 등록한 논문: 저장된 첫 쪽에서 제목을 찾는다
+            for paper_id, version_id in documents.filename_titles(connection):
+                if title := title_from_blocks([_stored_block(row) for row in runs.page_blocks(connection, version_id, 0)]):
+                    documents.fix_title(connection, paper_id, title)
             for paper_id, version_id in documents.papers_without_doi(connection):
                 rows = runs.blocks_on_pages(connection, version_id, list(range(DOI_PAGES)))
                 if doi := find_doi([row["text"] for row in rows]):
@@ -203,6 +214,11 @@ class ParseService:
             runs.replace_extraction(connection, run.version_id, run.parse_run_id, pages)
             if doi:
                 documents.fill_doi(connection, version.paper_id, doi)
+            # 등록 때 첫 쪽을 읽지 못해 파일 이름이 제목이 된 논문은 추출한 첫 쪽에서 제목을 찾는다
+            paper = documents.get_paper(connection, version.paper_id)
+            first = next((page for page in pages if page["page_index"] == 0), None)
+            if paper and first and looks_like_filename(paper.title) and (title := title_from_blocks(first["blocks"])):
+                documents.fix_title(connection, version.paper_id, title)
             runs.set_version_status(connection, run.version_id, status, reason)
         log.info(
             "본문 추출 %s 끝: version=%s status=%s reason=%s pages=%d parser=%s %.2fs",
