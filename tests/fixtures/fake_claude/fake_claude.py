@@ -53,11 +53,12 @@ def main() -> int:
         # 잠금 파일을 만든 차례만 쓴다
         lock = log + ".lock"
         deadline = time.monotonic() + 5
-        while True:
+        locked = False
+        while not locked:
             try:
                 os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-                break
-            except FileExistsError:
+                locked = True
+            except (FileExistsError, PermissionError):  # Windows: 다른 차례가 지우는 중인 잠금 파일은 PermissionError다
                 if time.monotonic() > deadline:
                     break
                 time.sleep(0.01)
@@ -65,8 +66,10 @@ def main() -> int:
             with open(log, "a", encoding="utf-8") as file:
                 file.write(json.dumps(record, ensure_ascii=False) + "\n")
         finally:
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(lock)
+            # 잡은 잠금만 지운다(못 잡았으면 다른 차례의 것이다). 지우는 중인 파일은 Windows에서 PermissionError다
+            if locked:
+                with contextlib.suppress(FileNotFoundError, PermissionError):
+                    os.remove(lock)
     mode = os.environ.get("FAKE_CLAUDE_MODE", "ok")
     emit({"type": "system", "subtype": "init", "session_id": session, "model": "fake", "apiKeySource": "none", "tools": [], "mcp_servers": []})
     if mode == "crash":
