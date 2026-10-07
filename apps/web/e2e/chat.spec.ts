@@ -312,8 +312,11 @@ test("그림을 누르면 영역 도구줄이 뜨고, AI에게 질문은 원문 
   const [u0, v0, u1, v1] = figures.find((figure: { name: string }) => figure.name === "vector").normalized;
   const clickFigure = async () => {
     const frame = (await page.locator('.page[data-page-number="1"]').boundingBox())!;
-    await page.mouse.click(frame.x + (frame.width * (u0 + u1)) / 2, frame.y + (frame.height * (v0 + v1)) / 2);
-    await expect(regionToolbar(page)).toBeVisible();
+    // 쪽의 그림 후보를 받기 전에 누르면 아무 일도 없다(figures.ts). 도구줄이 뜰 때까지 다시 누른다
+    await expect(async () => {
+      await page.mouse.click(frame.x + (frame.width * (u0 + u1)) / 2, frame.y + (frame.height * (v0 + v1)) / 2);
+      await expect(regionToolbar(page)).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
   };
   await clickFigure();
   const toolbar = regionToolbar(page);
