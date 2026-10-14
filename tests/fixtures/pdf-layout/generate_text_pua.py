@@ -7,7 +7,9 @@
 text-pua.pdf : 한 쪽, 글줄마다 문단 하나.
   - 기호 글꼴(ABCDEF+MTSymbol): t·g → U+F074·F067 → τ·γ
   - 수식 글꼴(ABCDEG+MTEX): 큰 중괄호 조각 U+F8F1(윗조각)·F8F4·F8F3 → "{"와 빈칸
-  - 기호 글꼴이 아닌 Wingdings(ABCDEH+Wingdings-Regular)의 U+F0E0: 모르는 글자라 문단 글에서 뺀다(바꾸지 못한 글자로 남는다)
+  - 기호 글꼴이 아닌 Wingdings(ABCDEH+Wingdings-Regular)의 U+F0E0: 모르는 글자라 문단 글에서 뺀다(바꾸지 못한 글자로 남는다).
+    글자 코드는 ASCII(x)로 둔다: 넣지 않은 글꼴의 0xE0 같은 높은 코드를 Linux의 pdfium은 글자 목록에서 아예 뺀다(같은
+    pdfium 153.0.7999.0, Windows는 준다 — 2026-10-14 CI에서 찾음)
 
 실행: python tests/fixtures/pdf-layout/generate_text_pua.py
 """
@@ -29,7 +31,7 @@ def _escape(value: bytes) -> bytes:
 CONTENT = (
     line(700, ("F1", b"Tasks "), ("F2", b"t"), ("F1", b"1 and "), ("F2", b"g"), ("F1", b"a are released."))
     + line(660, ("F1", b"The value is "), ("F3", b"\x01\x02\x03"), ("F1", b"one case."))
-    + line(620, ("F1", b"Then e "), ("F4", b"\xe0"), ("F1", b" L2 evicts a."))
+    + line(620, ("F1", b"Then e "), ("F4", b"x"), ("F1", b" L2 evicts a."))
 )
 
 
@@ -42,7 +44,7 @@ def cmap(name: bytes, pairs: list[tuple[int, int]]) -> bytes:
 CMAPS = [
     cmap(b"SynthSymbol", [(0x74, 0xF074), (0x67, 0xF067)]),
     cmap(b"SynthMtex", [(0x01, 0xF8F1), (0x02, 0xF8F4), (0x03, 0xF8F3)]),
-    cmap(b"SynthWingdings", [(0xE0, 0xF0E0)]),
+    cmap(b"SynthWingdings", [(0x78, 0xF0E0)]),
 ]
 
 
