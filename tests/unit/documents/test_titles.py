@@ -60,3 +60,12 @@ def test_titles_without_spaces_look_like_file_names():
     assert looks_like_filename("paper_final-v2")
     assert not looks_like_filename("Attention Is All You Need")
     assert not looks_like_filename("")
+
+
+def test_titles_ending_with_a_document_file_extension_look_like_file_names():
+    """2026-10-14 실제 논문 시험: 한글 문서를 PDF로 바꾼 논문의 메타데이터 제목이 빈칸이 든 HWP 파일 이름이었다."""
+    assert looks_like_filename("10. [25M-05-066M]_725-731_전현수_1차 수정.hwp")
+    assert looks_like_filename("final draft v3.docx")
+    assert looks_like_filename("fp18-hartstein1.PDF")
+    assert not looks_like_filename("Cache Miss Behavior: Is It √2?")
+    assert not looks_like_filename("Notes on the .NET runtime")

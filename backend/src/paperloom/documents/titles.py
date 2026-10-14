@@ -18,11 +18,13 @@ MAX_PARTS = 3  # 제목으로 이을 문단 수
 MAX_LENGTH = 300
 _WORD = re.compile(r"[^\W\d_]{2,}")
 _FOOTNOTE_MARKS = "*∗†‡§¶"
+_DOCUMENT_FILE = re.compile(r"\.(?:pdf|docx?|hwpx?|odt|rtf|tex|dvi|ps|pptx?)$", re.IGNORECASE)
 
 
 def looks_like_filename(title: str) -> bool:
-    """파일 이름에서 온 제목인지. 빈칸이 없다(1706.03762v7, paper_final-v2). 사람이 쓴 제목은 거의 늘 낱말이 둘 이상이다."""
-    return bool(title) and not any(char.isspace() for char in title)
+    """파일 이름에서 온 제목인지. 빈칸이 없거나(1706.03762v7, paper_final-v2. 사람이 쓴 제목은 거의 늘 낱말이 둘 이상이다),
+    문서 파일 확장자로 끝난다(2026-10-14 실제 논문 시험: 한글 문서를 바꾼 PDF의 "…_1차 수정.hwp")."""
+    return bool(title) and (not any(char.isspace() for char in title) or _DOCUMENT_FILE.search(title.strip()) is not None)
 
 
 def title_from_blocks(blocks: list[dict]) -> str | None:
