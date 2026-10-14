@@ -197,6 +197,8 @@ def page_texts(
     first_page = min((page for page, (status, _) in text.pages.items() if status in ("usable", "partial")), default=0)
     pages: dict[int, list[Block]] = {}
     for block in text.blocks:
+        if text.pages.get(block.page_index, (None, ()))[0] == "unreadable":
+            continue  # 글자 대부분을 못 읽은 쪽(2026-10-14 실제 논문): 그 글은 "����"라 근거가 되지 않는다
         if (wanted is None or block.page_index in wanted) and (block.page_index == first_page or not _in_margin(block)):
             pages.setdefault(block.page_index, []).append(block)
     evidence: list[Evidence] = []

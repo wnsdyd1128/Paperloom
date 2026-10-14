@@ -34,7 +34,7 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 #    마지막 줄을 떼어 가지 않는다(_starts_paragraph, 같은 날 사용자 논문 CAAS)
 # 10: 넓은 입력 문단(Input:·Require:)이 든 의사코드 상자도 표 안으로 본다(tables._pseudocode, 2026-10-05 사용자 논문 TCPS·CAAS)
 # 11: 3B2 조판 PDF의 AdvP 수식 글꼴을 TeX 글꼴 자리의 글자로 되돌린다(glyphs.kind_3b2, 2026-10-14 사용자 논문 IEEE TC), 사용자 영역
-#     Symbol 글자·괄호 조각을 되찾고 모르는 것은 뺀다(glyphs.pua_text)
+#     Symbol 글자·괄호 조각을 되찾고 모르는 것은 뺀다(glyphs.pua_text), 글자 대부분을 못 읽은 쪽은 unreadable(같은 날 실제 논문 시험)
 LAYOUT_VERSION = "11"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
@@ -54,6 +54,9 @@ COLUMN_SHARE = 0.25  # 왼쪽 반·오른쪽 반에만 놓인 문단의 글자�
 COLUMN_SLACK = 0.02  # 쪽 너비 비율. 가운데선을 이만큼 넘어도 한쪽 단으로 본다
 MIN_TEXT_CHARS = 10  # 글자가 이보다 적으면 글자가 없는 쪽(쪽 번호뿐)으로 본다
 UNMAPPED_SHARE = 0.02  # 유니코드로 바꾸지 못한 글자가 이 비율보다 많으면 partial
+# 이보다 많으면 기호 일부가 아니라 글 대부분을 못 읽은 쪽(unreadable)이다: 검색·근거·번역에 쓰지 않는다. 2026-10-14 실제 논문 36편:
+# 수식 기호만 못 읽은 쪽은 2–28%, 글꼴에 유니코드가 없는 1973년 논문은 96–100%였다
+UNREADABLE_SHARE = 0.5
 MOSTLY_IMAGE = 0.8  # 이미지가 쪽의 이 비율 이상을 덮고
 MOSTLY_IMAGE_CHARS = 200  # 글자가 이보다 적으면 partial (스캔 쪽에 내려받기 문구만 있는 경우)
 IMAGE_ONLY = 0.5  # 글자가 없고 이미지가 쪽의 이 비율 이상을 덮으면 image_only
@@ -127,7 +130,7 @@ class TextBlock:
 @dataclass(frozen=True)
 class PageText:
     blocks: list[TextBlock]
-    text_status: str  # usable, partial, image_only, unknown
+    text_status: str  # usable, partial, unreadable, image_only, unknown
     flags: list[str]
     quality: dict  # chars, unmapped_chars, image_coverage
 
@@ -451,6 +454,8 @@ def classify_page(chars: int, unmapped: int, image_coverage: float) -> tuple[str
     """(text_status, flags). chars는 공백이 아닌 글자 수, image_coverage는 이미지가 덮는 쪽 비율이다."""
     if chars < MIN_TEXT_CHARS:
         return ("image_only" if image_coverage >= IMAGE_ONLY else "unknown"), ["no_text"]
+    if unmapped > UNREADABLE_SHARE * chars:
+        return "unreadable", ["unmapped_chars"]
     if unmapped > UNMAPPED_SHARE * chars:
         return "partial", ["unmapped_chars"]
     if image_coverage >= MOSTLY_IMAGE and chars < MOSTLY_IMAGE_CHARS:
@@ -462,13 +467,14 @@ def document_status(pages: list[tuple[str, dict]]) -> tuple[str, str | None]:
     """쪽들의 (text_status, quality)로 문서 상태 (IMPL §5.2): INDEXED, PARTIAL, FAILED와 실패 이유.
 
     글자가 없는 빈 쪽(unknown, no_text)은 문서 상태를 낮추지 않는다. 추출에 실패한 쪽은 quality에 error가 있다.
+    글이 있는 쪽이 모두 글자 대부분을 못 읽은 쪽(unreadable)이면 FAILED, 이유 UNREADABLE_TEXT다(2026-10-14).
     """
     errors = [quality["error"] for _, quality in pages if quality.get("error")]
     if not any(status in ("usable", "partial") for status, _ in pages):
-        if errors and not any(status == "image_only" for status, _ in pages):
+        if errors and not any(status in ("image_only", "unreadable") for status, _ in pages):
             return "FAILED", errors[0]
-        return "FAILED", "NO_TEXT_LAYER"
-    if errors or any(status in ("partial", "image_only") for status, _ in pages):
+        return "FAILED", "UNREADABLE_TEXT" if any(status == "unreadable" for status, _ in pages) else "NO_TEXT_LAYER"
+    if errors or any(status in ("partial", "unreadable", "image_only") for status, _ in pages):
         return "PARTIAL", None
     return "INDEXED", None
 

@@ -30,6 +30,7 @@ const STATUS_TONES: Record<SourceVersion["status"], string> = {
 };
 const REASON_LABELS: Record<string, string> = {
   NO_TEXT_LAYER: "글자 층 없음(스캔·이미지)",
+  UNREADABLE_TEXT: "글자를 읽을 수 없음(글꼴에 문자 정보 없음)",
   RESOURCE_LIMIT: "처리 한도 초과",
   PARSER_ERROR: "추출 오류",
   PASSWORD_REQUIRED: "암호 필요",

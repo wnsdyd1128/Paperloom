@@ -21,7 +21,12 @@ ROLES = {
     "paper_text": "논문 본문",
 }
 SCOPES = {"selection": "고른 위치만", "paper": "논문 본문(앞쪽부터, 고른 위치가 있으면 그 근거가 먼저)"}
-TEXT_STATUS = {"partial": "일부만 추출됨", "image_only": "글자 층 없음(이미지뿐)", "unknown": "추출 확인 못함"}
+TEXT_STATUS = {
+    "partial": "일부만 추출됨",
+    "unreadable": "글자를 읽을 수 없음(글꼴에 문자 정보 없음)",
+    "image_only": "글자 층 없음(이미지뿐)",
+    "unknown": "추출 확인 못함",
+}
 REASONS = {
     "text_budget": "글자 한도를 넘음",
     "image_limit": "이미지 한도를 넘음",

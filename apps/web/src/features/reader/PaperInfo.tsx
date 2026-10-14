@@ -168,6 +168,7 @@ export function PaperInfoMenu({ paper, version, texts, onSaved }: Props) {
 
 const FAILURE_REASONS: Record<string, string> = {
   NO_TEXT_LAYER: "글자 층 없음(스캔)",
+  UNREADABLE_TEXT: "글자를 읽을 수 없음",
   RESOURCE_LIMIT: "처리 한도 넘음",
   PARSER_ERROR: "추출 오류",
   PASSWORD_REQUIRED: "암호",
@@ -191,6 +192,7 @@ function extractionSummary(texts: PageTexts | null, version: Version): string {
   const parts = [
     [count("usable"), "정상"],
     [count("partial"), "일부"],
+    [count("unreadable"), "읽을 수 없음"],
     [count("image_only"), "이미지"],
     [count("unknown"), "글자 없음"],
   ].filter(([pagesOf]) => pagesOf);

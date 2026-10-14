@@ -403,3 +403,16 @@ def test_page_texts_report_pages_without_text():
     assert [(item.role, item.page_index, item.reason) for item in excluded] == [("paper_text", 5, "no_extracted_text")]
     evidence, _, excluded = pages_of(None, 100_000, text=VersionText(extracted=False, pages={}, blocks=[]))
     assert evidence == [] and [(item.role, item.reason) for item in excluded] == [("paper_text", "text_not_extracted")]
+
+
+def test_pages_whose_text_cannot_be_read_are_left_out_of_the_paper_text():
+    """2026-10-14 실제 논문 시험: 글자 대부분을 못 읽은 쪽(unreadable)의 글("����")은 본문 근거로 보내지 않는다."""
+    unreadable = VersionText(
+        extracted=True,
+        pages={0: ("usable", ()), 1: ("unreadable", ("unmapped_chars",))},
+        blocks=[*PAGE0, block("U", 1, 0.20, 0.30, "\ufffd\ufffd\ufffd\ufffd " + LONG)],
+    )
+    evidence, _, excluded = pages_of(None, 100_000, text=unreadable)
+    assert [item.page_index for item in evidence] == [0]
+    evidence, _, excluded = pages_of([1], 100_000, text=unreadable)
+    assert evidence == [] and [(item.page_index, item.reason) for item in excluded] == [(1, "no_extracted_text")]

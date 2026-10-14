@@ -14,7 +14,8 @@ class SourceVersionOut(BaseModel):
     page_count: int
     # IMPL §5.2 상태: READY_TO_READ(본문 추출 전) → PARSING → INDEXED | PARTIAL | FAILED. 어느 상태든 원본은 읽을 수 있다.
     status: str
-    # FAILED의 이유: NO_TEXT_LAYER, RESOURCE_LIMIT, PARSER_ERROR, PASSWORD_REQUIRED, MALFORMED_PDF
+    # FAILED의 이유: NO_TEXT_LAYER, UNREADABLE_TEXT(글꼴에 문자 정보가 없어 글자 대부분을 못 읽음), RESOURCE_LIMIT, PARSER_ERROR,
+    # PASSWORD_REQUIRED, MALFORMED_PDF
     status_reason: str | None = None
     created_at: str
 
@@ -94,7 +95,8 @@ class PageQuality(BaseModel):
 class PageOut(BaseModel):
     page_index: int
     page_label: str | None
-    # usable, partial(일부 글자 깨짐·대부분 이미지), image_only(글자 없이 이미지), unknown(빈 쪽·추출 실패)
+    # usable, partial(일부 글자 깨짐·대부분 이미지), unreadable(글자 대부분을 못 읽음), image_only(글자 없이 이미지),
+    # unknown(빈 쪽·추출 실패)
     text_status: str
     flags: list[str]  # no_text, mostly_image, unmapped_chars, two_columns, extract_failed
     quality: PageQuality

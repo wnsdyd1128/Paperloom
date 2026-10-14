@@ -58,6 +58,8 @@ function describe(status: PageTexts["status"], page: PageText | undefined): [str
       return flags.has("unmapped_chars")
         ? ["본문 일부", "글자 일부를 유니코드로 바꾸지 못했습니다. 인용을 원문과 비교하세요."]
         : ["본문 일부", "쪽 대부분이 이미지입니다. 이미지 속 글자는 검색되지 않습니다."];
+    case "unreadable":
+      return ["본문 없음 · 글자를 읽을 수 없음", "글꼴에 문자 정보가 없어 이 쪽의 글자를 읽을 수 없습니다(검색·근거·번역에 쓰지 않습니다). 그림·표는 영역 선택으로 고르세요."];
     case "image_only":
       return ["본문 없음 · 이미지", "글자 층이 없는 쪽입니다(스캔 등). 그림·표는 영역 선택으로 고르세요."];
     case "unknown":

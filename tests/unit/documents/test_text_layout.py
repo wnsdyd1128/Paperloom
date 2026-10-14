@@ -232,6 +232,9 @@ class TestBlockText:
         assert block_text(built) == expected
 
 
+UNREADABLE = {"chars": 2910, "unmapped_chars": 2900, "image_coverage": 0.0}  # 글자 거의 모두를 바꾸지 못한 쪽
+
+
 class TestStatus:
     @pytest.mark.parametrize(
         ("chars", "unmapped", "coverage", "expected"),
@@ -239,6 +242,8 @@ class TestStatus:
             (500, 0, 0.0, ("usable", [])),
             (500, 5, 0.0, ("usable", [])),  # 1% 깨짐은 정상
             (500, 20, 0.0, ("partial", ["unmapped_chars"])),
+            (500, 250, 0.0, ("partial", ["unmapped_chars"])),  # 수식이 많은 쪽(실제 논문 28%까지)
+            (2910, 2900, 0.0, ("unreadable", ["unmapped_chars"])),  # 글꼴에 유니코드가 없는 1973년 논문(96–100%)
             (100, 0, 1.0, ("partial", ["mostly_image"])),  # 스캔 쪽 + 내려받기 문구
             (500, 0, 1.0, ("usable", [])),  # 글이 많은 쪽의 배경 이미지
             (3, 0, 1.0, ("image_only", ["no_text"])),
@@ -255,6 +260,9 @@ class TestStatus:
             ([("usable", {}), ("partial", {})], ("PARTIAL", None)),
             ([("usable", {}), ("image_only", {})], ("PARTIAL", None)),
             ([("usable", {}), ("unknown", {"error": "RESOURCE_LIMIT"})], ("PARTIAL", None)),
+            # 실제 논문 시험(2026-10-14): 글자 대부분을 못 읽은 쪽(unreadable)이 섞이면 기호 일부가 아니다. 모두 그러면 검색 불가
+            ([("usable", {}), ("unreadable", UNREADABLE)], ("PARTIAL", None)),
+            ([("unreadable", UNREADABLE), ("unreadable", UNREADABLE), ("unknown", {})], ("FAILED", "UNREADABLE_TEXT")),
             ([("image_only", {}), ("unknown", {})], ("FAILED", "NO_TEXT_LAYER")),
             ([("unknown", {}), ("unknown", {})], ("FAILED", "NO_TEXT_LAYER")),
             ([("unknown", {"error": "RESOURCE_LIMIT"}), ("unknown", {})], ("FAILED", "RESOURCE_LIMIT")),

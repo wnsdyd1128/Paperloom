@@ -11,7 +11,7 @@ export type SourceVersion = Readonly<{
   size_bytes: number;
   page_count: number;
   status: VersionStatus;
-  /** FAILED의 이유: NO_TEXT_LAYER, RESOURCE_LIMIT, PARSER_ERROR, PASSWORD_REQUIRED, MALFORMED_PDF */
+  /** FAILED의 이유: NO_TEXT_LAYER, UNREADABLE_TEXT, RESOURCE_LIMIT, PARSER_ERROR, PASSWORD_REQUIRED, MALFORMED_PDF */
   status_reason: string | null;
   created_at: string;
 }>;
@@ -35,7 +35,7 @@ export type Paper = Readonly<{
 export type Version = SourceVersion & Readonly<{ paper_id: string }>;
 
 /** 쪽의 본문 추출 상태 (IMPL §5.3). 휴리스틱이며 확률이 아니다. */
-export type TextStatus = "usable" | "partial" | "image_only" | "unknown";
+export type TextStatus = "usable" | "partial" | "unreadable" | "image_only" | "unknown";
 
 export type PageText = Readonly<{
   page_index: number;
