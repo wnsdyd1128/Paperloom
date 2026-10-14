@@ -33,7 +33,8 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 # 9: ascent·descent가 망가진 글꼴의 글자 상자를 기준선 둘레로 넓힌다(extract.BASELINE_BAND), 글머리표 줄은 앞 항목의 끝까지 찬
 #    마지막 줄을 떼어 가지 않는다(_starts_paragraph, 같은 날 사용자 논문 CAAS)
 # 10: 넓은 입력 문단(Input:·Require:)이 든 의사코드 상자도 표 안으로 본다(tables._pseudocode, 2026-10-05 사용자 논문 TCPS·CAAS)
-# 11: 3B2 조판 PDF의 AdvP 수식 글꼴을 TeX 글꼴 자리의 글자로 되돌린다(glyphs.kind_3b2, 2026-10-14 사용자 논문 IEEE TC)
+# 11: 3B2 조판 PDF의 AdvP 수식 글꼴을 TeX 글꼴 자리의 글자로 되돌린다(glyphs.kind_3b2, 2026-10-14 사용자 논문 IEEE TC), 사용자 영역
+#     Symbol 글자·괄호 조각을 되찾고 모르는 것은 뺀다(glyphs.pua_text)
 LAYOUT_VERSION = "11"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
@@ -62,6 +63,7 @@ LIST_MARKER = re.compile(r"^(?:[•◦▪▫‣⁃∙*–—-]|\[\d{1,3}\]|\(?\d
 HYPHENS = "-‐"
 SOFT_HYPHEN = "­"
 LINE_END_HYPHEN = "\x02"  # pdfium이 줄 끝에서 단어를 나눈 하이픈을 이 글자로 준다
+_DROPPED = ("Cc", "Co")  # 문단 글에서 빼는 글자: 제어 문자, 되찾지 못한 사용자 영역 글자(2026-10-14 실제 논문)
 
 
 def config_hash() -> str:
@@ -309,7 +311,7 @@ def block_styles(lines: list[Line], text: str) -> list[list]:
             pairs = pairs[:-1] + current
         else:
             pairs += [(" ", "")] + current
-    normalized = [(c, style) for char, style in pairs for c in unicodedata.normalize("NFKC", char) if unicodedata.category(c) != "Cc"]
+    normalized = [(c, style) for char, style in pairs for c in unicodedata.normalize("NFKC", char) if unicodedata.category(c) not in _DROPPED]
     collapsed = _collapse(normalized)
     if "".join(c for c, _ in collapsed) != text:
         return []
@@ -442,7 +444,7 @@ def block_text(lines: list[Line]) -> str:
         else:
             text += " " + line.text
     normalized = unicodedata.normalize("NFKC", text)
-    return " ".join("".join(ch for ch in normalized if unicodedata.category(ch) != "Cc").split())
+    return " ".join("".join(ch for ch in normalized if unicodedata.category(ch) not in _DROPPED).split())
 
 
 def classify_page(chars: int, unmapped: int, image_coverage: float) -> tuple[str, list[str]]:

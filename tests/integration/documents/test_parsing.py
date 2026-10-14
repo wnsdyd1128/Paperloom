@@ -215,6 +215,20 @@ def test_3b2_math_fonts_give_the_symbols_they_draw(app, client):
     assert page["text_status"] == "usable"
 
 
+def test_private_use_characters_give_their_symbols_or_leave_the_text(app, client):
+    """2026-10-14 실제 논문 시험: 기호 글꼴의 그리스 문자(U+F0xx)와 늘이는 괄호 조각(U+F8xx)이 사용자 영역 글자로 저장되었다.
+    아는 것은 되찾고(큰 괄호는 윗조각만 괄호), 모르는 것(Wingdings)은 문단 글에서 뺀다(바꾸지 못한 글자로 센다)."""
+    paper = upload(client, "text-pua.pdf")
+    drain(app.state.parsing)
+    page = client.get(f"/api/v1/versions/{version_of(client, paper)['version_id']}/pages/0").json()
+    assert [block["text"] for block in page["blocks"]] == [
+        "Tasks τ1 and γa are released.",
+        "The value is { one case.",
+        "Then e L2 evicts a.",
+    ]
+    assert [block["quality_flags"] for block in page["blocks"]] == [[], [], ["unmapped_chars"]]
+
+
 def test_a_font_with_broken_ascent_and_descent_still_gives_whole_paragraphs(app, client):
     """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져(글꼴 크기의 0.45·0) pdfium loose box가 글자 모양 상자였고,
     줄 높이가 x 높이쯤이 되어 문단이 줄마다 나뉘었다(번역이 줄마다 따로 작게 그려졌다). 그런 글꼴의 글자는 기준선 둘레로 넓힌다."""

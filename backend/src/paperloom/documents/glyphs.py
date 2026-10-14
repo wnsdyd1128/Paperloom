@@ -123,6 +123,22 @@ OMX = {  # TeX 큰 기호 글꼴(cmex) 자리 → 글자
     **{code: _PIECE for code in range(0x74, 0x80)},
 }
 _EXTRAS_3B2 = {"onequarter": "=", "onehalf": "[", "eth": "(", "Thorn": ")", "thorn": "+", "C138": "]"}
+
+# 사용자 영역(PUA) 글자 (2026-10-14 실제 논문 36편 중 7편): Adobe 글리프 목록은 Symbol 글꼴의 늘이는 괄호 조각 등을 U+F6D9–F8FE에
+# 둔다(어느 글꼴이든 같은 뜻). 큰 괄호는 윗조각만 괄호로 두고 나머지 조각은 빈칸이다(조각마다 괄호를 두면 "(((")
+ADOBE_PUA = {
+    0xF6D9: "©", 0xF6DA: "®", 0xF6DB: "™", 0xF8E8: "®", 0xF8E9: "©", 0xF8EA: "™",
+    0xF8EB: "(", 0xF8EE: "[", 0xF8F1: "{", 0xF8F6: ")", 0xF8F9: "]", 0xF8FC: "}",
+    **{code: _PIECE for code in (0xF8E5, 0xF8E6, 0xF8E7, 0xF8EC, 0xF8ED, 0xF8EF, 0xF8F0, 0xF8F2, 0xF8F3, 0xF8F4, 0xF8F5, 0xF8F7,
+                                 0xF8F8, 0xF8FA, 0xF8FB, 0xF8FD, 0xF8FE)},
+}
+# Adobe Symbol 인코딩(코드 → 글자). Windows 기호 글꼴(SymbolMT 등)은 이 코드를 U+F000 + 코드(사용자 영역)로 준다.
+# 늘이는 조각(0x60·0xBD·0xBE·0xE6–0xEF·0xF4–0xFE)은 큰 괄호 윗조각만 괄호, 나머지는 빈칸이다. 0xF0(쓰지 않는 자리)은 없다
+SYMBOL = {
+    **dict(zip(range(0x20, 0x7F), " !∀#∃%&∋()∗+,−./0123456789:;<=>?≅ΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ[∴]⊥_ αβχδεφγηιϕκλμνοπθρστυϖωξψζ{|}∼", strict=True)),
+    **dict(zip(range(0xA0, 0xF0), "€ϒ′≤⁄∞ƒ♣♦♥♠↔←↑→↓°±″≥×∝∂•÷≠≡≈…  ↵ℵℑℜ℘⊗⊕∅∩∪⊃⊇⊄⊂⊆∈∉∠∇®©™∏√⋅¬∧∨⇔⇐⇑⇒⇓◊⟨®©™∑(  [  {   ", strict=True)),
+    **dict(zip(range(0xF1, 0xFF), "⟩∫∫  )  ]  }  ", strict=True)),
+}
 _TEX_NAME = re.compile(r"^C(\d+)$")
 _DELIMITER_PAIRS = ((0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (16, 17), (18, 19), (22, 23), (24, 25), (26, 27))
 
@@ -151,6 +167,16 @@ def kind_3b2(names: dict[int, str]) -> str | None:
     lowercase = sum(1 for name in names.values() if len(name) == 1 and name.islower())
     pairs = sum(1 for left, right in _DELIMITER_PAIRS if left in tex and right in tex)
     return "omx" if pairs >= 2 and lowercase < len(tex) else None
+
+
+def pua_text(font: str, code: int) -> str | None:
+    """사용자 영역 글자가 그리는 글자: Adobe 글리프 목록의 Symbol 글자(ADOBE_PUA), 기호 글꼴의 U+F000 + Symbol 코드(SYMBOL).
+    늘이는 괄호 조각은 " ", 모르면 None(본문 글에서 뺀다, text_layout.block_text)."""
+    if code in ADOBE_PUA:
+        return ADOBE_PUA[code]
+    if 0xF020 <= code <= 0xF0FF and "Symbol" in font:
+        return SYMBOL.get(code - 0xF000)
+    return None
 
 
 def text_3b2(kind: str, code: int, name: str | None) -> str | None:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from paperloom.documents.glyphs import glyph_text, kind_3b2, text_3b2
+from paperloom.documents.glyphs import glyph_text, kind_3b2, pua_text, text_3b2
 
 
 @pytest.mark.parametrize(
@@ -124,3 +124,31 @@ def test_3b2_symbol_font_codes_give_the_cmsy_symbol(code, expected):
 )
 def test_3b2_delimiter_font_codes_give_the_cmex_symbol(code, expected):
     assert text_3b2("omx", code, DELIMITER_3B2.get(code)) == expected
+
+
+@pytest.mark.parametrize(
+    ("font", "code", "expected"),
+    [
+        # Adobe 글리프 목록이 사용자 영역에 둔 Symbol 글자(2026-10-14 실제 논문 7편): 늘이는 괄호는 윗조각만 괄호, 나머지는 빈칸
+        ("Symbol", 0xF8EB, "("),  # parenlefttp
+        ("Symbol", 0xF8EC, " "),  # parenleftex
+        ("Symbol", 0xF8ED, " "),  # parenleftbt
+        ("Symbol", 0xF8F6, ")"),  # parenrighttp
+        ("MTEX", 0xF8F1, "{"),  # bracelefttp: 경우 나누기의 큰 중괄호(어느 글꼴이든 같다)
+        ("MTEX", 0xF8F4, " "),  # braceex
+        ("txexs", 0xF8F3, " "),  # braceleftbt
+        ("Symbol", 0xF8E9, "©"),
+        # Windows 기호 글꼴은 Symbol 인코딩 코드를 U+F000 + 코드로 준다
+        ("SymbolMT", 0xF074, "τ"),
+        ("SymbolMT", 0xF067, "γ"),
+        ("ABCDEF+SymbolMT", 0xF0D6, "√"),
+        ("SymbolMT", 0xF0A3, "≤"),
+        ("SymbolMT", 0xF0EC, "{"),  # bracelefttp
+        ("SymbolMT", 0xF0EF, " "),  # braceex
+        ("Wingdings-Regular", 0xF0E0, None),  # 기호 글꼴이 아니면 모른다(글에서 뺀다)
+        ("Symbol", 0xF8FF, None),
+        ("Symbol", 0xE000, None),
+    ],
+)
+def test_private_use_symbols_give_the_symbol_they_draw(font, code, expected):
+    assert pua_text(font, code) == expected

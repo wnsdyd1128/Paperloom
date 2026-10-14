@@ -224,6 +224,7 @@ class TestBlockText:
             (["soft­", "hyphen"], "softhyphen"),
             (["ﬁxture  and", "ﬂow"], "fixture and flow"),  # 합자 → NFKC
             (["bad\x01char"], "badchar"),  # 제어 문자는 뺀다
+            (["bad\ue000char"], "badchar"),  # 되찾지 못한 사용자 영역 글자도 뺀다(2026-10-14 실제 논문)
         ],
     )
     def test_join(self, lines, expected):

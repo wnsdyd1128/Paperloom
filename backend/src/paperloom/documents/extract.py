@@ -17,7 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from paperloom.documents.fonts import font_style, is_math_font
-from paperloom.documents.glyphs import FontDifferences
+from paperloom.documents.glyphs import FontDifferences, pua_text
 from paperloom.documents.tables import horizontal_rules
 from paperloom.documents.text_layout import Char, layout_page
 from paperloom.infrastructure.isolation import limit_resources
@@ -151,6 +151,14 @@ def _read_chars(page, pdfium_c, recover=None, recover_3b2=None) -> tuple[list[Ch
             elif "AdvP" in font.name and recover_3b2 is not None:
                 # pdfium이 준 글자는 ToUnicode가 글리프 이름대로 준 것이라 글자 코드와 같다(2026-10-14 사용자 논문 IEEE TC)
                 found = recover_3b2(font.name, code)
+                if found == " ":
+                    chars.append(Char(" ", None))
+                    continue
+                if found:
+                    text, unmapped = found, False
+            elif 0xE000 <= code <= 0xF8FF:
+                # 사용자 영역 글자(2026-10-14 실제 논문): Symbol 글자·늘이는 괄호 조각을 되찾는다. 모르면 두어 본문 글에서 뺀다(block_text)
+                found = pua_text(font.name, code)
                 if found == " ":
                     chars.append(Char(" ", None))
                     continue

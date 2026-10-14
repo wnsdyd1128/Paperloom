@@ -1,0 +1,89 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 311 >>
+stream
+BT 72 700 Td /F1 10 Tf (Tasks ) Tj /F2 10 Tf (t) Tj /F1 10 Tf (1 and ) Tj /F2 10 Tf (g) Tj /F1 10 Tf (a are released.) Tj ET
+BT 72 660 Td /F1 10 Tf (The value is ) Tj /F3 10 Tf (\001\002\003) Tj /F1 10 Tf (one case.) Tj ET
+BT 72 620 Td /F1 10 Tf (Then e ) Tj /F4 10 Tf (\340) Tj /F1 10 Tf ( L2 evicts a.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+MTSymbol /ToUnicode 9 0 R >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEG+MTEX /ToUnicode 10 0 R >>
+endobj
+8 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEH+Wingdings-Regular /ToUnicode 11 0 R >>
+endobj
+9 0 obj
+<< /Length 247 >>
+stream
+/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SynthSymbol def
+1 begincodespacerange <00> <FF> endcodespacerange
+2 beginbfchar
+<74> <F074>
+<67> <F067>
+endbfchar
+endcmap CMapName currentdict /CMap defineresource pop end end
+endstream
+endobj
+10 0 obj
+<< /Length 257 >>
+stream
+/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SynthMtex def
+1 begincodespacerange <00> <FF> endcodespacerange
+3 beginbfchar
+<01> <F8F1>
+<02> <F8F4>
+<03> <F8F3>
+endbfchar
+endcmap CMapName currentdict /CMap defineresource pop end end
+endstream
+endobj
+11 0 obj
+<< /Length 238 >>
+stream
+/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SynthWingdings def
+1 begincodespacerange <00> <FF> endcodespacerange
+1 beginbfchar
+<E0> <F0E0>
+endbfchar
+endcmap CMapName currentdict /CMap defineresource pop end end
+endstream
+endobj
+12 0 obj
+<< /Title (Paperloom text fixture private use characters \(synthetic\)) >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000271 00000 n 
+0000000632 00000 n 
+0000000729 00000 n 
+0000000822 00000 n 
+0000000912 00000 n 
+0000001015 00000 n 
+0000001313 00000 n 
+0000001622 00000 n 
+0000001912 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R /Info 12 0 R >>
+startxref
+2003
+%%EOF
