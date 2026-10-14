@@ -405,6 +405,14 @@ def test_page_texts_report_pages_without_text():
     assert evidence == [] and [(item.role, item.reason) for item in excluded] == [("paper_text", "text_not_extracted")]
 
 
+def test_selected_text_drops_control_and_private_use_characters():
+    """2026-10-14 실제 논문 시험: Type3 수식 기호가 브라우저 글자 층에서 제어 문자(U+0000·U+0001 등)로 와서 그대로 Claude에 갔다.
+    첨자·분수 추정 표기도 같은 글자 층에서 만들어 같다(E2E 실제 논문 시험)."""
+    quote = "Let \x00 \x01\x02\x03 \ue000 denote the\ntotal size"
+    evidence, _ = run(Choice(anchor("q", 1, IN_A, quote=quote, display=quote), False, False))
+    assert (evidence[0].text, evidence[0].display_text) == ("Let denote the\ntotal size", "Let denote the\ntotal size")
+
+
 def test_pages_whose_text_cannot_be_read_are_left_out_of_the_paper_text():
     """2026-10-14 실제 논문 시험: 글자 대부분을 못 읽은 쪽(unreadable)의 글("����")은 본문 근거로 보내지 않는다."""
     unreadable = VersionText(

@@ -57,6 +57,13 @@ def looks_mathematical(anchor: AnchorOut) -> bool:
     return anchor.kind == "text" and (anchor.display_quote is not None or MATH_CHARS.search(anchor.quote) is not None)
 
 
+def _readable(quote: str) -> str:
+    """고른 글에서 제어 문자·사용자 영역 글자를 뺀다(줄바꿈·탭은 둔다). 브라우저 글자 층은 읽지 못한 수식 기호를 그런 글자로
+    준다(2026-10-14 실제 논문: Word 수식의 Type3 글꼴). 뺀 자리의 빈칸은 하나로 줄인다."""
+    kept = "".join(char for char in quote if char in "\n\t" or unicodedata.category(char) not in ("Cc", "Co"))
+    return re.sub(r" {2,}", " ", kept)
+
+
 def unreadable_selection(anchor: AnchorOut, blocks: list["Block"]) -> bool:
     """글 선택의 글자를 믿을 수 없는가: 놓인 문단에 유니코드로 바꾸지 못한 글자가 있거나(그 기호가 선택 글에 빠지거나 깨져 있다),
     선택 글에 놓인 문단의 추출 글에 없는 기호가 있다(브라우저 글자 층이 3B2 수식 글꼴의 ( )를 ð Þ로 준다). 놓인 문단이 없으면 모른다."""
@@ -115,7 +122,7 @@ def build(choices: list[Choice], texts: dict[str, VersionText], source_refs: dic
     excluded: list[Excluded] = []
     for choice in choices:
         anchor = choice.anchor
-        group = [_Item("selected_text" if anchor.kind == "text" else "selected_region", anchor, anchor.quote)]
+        group = [_Item("selected_text" if anchor.kind == "text" else "selected_region", anchor, _readable(anchor.quote))]
         if choice.include_context:
             text = texts[anchor.version_id]
             if anchor.kind != "text":
@@ -383,7 +390,7 @@ def _evidence(evidence_id: str, item: _Item, block: Block | None, text: VersionT
         anchor_id=anchor.anchor_id,
         kind=None if anchor.kind == "text" else anchor.kind,
         text=content,
-        display_text=anchor.display_quote if item.role == "selected_text" else None,
+        display_text=_readable(anchor.display_quote) if item.role == "selected_text" and anchor.display_quote else None,
         truncated=item.truncated,
         regions=regions,
         block_id=block.block_id if block else None,
