@@ -33,7 +33,8 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 # 9: ascent·descent가 망가진 글꼴의 글자 상자를 기준선 둘레로 넓힌다(extract.BASELINE_BAND), 글머리표 줄은 앞 항목의 끝까지 찬
 #    마지막 줄을 떼어 가지 않는다(_starts_paragraph, 같은 날 사용자 논문 CAAS)
 # 10: 넓은 입력 문단(Input:·Require:)이 든 의사코드 상자도 표 안으로 본다(tables._pseudocode, 2026-10-05 사용자 논문 TCPS·CAAS)
-LAYOUT_VERSION = "10"
+# 11: 3B2 조판 PDF의 AdvP 수식 글꼴을 TeX 글꼴 자리의 글자로 되돌린다(glyphs.kind_3b2, 2026-10-14 사용자 논문 IEEE TC)
+LAYOUT_VERSION = "11"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)

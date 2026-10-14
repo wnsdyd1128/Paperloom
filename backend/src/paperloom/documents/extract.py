@@ -1,7 +1,7 @@
 """쪽 범위의 본문을 격리 하위 프로세스에서 추출한다 (IMPL §5.1·§5.3).
 
 pypdfium2(pdfium)로 글자·loose box를 읽고 text_layout으로 문단을 묶는다. 수식 글꼴이 유니코드를 주지 않은 기호는
-글꼴 사전의 글리프 이름으로 되찾는다(glyphs, pypdf). 신뢰할 수 없는 PDF이므로
+글꼴 사전의 글리프 이름으로 되찾고, 3B2 조판 PDF의 AdvP 수식 글꼴은 TeX 글꼴 자리로 되돌린다(glyphs, pypdf). 신뢰할 수 없는 PDF이므로
 documents.inspect처럼 시간 제한을 두고, POSIX에서는 메모리·CPU도 제한한다(`infrastructure.isolation`).
 
 하위 프로세스: `python -m paperloom.documents.extract <pdf> <first_page> <stop_page>` → stdout에 JSON 한 줄.
@@ -13,6 +13,7 @@ import math
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 from paperloom.documents.fonts import font_style, is_math_font
@@ -75,7 +76,12 @@ def _extract(path: str, first: int, stop: int) -> dict:
         for index in range(first, stop):
             page = document[index]
             geometry = page_geometry(page)
-            chars, rotation = _read_chars(page, pdfium_c, lambda font, code, index=index: differences.text(index, font, code))
+            chars, rotation = _read_chars(
+                page,
+                pdfium_c,
+                lambda font, code, index=index: differences.text(index, font, code),
+                lambda font, code, index=index: differences.text_3b2(index, font, code),
+            )
             graphics = _graphics(page)
             layout = layout_page(
                 chars,
@@ -112,9 +118,10 @@ def _extract(path: str, first: int, stop: int) -> dict:
         document.close()
 
 
-def _read_chars(page, pdfium_c, recover=None) -> tuple[list[Char], int]:
+def _read_chars(page, pdfium_c, recover=None, recover_3b2=None) -> tuple[list[Char], int]:
     """pdfium 텍스트 순서의 글자와 가장 많은 글자의 글줄 방향(반시계, 90의 배수). recover(글꼴 이름, 코드)는 수식 글꼴이
-    유니코드를 주지 않아 제어 문자로 나온 글자를 되찾는다(없으면 None)."""
+    유니코드를 주지 않아 제어 문자로 나온 글자를 되찾는다(없으면 None). recover_3b2(글꼴 이름, 코드)는 3B2 AdvP 수식 글꼴의
+    글자를 TeX 글꼴 자리의 글자로 바꾼다(glyphs.FontDifferences.text_3b2, 늘이는 괄호 조각은 " ")."""
     textpage = page.get_textpage()
     rect = pdfium_c.FS_RECTF()
     font = _FontReader(textpage.raw, pdfium_c)
@@ -141,6 +148,14 @@ def _read_chars(page, pdfium_c, recover=None) -> tuple[list[Char], int]:
                 found = recover(font.name, code)
                 if found:
                     text, unmapped = found, False
+            elif "AdvP" in font.name and recover_3b2 is not None:
+                # pdfium이 준 글자는 ToUnicode가 글리프 이름대로 준 것이라 글자 코드와 같다(2026-10-14 사용자 논문 IEEE TC)
+                found = recover_3b2(font.name, code)
+                if found == " ":
+                    chars.append(Char(" ", None))
+                    continue
+                if found:
+                    text, unmapped = found, False
             chars.append(Char(text, box, unmapped, style, size, math_font))
             if text.strip():
                 # pdfium의 각도는 시계 방향이다(위로 가는 글줄이 270°). 반시계로 바꾼다. 실패하면 -1.
@@ -149,6 +164,13 @@ def _read_chars(page, pdfium_c, recover=None) -> tuple[list[Char], int]:
                     angles[-round(math.degrees(angle) / 90) % 4 * 90] += 1
     finally:
         textpage.close()
+    # 3B2 기호 글꼴의 빗금(U+0338)은 긋는 글자보다 먼저 나온다("6¼"가 ≠). 결합 문자는 뒤에 와야 하므로 글만 바꾼다(NFKC에서 "=\u0338"은 ≠)
+    index = 0
+    while index < len(chars) - 1:
+        if chars[index].text == "\u0338" and chars[index + 1].text.strip():
+            chars[index], chars[index + 1] = replace(chars[index], text=chars[index + 1].text), replace(chars[index + 1], text="\u0338")
+            index += 1  # 옮긴 빗금을 다시 옮기지 않는다
+        index += 1
     return chars, angles.most_common(1)[0][0] if angles else 0
 
 

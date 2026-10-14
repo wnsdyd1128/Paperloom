@@ -90,6 +90,42 @@ _SIZE = re.compile(r"(?:big|Big|bigg|Bigg|display|text)$")
 _UNI = re.compile(r"^uni([0-9A-F]{4})$")
 _SUBSET = re.compile(r"^[A-Z]{6}\+")
 
+# 3B2(Arbortext) 조판 PDF의 AdvP 수식 글꼴 (2026-10-14 사용자 논문, IEEE TC): TeX 수식 글꼴을 다시 인코딩했다.
+# 코드 32 이상은 TeX 글꼴의 같은 자리 글자다(글리프 이름은 그 자리의 ASCII 이름이라 "two"가 ∈다). 32보다 작은 코드는
+# /Cnn 이름의 nn이 TeX 글꼴의 자리다. 기호 글꼴에는 3B2가 높은 코드에 = [ ( ) +와 ]를 더 넣었다. ToUnicode도 그 이름대로라
+# pdfium은 ¼ ½ ð Þ þ와 2 8 [ 등을 준다. 글꼴 이름(AdvP+16진수)으로는 종류를 알 수 없어 /Differences 이름으로 가른다(kind_3b2).
+# 근거는 사용자 논문 하나다: 쓰인 자리마다 앞뒤 글과 맞춰 봤다(docs/gates/evidence/ui/2026-10-14_3b2-math-and-labels.md).
+OMS = {  # TeX 수식 기호 글꼴(cmsy) 자리 → 글자. A–Z(0x41–0x5A)는 필기체 글자라 그대로 둔다
+    0x00: "−", 0x01: "⋅", 0x02: "×", 0x03: "∗", 0x04: "÷", 0x05: "⋄", 0x06: "±", 0x07: "∓",
+    0x08: "⊕", 0x09: "⊖", 0x0A: "⊗", 0x0B: "⊘", 0x0C: "⊙", 0x0D: "◯", 0x0E: "∘", 0x0F: "•",
+    0x10: "≍", 0x11: "≡", 0x12: "⊆", 0x13: "⊇", 0x14: "≤", 0x15: "≥", 0x16: "⪯", 0x17: "⪰",
+    0x18: "∼", 0x19: "≈", 0x1A: "⊂", 0x1B: "⊃", 0x1C: "≪", 0x1D: "≫", 0x1E: "≺", 0x1F: "≻",
+    0x20: "←", 0x21: "→", 0x22: "↑", 0x23: "↓", 0x24: "↔", 0x25: "↗", 0x26: "↘", 0x27: "≃",
+    0x28: "⇐", 0x29: "⇒", 0x2A: "⇑", 0x2B: "⇓", 0x2C: "⇔", 0x2D: "↖", 0x2E: "↙", 0x2F: "∝",
+    0x30: "′", 0x31: "∞", 0x32: "∈", 0x33: "∋", 0x34: "△", 0x35: "▽", 0x36: "\u0338", 0x38: "∀",
+    0x39: "∃", 0x3A: "¬", 0x3B: "∅", 0x3C: "ℜ", 0x3D: "ℑ", 0x3E: "⊤", 0x3F: "⊥", 0x40: "ℵ",
+    0x5B: "∪", 0x5C: "∩", 0x5D: "⊎", 0x5E: "∧", 0x5F: "∨",
+    0x60: "⊢", 0x61: "⊣", 0x62: "⌊", 0x63: "⌋", 0x64: "⌈", 0x65: "⌉", 0x66: "{", 0x67: "}",
+    0x68: "⟨", 0x69: "⟩", 0x6A: "|", 0x6B: "‖", 0x6C: "↕", 0x6D: "⇕", 0x6E: "\\", 0x6F: "≀",
+    0x70: "√", 0x71: "⨿", 0x72: "∇", 0x73: "∫", 0x74: "⊔", 0x75: "⊓", 0x76: "⊑", 0x77: "⊒",
+    0x78: "§", 0x79: "†", 0x7A: "‡", 0x7B: "¶", 0x7C: "♣", 0x7D: "♦", 0x7E: "♥", 0x7F: "♠",
+}  # 0x36 빗금은 다음 글자에 긋는다(extract가 순서를 바꿔 "=\u0338"이 ≠가 된다). 0x37(↦의 막대 조각)은 모른다
+_PIECE = " "  # 늘여 쓰는 괄호 조각: 글자가 아니다(빈칸으로 둔다)
+OMX = {  # TeX 큰 기호 글꼴(cmex) 자리 → 글자
+    **dict(zip(range(0x00, 0x0C), "()[]⌊⌋⌈⌉{}⟨⟩", strict=True)),
+    0x0C: _PIECE, 0x0D: _PIECE, 0x0E: "/", 0x0F: "\\",  # 0x0C·0x0D는 세로 막대를 늘이는 조각이다
+    **dict(zip(range(0x10, 0x20), "()()[]⌊⌋⌈⌉{}⟨⟩/\\", strict=True)),
+    **dict(zip(range(0x20, 0x30), "()[]⌊⌋⌈⌉{}⟨⟩/\\/\\", strict=True)),
+    **{code: _PIECE for code in range(0x30, 0x44)},
+    **dict(zip(range(0x44, 0x62), "⟨⟩⊔⊔∮∮⊙⊙⊕⊕⊗⊗∑∏∫⋃⋂⊎⋀⋁∑∏∫⋃⋂⊎⋀⋁∐∐", strict=True)),
+    **dict(zip(range(0x62, 0x70), "^^^~~~[]⌊⌋⌈⌉{}", strict=True)),
+    **dict(zip(range(0x70, 0x74), "√√√√", strict=True)),
+    **{code: _PIECE for code in range(0x74, 0x80)},
+}
+_EXTRAS_3B2 = {"onequarter": "=", "onehalf": "[", "eth": "(", "Thorn": ")", "thorn": "+", "C138": "]"}
+_TEX_NAME = re.compile(r"^C(\d+)$")
+_DELIMITER_PAIRS = ((0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (16, 17), (18, 19), (22, 23), (24, 25), (26, 27))
+
 
 def glyph_text(name: str) -> str | None:
     """글리프 이름의 글자. 모르는 이름(늘이는 조각 등)이면 None."""
@@ -99,6 +135,30 @@ def glyph_text(name: str) -> str | None:
     if unicode:
         return chr(int(unicode.group(1), 16))
     return GLYPHS.get(_SIZE.sub("", name))
+
+
+def kind_3b2(names: dict[int, str]) -> str | None:
+    """AdvP 글꼴의 /Differences(코드 → 글리프 이름)로 3B2가 다시 인코딩한 TeX 글꼴: "oms"(cmsy), "omx"(cmex), 모르면 None.
+
+    둘 다 /Cnn 이름이 있다. 기호 글꼴은 3B2가 더한 = ( ) +(onequarter·eth·Thorn·thorn·onehalf)가 있다. 큰 기호 글꼴은
+    짝지은 큰 괄호가 둘 이상이고 소문자 한 글자 이름이 /Cnn보다 적다(cmex의 j k l m은 큰 바닥·천장 괄호다). cmmi·cmr은 /Cnn이
+    적고(그리스 문자 몇 개) 이탤릭 글자가 많아 이것으로 가른다. 근거는 사용자 논문 하나의 네 글꼴이다."""
+    tex = {int(match.group(1)) for name in names.values() if (match := _TEX_NAME.match(name))}
+    if not tex:
+        return None
+    if any(name in _EXTRAS_3B2 for name in names.values() if not _TEX_NAME.match(name)):
+        return "oms"
+    lowercase = sum(1 for name in names.values() if len(name) == 1 and name.islower())
+    pairs = sum(1 for left, right in _DELIMITER_PAIRS if left in tex and right in tex)
+    return "omx" if pairs >= 2 and lowercase < len(tex) else None
+
+
+def text_3b2(kind: str, code: int, name: str | None) -> str | None:
+    """kind_3b2 글꼴의 글자 코드(그 자리의 글리프 이름 name)가 그리는 글자. 늘이는 괄호 조각은 " ", 모르면 None(그대로 둔다)."""
+    if kind == "oms" and name in _EXTRAS_3B2:
+        return _EXTRAS_3B2[name]
+    match = _TEX_NAME.match(name) if name else None
+    return (OMS if kind == "oms" else OMX).get(int(match.group(1)) if match else code)
 
 
 class FontDifferences:
@@ -112,12 +172,21 @@ class FontDifferences:
 
     def text(self, page_index: int, font: str, code: int) -> str | None:
         """그 쪽 그 글꼴(부분 글꼴 접두 없이)의 글자 코드가 가리키는 글자. 같은 이름의 글꼴이 코드를 다르게 쓰거나 모르면 None."""
+        names = self._names(page_index, font)
+        name = names.get(code) if names else None
+        return glyph_text(name) if name else None
+
+    def text_3b2(self, page_index: int, font: str, code: int) -> str | None:
+        """3B2 AdvP 수식 글꼴(kind_3b2)이면 그 글꼴의 글자 코드가 그리는 글자. 다른 글꼴이거나 모르면 None."""
+        names = self._names(page_index, font)
+        kind = kind_3b2(names) if names else None
+        return text_3b2(kind, code, names.get(code)) if kind else None
+
+    def _names(self, page_index: int, font: str) -> dict[int, str] | None:
         fonts = self._pages.get(page_index)
         if fonts is None:
             fonts = self._pages[page_index] = self._read(page_index)
-        names = fonts.get(_SUBSET.sub("", font))
-        name = names.get(code) if names else None
-        return glyph_text(name) if name else None
+        return fonts.get(_SUBSET.sub("", font))
 
     def _read(self, page_index: int) -> dict[str, dict[int, str] | None]:
         try:

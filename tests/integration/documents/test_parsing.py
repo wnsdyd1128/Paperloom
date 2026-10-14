@@ -198,6 +198,23 @@ def test_math_symbols_without_unicode_are_recovered_from_the_font_glyph_names(ap
     assert hyphenated["text"] == "The analysis of every single component stays the same in this test."
 
 
+def test_3b2_math_fonts_give_the_symbols_they_draw(app, client):
+    """2026-10-14 사용자 논문(IEEE TC, 3B2 조판): AdvP 수식 글꼴이 ( ) + =를 ð Þ þ ¼로, ∈ ∪ { }를 2 [ f g로 주고 ∗ ≤ − ≥는
+    제어 문자라, 수식이 깨지고 쪽이 "일부"가 되었다. TeX 글꼴 자리로 되돌린다. 종류를 모르는 AdvP 글꼴과 본문 글꼴의 ð는 그대로다."""
+    paper = upload(client, "text-3b2.pdf")
+    drain(app.state.parsing)
+    page = client.get(f"/api/v1/versions/{version_of(client, paper)['version_id']}/pages/0").json()
+    assert [block["text"] for block in page["blocks"]] == [
+        "Sets hp(k)=lp(k)∪{t} hold for all i≠k.",
+        "The bound C∗≤D holds and x−≥y as well.",
+        "The workload is W = ⌊A/T⌋ in this case .",  # 늘이는 중괄호 조각은 글자가 아니다
+        "An unknown font keeps its letters ad as they are.",
+        "Written by Guðmundsson in Reykjavik.",
+    ]
+    assert [block["quality_flags"] for block in page["blocks"]] == [[], [], [], ["unmapped_chars"], []]
+    assert page["text_status"] == "usable"
+
+
 def test_a_font_with_broken_ascent_and_descent_still_gives_whole_paragraphs(app, client):
     """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져(글꼴 크기의 0.45·0) pdfium loose box가 글자 모양 상자였고,
     줄 높이가 x 높이쯤이 되어 문단이 줄마다 나뉘었다(번역이 줄마다 따로 작게 그려졌다). 그런 글꼴의 글자는 기준선 둘레로 넓힌다."""
