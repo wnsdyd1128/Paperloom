@@ -326,9 +326,33 @@ def test_split_paragraph_is_left_out_whole_when_it_does_not_fit(monkeypatch):
     ],
 )
 def test_math_like_selection_gets_its_line_image(quote, display, image):
-    evidence, limits = run(Choice(anchor("m", 1, IN_B, quote=quote, display=display), False, True))
+    evidence, limits = run(Choice(anchor("m", 1, IN_A, quote=quote, display=display), False, True))
     assert (evidence[0].image is not None) is image
     assert limits.used_images == int(image)
+
+
+def test_selection_in_a_paragraph_with_unreadable_symbols_gets_its_image():
+    """2026-10-14 사용자 논문(Word 수식이 Type3 글꼴): 수식 기호를 유니코드로 바꾸지 못한 문단(unmapped_chars)에서는 선택 글에
+    그 기호가 빠지거나 깨져 수식처럼 보이지 않는다. 그런 문단의 선택은 이미지를 함께 보낸다."""
+    evidence, _ = run(Choice(anchor("b", 1, IN_B, quote="Let denote the total cache size"), False, True))
+    assert evidence[0].image is not None
+
+
+@pytest.mark.parametrize(
+    ("quote", "image"),
+    [
+        ("we use hpðkÞ to denote", True),  # 브라우저 글자 층은 3B2 수식 글꼴의 ( )를 ð Þ로 준다(추출한 문단은 hp(k))
+        ("Ak þ Sk ¼ 1", True),
+        ("written by Guðmundsson", False),  # 추출한 문단에도 있는 글자(본문 글꼴의 ð)
+        ("we use hp(k) to denote", False),
+    ],
+)
+def test_selection_whose_symbols_differ_from_the_extracted_paragraph_gets_its_image(quote, image):
+    """선택 글에 추출한 문단에 없는 기호가 있으면 브라우저 글자 층을 믿을 수 없다(2026-10-14 사용자 논문 IEEE TC)."""
+    paragraph = block("P", 1, 0.20, 0.30, "As written by Guðmundsson, we use hp(k) to denote Ak + Sk = 1 and more " + LONG)
+    text = VersionText(extracted=True, pages={1: ("usable", ())}, blocks=[paragraph])
+    evidence, _ = run(Choice(anchor("p", 1, IN_A, quote=quote), False, True), text=text)
+    assert (evidence[0].image is not None) is image
 
 
 def test_math_images_share_the_image_limit_and_can_be_turned_off():

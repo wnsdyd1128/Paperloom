@@ -9,6 +9,8 @@
 4. 영역 이미지는 고른 순서대로 MAX_IMAGES개까지 붙인다. 수식 기미가 있는 글 선택(첨자를 추정했거나 그리스 문자·
    수학 기호가 있음)에도 그 줄들의 원문 이미지를 붙인다. PDF 글자층은 분수·첨자 같은 2차원 구조를 잃기 때문이다.
    수식 배치(식 번호·가운데 정렬)는 보지 않는다. 논문마다 다르고 본문 속 수식(예: EDF_np)에는 없기 때문이다.
+   선택 글을 믿을 수 없을 때도 붙인다(unreadable_selection): 놓인 문단에 유니코드로 바꾸지 못한 기호가 있거나, 선택 글에
+   추출한 문단에 없는 기호가 있다(2026-10-14 사용자 논문: Word 수식의 Type3 글꼴, 3B2 수식 글꼴의 ð·þ).
 
 대화 범위가 쪽·논문 본문이면(page_texts) 고른 위치의 근거 뒤에 그 쪽, 또는 앞쪽부터 모든 쪽의 본문을 쪽마다 근거
 하나로 붙인다. 한도는 고른 위치의 한도(MAX_TEXT_CHARS)와 따로다(쪽 PAGE_TEXT_CHARS, 논문 본문은 요청한 한도).
@@ -24,6 +26,7 @@
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from paperloom.context.models import Evidence, Excluded, ImageRef, Limits
@@ -52,6 +55,21 @@ MATH_CHARS = re.compile("[\u0370-\u03ff\u2200-\u22ff\u2308-\u230b\u27c0-\u27ef\u
 def looks_mathematical(anchor: AnchorOut) -> bool:
     """글 선택에 수식 기미가 있는가: 첨자·분수 추정 표기가 있거나 수식 글자가 있다."""
     return anchor.kind == "text" and (anchor.display_quote is not None or MATH_CHARS.search(anchor.quote) is not None)
+
+
+def unreadable_selection(anchor: AnchorOut, blocks: list["Block"]) -> bool:
+    """글 선택의 글자를 믿을 수 없는가: 놓인 문단에 유니코드로 바꾸지 못한 글자가 있거나(그 기호가 선택 글에 빠지거나 깨져 있다),
+    선택 글에 놓인 문단의 추출 글에 없는 기호가 있다(브라우저 글자 층이 3B2 수식 글꼴의 ( )를 ð Þ로 준다). 놓인 문단이 없으면 모른다."""
+    if anchor.kind != "text":
+        return False
+    under = [block for block in blocks if block.page_index == anchor.page_index and _overlaps(anchor.quads, block.regions)]
+    if any("unmapped_chars" in block.quality_flags for block in under):
+        return True
+    extracted = set(unicodedata.normalize("NFKC", "".join(block.text for block in under)))
+    return bool(under) and any(
+        ord(char) > 0x7F and not char.isspace() and unicodedata.category(char) != "Cf" and char not in extracted
+        for char in unicodedata.normalize("NFKC", anchor.quote)
+    )
 
 Box = tuple[float, float, float, float]  # u0, v0, u1, v1
 
@@ -135,7 +153,9 @@ def build(choices: list[Choice], texts: dict[str, VersionText], source_refs: dic
     images = 0
     for choice, group in zip(choices, groups, strict=True):
         selected = group[0]
-        if choice.include_image and (selected.role == "selected_region" or looks_mathematical(choice.anchor)):
+        text = texts[choice.anchor.version_id]
+        unreadable = text.extracted and unreadable_selection(choice.anchor, text.blocks)
+        if choice.include_image and (selected.role == "selected_region" or looks_mathematical(choice.anchor) or unreadable):
             if images < MAX_IMAGES:
                 selected.image, images = True, images + 1
             else:
