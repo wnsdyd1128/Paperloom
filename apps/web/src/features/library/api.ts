@@ -11,7 +11,7 @@ export type SourceVersion = Readonly<{
   size_bytes: number;
   page_count: number;
   status: VersionStatus;
-  /** FAILED의 이유: NO_TEXT_LAYER, UNREADABLE_TEXT, RESOURCE_LIMIT, PARSER_ERROR, PASSWORD_REQUIRED, MALFORMED_PDF */
+  /** FAILED의 이유: NO_TEXT_LAYER, UNREADABLE_TEXT, RESOURCE_LIMIT, PARSER_ERROR, PASSWORD_REQUIRED, MALFORMED_PDF. PARTIAL은 UNMAPPED_CHARS */
   status_reason: string | null;
   created_at: string;
 }>;

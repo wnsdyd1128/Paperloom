@@ -35,7 +35,14 @@ const REASON_LABELS: Record<string, string> = {
   PARSER_ERROR: "추출 오류",
   PASSWORD_REQUIRED: "암호 필요",
   MALFORMED_PDF: "손상된 PDF",
+  UNMAPPED_CHARS: "일부 기호를 읽지 못함",
 };
+
+/** 기호 일부(수식 등)만 읽지 못한 PARTIAL은 모든 쪽을 검색할 수 있다(2026-10-14 사용자 논문). 이유를 뒤에 붙인다. */
+function statusLabel(version: SourceVersion): string {
+  if (version.status === "PARTIAL" && version.status_reason === "UNMAPPED_CHARS") return STATUS_LABELS.INDEXED;
+  return STATUS_LABELS[version.status] ?? version.status;
+}
 
 type Props = Readonly<{
   library: Library;
@@ -199,7 +206,7 @@ function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, o
       </td>
       <td data-status={version.status}>
         <span className={`tag ${STATUS_TONES[version.status]}`}>
-          {STATUS_LABELS[version.status] ?? version.status}
+          {statusLabel(version)}
           {version.status_reason && ` · ${REASON_LABELS[version.status_reason] ?? version.status_reason}`}
         </span>
         {(version.status === "FAILED" || version.status === "PARTIAL") && (

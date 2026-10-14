@@ -33,7 +33,9 @@ test("Library가 문서별 본문 추출 상태를 보이고, 끝날 때까지 �
   test.skip(testInfo.project.name !== "dpr-1", "목록 표시는 DPR과 무관하다");
   const uploaded = await uploadAll(page);
   const digitalId = uploaded["text-digital.pdf"].paperId;
+  const mixedId = uploaded["text-mixed.pdf"].paperId;
   // fixture 추출은 1초도 걸리지 않으므로, 첫 목록에서 추출 중이었던 것처럼 바꿔 다시 받는지 확인한다.
+  // 기호 일부만 읽지 못한 논문(2026-10-14 사용자 논문)의 표시도 첫 목록에서 본다(fixture에는 그런 논문이 없다).
   let firstList = true;
   await page.route("**/api/v1/papers", async (route) => {
     if (route.request().method() !== "GET" || !firstList) return route.fallback();
@@ -42,6 +44,7 @@ test("Library가 문서별 본문 추출 상태를 보이고, 끝날 때까지 �
     const body = await response.json();
     for (const paper of body.papers) {
       if (paper.paper_id === digitalId) paper.current_version = { ...paper.current_version, status: "PARSING" };
+      if (paper.paper_id === mixedId) paper.current_version = { ...paper.current_version, status: "PARTIAL", status_reason: "UNMAPPED_CHARS" };
     }
     await route.fulfill({ response, json: body });
   });
@@ -49,6 +52,7 @@ test("Library가 문서별 본문 추출 상태를 보이고, 끝날 때까지 �
 
   const status = (name: string) => page.locator(`tr[data-paper-id="${uploaded[name].paperId}"] td[data-status]`);
   await expect(status("text-digital.pdf")).toHaveText("본문 추출 중");
+  await expect(status("text-mixed.pdf")).toContainText("검색 가능 · 일부 기호를 읽지 못함");
   await expect(status("text-digital.pdf")).toHaveAttribute("data-status", "INDEXED", { timeout: 30_000 });
   await expect(status("text-digital.pdf")).toHaveText("검색 가능");
   await expect(status("text-mixed.pdf")).toHaveAttribute("data-status", "PARTIAL", { timeout: 30_000 });

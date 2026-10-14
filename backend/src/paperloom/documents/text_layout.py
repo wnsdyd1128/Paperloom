@@ -464,10 +464,11 @@ def classify_page(chars: int, unmapped: int, image_coverage: float) -> tuple[str
 
 
 def document_status(pages: list[tuple[str, dict]]) -> tuple[str, str | None]:
-    """쪽들의 (text_status, quality)로 문서 상태 (IMPL §5.2): INDEXED, PARTIAL, FAILED와 실패 이유.
+    """쪽들의 (text_status, quality)로 문서 상태 (IMPL §5.2): INDEXED, PARTIAL, FAILED와 그 이유.
 
     글자가 없는 빈 쪽(unknown, no_text)은 문서 상태를 낮추지 않는다. 추출에 실패한 쪽은 quality에 error가 있다.
-    글이 있는 쪽이 모두 글자 대부분을 못 읽은 쪽(unreadable)이면 FAILED, 이유 UNREADABLE_TEXT다(2026-10-14).
+    일부 쪽이 기호 일부(수식 등)만 유니코드로 바꾸지 못한 것이 전부면 PARTIAL의 이유는 UNMAPPED_CHARS다. 글이 있는 쪽이 모두
+    글자 대부분을 못 읽은 쪽(unreadable)이면 FAILED, 이유 UNREADABLE_TEXT다(2026-10-14).
     """
     errors = [quality["error"] for _, quality in pages if quality.get("error")]
     if not any(status in ("usable", "partial") for status, _ in pages):
@@ -475,8 +476,15 @@ def document_status(pages: list[tuple[str, dict]]) -> tuple[str, str | None]:
             return "FAILED", errors[0]
         return "FAILED", "UNREADABLE_TEXT" if any(status == "unreadable" for status, _ in pages) else "NO_TEXT_LAYER"
     if errors or any(status in ("partial", "unreadable", "image_only") for status, _ in pages):
-        return "PARTIAL", None
+        symbols_only = not errors and all(_unmapped_only(status, quality) for status, quality in pages if status != "usable" and status != "unknown")
+        return "PARTIAL", "UNMAPPED_CHARS" if symbols_only else None
     return "INDEXED", None
+
+
+def _unmapped_only(status: str, quality: dict) -> bool:
+    """쪽이 기호 일부를 유니코드로 바꾸지 못해서만 partial인가(classify_page를 다시 따른다)"""
+    again = classify_page(quality.get("chars", 0), quality.get("unmapped_chars", 0), quality.get("image_coverage", 0.0))
+    return status == "partial" and again == ("partial", ["unmapped_chars"])
 
 
 def _to_frame(box: Box, rotation: int) -> Box:

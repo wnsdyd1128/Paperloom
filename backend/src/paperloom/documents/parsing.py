@@ -3,7 +3,8 @@
 업로드가 run을 QUEUED로 넣고, worker 스레드가 하나씩 가져가 격리 하위 프로세스에서 쪽 묶음(chunk_pages)을
 추출한다. 묶음이 시간 초과·비정상 종료로 실패하면 그 묶음을 한 쪽씩 다시 추출해, 실패한 쪽만 `extract_failed`로 남긴다.
 
-- 버전 상태: READY_TO_READ(추출 전) → PARSING → INDEXED | PARTIAL | FAILED(+ status_reason). 어느 상태든 원본은 읽을 수 있다.
+- 버전 상태: READY_TO_READ(추출 전) → PARSING → INDEXED | PARTIAL | FAILED(+ status_reason, PARTIAL은 기호만 못 읽었을 때
+  UNMAPPED_CHARS). 어느 상태든 원본은 읽을 수 있다.
 - 재시작: 시작할 때 이전 프로세스가 실행 중이던 run을 대기열로 되돌리고, 지금 추출기로 추출한 적 없는 버전을 넣는다.
   같은 데이터를 쓰는 다른 프로세스가 있어도 결과는 lease를 가진 worker만 저장한다.
 - 재시도: 하위 프로세스를 띄우지 못하는 등의 I/O 오류는 대기열로 되돌려 한 번 더 한다. run을 max_attempts번

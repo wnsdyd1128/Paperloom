@@ -232,6 +232,7 @@ class TestBlockText:
         assert block_text(built) == expected
 
 
+SYMBOLS = {"chars": 500, "unmapped_chars": 20, "image_coverage": 0.0}  # 수식 기호 4%를 유니코드로 바꾸지 못한 쪽
 UNREADABLE = {"chars": 2910, "unmapped_chars": 2900, "image_coverage": 0.0}  # 글자 거의 모두를 바꾸지 못한 쪽
 
 
@@ -260,8 +261,15 @@ class TestStatus:
             ([("usable", {}), ("partial", {})], ("PARTIAL", None)),
             ([("usable", {}), ("image_only", {})], ("PARTIAL", None)),
             ([("usable", {}), ("unknown", {"error": "RESOURCE_LIMIT"})], ("PARTIAL", None)),
+            # 2026-10-14 사용자 논문: 기호 일부만 읽지 못한 쪽뿐이면 이유를 남긴다(서재가 "일부 쪽만 검색 가능" 대신 그렇게 알린다)
+            ([("usable", {}), ("partial", SYMBOLS)], ("PARTIAL", "UNMAPPED_CHARS")),
+            ([("partial", SYMBOLS), ("partial", SYMBOLS)], ("PARTIAL", "UNMAPPED_CHARS")),
+            ([("partial", SYMBOLS), ("image_only", {})], ("PARTIAL", None)),  # 스캔 쪽도 섞였다
+            ([("partial", SYMBOLS), ("unknown", {"error": "RESOURCE_LIMIT"})], ("PARTIAL", None)),
+            ([("usable", {}), ("partial", {"chars": 100, "unmapped_chars": 0, "image_coverage": 1.0})], ("PARTIAL", None)),
             # 실제 논문 시험(2026-10-14): 글자 대부분을 못 읽은 쪽(unreadable)이 섞이면 기호 일부가 아니다. 모두 그러면 검색 불가
             ([("usable", {}), ("unreadable", UNREADABLE)], ("PARTIAL", None)),
+            ([("partial", SYMBOLS), ("unreadable", UNREADABLE)], ("PARTIAL", None)),
             ([("unreadable", UNREADABLE), ("unreadable", UNREADABLE), ("unknown", {})], ("FAILED", "UNREADABLE_TEXT")),
             ([("image_only", {}), ("unknown", {})], ("FAILED", "NO_TEXT_LAYER")),
             ([("unknown", {}), ("unknown", {})], ("FAILED", "NO_TEXT_LAYER")),

@@ -15,7 +15,8 @@ class SourceVersionOut(BaseModel):
     # IMPL §5.2 상태: READY_TO_READ(본문 추출 전) → PARSING → INDEXED | PARTIAL | FAILED. 어느 상태든 원본은 읽을 수 있다.
     status: str
     # FAILED의 이유: NO_TEXT_LAYER, UNREADABLE_TEXT(글꼴에 문자 정보가 없어 글자 대부분을 못 읽음), RESOURCE_LIMIT, PARSER_ERROR,
-    # PASSWORD_REQUIRED, MALFORMED_PDF
+    # PASSWORD_REQUIRED, MALFORMED_PDF.
+    # PARTIAL의 이유: UNMAPPED_CHARS(일부 쪽의 기호 일부만 유니코드로 바꾸지 못함), 그 밖에는 없다
     status_reason: str | None = None
     created_at: str
 
