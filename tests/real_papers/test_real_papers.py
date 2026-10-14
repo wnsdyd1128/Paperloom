@@ -1,0 +1,142 @@
+"""실제 논문 시험 (로컬 전용, 2026-10-14 사용자 요청: "tests/e2e_papers에 실제 논문 PDF 파일 있는데 이거 기반으로 테스트 진행해줘").
+
+tests/e2e_papers/의 PDF는 저작권 때문에 저장소에 넣지 않는다(.gitignore). 폴더가 없으면 건너뛰고, 있어도 기본 실행·CI에서는
+빠진다(pytest.ini). 실행: backend\\.venv\\Scripts\\python.exe -m pytest -m real_papers
+
+모든 논문을 서버 경로(업로드 → 첫 쪽 제목 → 본문 추출)로 한 번 처리한다. 모든 논문에 성립해야 할 성질과, 사용자가 알린 논문
+문제의 고침(그 파일이 있을 때만)을 본다. 첫 실행 결과는 docs/gates/evidence/ui/2026-10-14_real-papers.md.
+"""
+
+import re
+import statistics
+import unicodedata
+from pathlib import Path
+from urllib.parse import quote
+
+import pytest
+from fastapi.testclient import TestClient
+
+from paperloom.bootstrap.app import create_app
+from paperloom.bootstrap.config import AppSettings, Settings
+from paperloom.documents.titles import looks_like_filename
+
+PAPERS = Path(__file__).resolve().parents[1] / "e2e_papers"
+NAMES = sorted(path.name for path in PAPERS.glob("*.pdf")) if PAPERS.is_dir() else []
+pytestmark = [pytest.mark.real_papers, pytest.mark.skipif(not NAMES, reason="tests/e2e_papers에 실제 논문이 없다")]
+
+SCHEDULABILITY = "Schedulability Analysis of Global Scheduling for Multicore Systems With Shared Caches.pdf"  # 3B2 수식 글꼴
+PREDICTING = "Predicting Inter-Thread Cache Contention on a Chip Multi-Processor Architecture.pdf"  # Word 수식(Type3)
+LIU_LAYLAND = "Scheduling Algorithms for Multiprogramming in a Hard-Real-Time Environment.pdf"  # 글꼴에 유니코드가 없다
+TCPS = "TCPS a task and cache-aware partitioned scheduler for hard real-time multi-core systems.pdf"
+CAAS = "CAAS Cache Affinity Aware Scheduling Framework for RTEMS with Edge Computing Support.pdf"
+
+KOREAN = "SMP 기반 RTEMS 운영체제 환경에서의 스케줄링 성능 분석.pdf"  # 메타데이터 제목이 HWP 파일 이름
+FILE_NAME = re.compile(r"\.(?:pdf|docx?|hwpx?|tex|dvi|ps)$", re.IGNORECASE)
+
+
+@pytest.fixture(scope="module")
+def processed(tmp_path_factory) -> dict[str, dict]:
+    """논문 이름 → {paper, pages, blocks(쪽 → 문단)}. 빈 데이터 폴더에 하나씩 올리고 본문 추출을 끝낸다."""
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path_factory.mktemp("real-papers") / "data")))
+    client = TestClient(app)
+    result = {}
+    for name in NAMES:
+        response = client.post(
+            "/api/v1/papers",
+            content=(PAPERS / name).read_bytes(),
+            headers={"Content-Type": "application/pdf", "X-Paperloom-Filename": quote(name)},
+        )
+        assert response.status_code == 201, (name, response.text)
+        while app.state.parsing.run_next():
+            pass
+        paper = client.get(f"/api/v1/papers/{response.json()['paper_id']}").json()
+        version_id = paper["current_version"]["version_id"]
+        pages = client.get(f"/api/v1/versions/{version_id}/pages").json()["pages"]
+        blocks = {page["page_index"]: client.get(f"/api/v1/versions/{version_id}/pages/{page['page_index']}").json()["blocks"] for page in pages}
+        result[name] = {"paper": paper, "pages": pages, "blocks": blocks}
+    return result
+
+
+def one(processed: dict[str, dict], name: str) -> dict:
+    if name not in processed:
+        pytest.skip(f"{name}이 tests/e2e_papers에 없다")
+    return processed[name]
+
+
+def text_of(item: dict) -> str:
+    return "\n".join(block["text"] for blocks in item["blocks"].values() for block in blocks)
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_every_paper_is_extracted_without_errors(processed, name):
+    item = processed[name]
+    version = item["paper"]["current_version"]
+    # 모두 글자 층이 있는 PDF다. 실패는 글꼴에 문자 정보가 없어 글자를 못 읽는 논문뿐이다
+    assert version["status"] in ("INDEXED", "PARTIAL") or (version["status"], version["status_reason"]) == ("FAILED", "UNREADABLE_TEXT")
+    assert [page["page_index"] for page in item["pages"] if "extract_failed" in page["flags"]] == []
+    assert any(item["blocks"].values())
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_stored_text_has_no_control_private_use_or_noncharacters(processed, name):
+    """제어 문자·사용자 영역(PUA) 글자·비문자(U+FFFE 등)는 검색·근거·번역 글에 남지 않는다(PUA는 첫 실행에서 7편에 남았다)."""
+    found = [
+        (page, block["text"][:60])
+        for page, blocks in processed[name]["blocks"].items()
+        for block in blocks
+        if any(unicodedata.category(char) in ("Cc", "Co", "Cn") for char in block["text"])
+    ]
+    assert found == []
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_titles_are_paper_titles_not_file_names(processed, name):
+    title = processed[name]["paper"]["title"]
+    assert not looks_like_filename(title)
+    assert not FILE_NAME.search(title)
+
+
+def test_a_hwp_file_name_title_gives_way_to_the_first_page_title(processed):
+    """첫 실행에서 찾음: 한글 문서를 바꾼 PDF의 메타데이터 제목이 "10. [25M-05-066M]_725-731_전현수_1차 수정.hwp"였다."""
+    assert one(processed, KOREAN)["paper"]["title"] == "SMP 기반 RTEMS 운영체제 환경에서의 스케줄링 성능 분석"
+
+
+def test_3b2_math_symbols_read_as_the_symbols_they_draw(processed):
+    """2026-10-14 사용자 논문(IEEE TC, 3B2 조판): ( ) + =가 ð Þ þ ¼로 깨지고 ∗ ≤ −가 빠져 5·10쪽이 "일부"였다."""
+    item = one(processed, SCHEDULABILITY)
+    assert item["paper"]["current_version"]["status"] == "INDEXED"
+    text = text_of(item)
+    assert set("ðÞþ¼") & set(text) == set() and "1⁄4" not in text
+    for expected in ("hp(k)", "lp(k)∪{tk}", "Di ≤ Dk", "C∗ i", "update←true"):
+        assert expected in text
+
+
+def test_paper_whose_equation_symbols_are_unreadable_says_so(processed):
+    """2026-10-14 사용자 논문(Word 수식이 Type3 글꼴): 수식 기호만 못 읽은 4·5·6·10쪽 → "검색 가능 · 일부 기호를 읽지 못함"."""
+    item = one(processed, PREDICTING)
+    version = item["paper"]["current_version"]
+    assert (version["status"], version["status_reason"]) == ("PARTIAL", "UNMAPPED_CHARS")
+    assert [page["page_index"] for page in item["pages"] if page["text_status"] == "partial"] == [3, 4, 5, 9]
+
+
+def test_paper_whose_text_cannot_be_read_is_not_called_searchable(processed):
+    """첫 실행에서 찾음: 1973년 논문은 글꼴에 유니코드가 없어 쪽마다 글자 96–100%를 못 읽는다(스캔과 같다). 기호 일부가 아니다."""
+    item = one(processed, LIU_LAYLAND)
+    version = item["paper"]["current_version"]
+    assert (version["status"], version["status_reason"]) == ("FAILED", "UNREADABLE_TEXT")
+    assert {page["text_status"] for page in item["pages"]} == {"unreadable"}
+
+
+def test_pseudocode_stays_out_of_translation(processed):
+    """2026-10-05 사용자 논문 TCPS: 알고리즘 의사코드(Input: 문단이 든 상자)는 표 안 글로 보아 번역하지 않는다."""
+    item = one(processed, TCPS)
+    inputs = [block for blocks in item["blocks"].values() for block in blocks if block["text"].startswith("Input: Task parameters")]
+    assert inputs and all("in_table" in block["quality_flags"] for block in inputs)
+
+
+def test_paragraphs_are_not_split_line_by_line(processed):
+    """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져 문단이 줄마다 나뉘었다(본문 쪽의 문단 길이 가운데값 > 100자)."""
+    item = one(processed, CAAS)
+    for page in (1, 2, 3, 5, 6):
+        body = [len(block["text"]) for block in item["blocks"][page] if not block["quality_flags"]]
+        assert statistics.median(body) > 100, page
