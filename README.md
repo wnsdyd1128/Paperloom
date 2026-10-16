@@ -96,7 +96,7 @@ docker run -d --name paperloom --restart unless-stopped -p 127.0.0.1:8000:8000 -
 
 ### 2. Claude Code 로그인
 
-Claude Code를 설치한 뒤 터미널에서 `claude`를 실행해 claude.ai 구독 계정으로 로그인합니다.
+Claude Code를 설치한 뒤 터미널에서 `claude`를 실행해 claude.ai 구독 계정으로 로그인합니다. 환경 변수에 `claude` 경로가 등록되었는지 확인하세요.
 
 ### 3. 브리지 설치 (처음 한 번)
 
