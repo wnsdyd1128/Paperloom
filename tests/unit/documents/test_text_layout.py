@@ -70,6 +70,19 @@ class TestLines:
         chars = line("left cell", 0, 100) + word("right cell", 200, 100) + line(" next", 0, 88)
         assert texts(build_lines(chars)) == ["left cell", "right cell", "next"]
 
+    def test_a_wide_gap_without_a_space_character_is_a_word_break(self):
+        """2026-10-16 사용자 논문(IEEE TC, 3B2 조판): 장 제목 번호와 제목 사이(1 em)에 공백 글자가 없어 "1INTRODUCTION"이 되어
+        목차를 찾지 못했다. 공백 글자가 없어도 글꼴 크기의 절반보다 넓은 틈은 낱말 사이다. 작은 대문자처럼 붙은 글자와 좁은 틈(자간)은
+        낱말 안이다."""
+        def sized(chars, size):
+            return [replace(ch, size=size) for ch in chars]
+
+        chars = sized(word("1", 0, 100), 11.46) + sized(word("I", W + 12, 100), 11.46) + sized(word("NTRODUCTION", 2 * W + 12, 100, 8), 9.17)
+        assert texts(build_lines(chars)) == ["1 INTRODUCTION"]
+        assert texts(build_lines(sized(word("ab", 0, 100) + word("cd", 2 * W + 1, 100), 10))) == ["abcd"]
+        assert texts(build_lines(word("ab", 0, 100) + word("cd", 2 * W + 6, 100))) == ["ab cd"]  # 크기를 모르면 글자 높이로 잰다
+        assert texts(build_lines(word("ab ", 0, 100) + word("cd", 2 * W + 12, 100))) == ["ab cd"]  # 공백 글자가 있으면 하나만
+
     def test_line_end_hyphen_marker_becomes_a_hyphen(self):
         assert texts(build_lines(word("compo\x02", 0, 100))) == ["compo-"]
 
@@ -177,6 +190,21 @@ class TestBlocks:
     def test_short_heading_then_indented_paragraph_are_separate(self):
         chars = line("3.1 Model", 0, 700) + line("Indented paragraph text that is long", 12, 688)
         assert self.blocks(chars) == ["3.1 Model", "Indented paragraph text that is long"]
+
+    def test_a_short_heading_in_another_font_size_is_not_joined_to_the_unindented_paragraph_below(self):
+        """2026-10-16 사용자 논문(IEEE TC): 절 제목 "3.1 Task Model"(9.96pt) 바로 아래 들여 쓰지 않은 문단(9.46pt)이 줄 사이도 좁아
+        한 문단으로 묶여 목차에서 빠졌다. 짧게 끝난 한 줄 다음 줄의 글꼴 크기가 다르면 새 문단이다. 크기가 같으면 그대로 잇는다."""
+        def sized(chars, size):
+            return [replace(ch, size=size) for ch in chars]
+
+        body = sized(line("We consider a set of periodic or sporadic real-time tasks to", 0, 688) + line("be scheduled on a multicore processor.", 0, 676), 9.46)
+        joined = "We consider a set of periodic or sporadic real-time tasks to be scheduled on a multicore processor."
+        assert self.blocks(sized(line("3.1 Task Model", 0, 700), 9.96) + body) == ["3.1 Task Model", joined]
+        assert self.blocks(sized(line("3.1 Task Model", 0, 700), 9.46) + body) == [f"3.1 Task Model {joined}"]
+        # 끝까지 찬 첫 줄은 크기가 조금 달라도(수식 글자가 많은 줄) 문단 안이다
+        assert self.blocks(sized(line("Full first line of the paragraph with many symbols in it ok", 0, 700), 9.96) + body) == [
+            f"Full first line of the paragraph with many symbols in it ok {joined}"
+        ]
 
     def test_size_change_and_large_gap_split(self):
         chars = line("Title", 0, 700, 18) + line("body line", 0, 686) + line("after gap", 0, 660)

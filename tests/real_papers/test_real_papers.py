@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
+from paperloom.documents.headings import headings
 from paperloom.documents.titles import looks_like_filename
 
 PAPERS = Path(__file__).resolve().parents[1] / "e2e_papers"
@@ -111,6 +112,15 @@ def test_3b2_math_symbols_read_as_the_symbols_they_draw(processed):
     assert set("ðÞþ¼") & set(text) == set() and "1⁄4" not in text
     for expected in ("hp(k)", "lp(k)∪{tk}", "Di ≤ Dk", "C∗ i", "update←true"):
         assert expected in text
+
+
+def test_numbered_chapters_and_sections_of_a_3b2_paper_are_in_the_outline(processed):
+    """2026-10-16 사용자 스크린샷: 목차에 ACKNOWLEDGMENTS·REFERENCES만 나왔다. 장 제목 번호 뒤 1 em에 공백 글자가 없어
+    "1INTRODUCTION"이 되고, 절 제목 "3.1 Task Model"(본문보다 큰 글꼴)이 바로 아래 문단과 묶였다."""
+    item = one(processed, SCHEDULABILITY)
+    titles = [entry["title"] for entry in headings([{"page_index": page, "blocks": blocks} for page, blocks in sorted(item["blocks"].items())])]
+    for expected in ("1 INTRODUCTION", "2 RELATED WORK", "3 SYSTEM MODEL", "3.1 Task Model", "4 SCHEDULABILITY ANALYSIS", "4.1 Overview"):
+        assert expected in titles
 
 
 def test_paper_whose_equation_symbols_are_unreadable_says_so(processed):

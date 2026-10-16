@@ -37,7 +37,9 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 #     Symbol 글자·괄호 조각을 되찾고 모르는 것은 뺀다(glyphs.pua_text), 글자 대부분을 못 읽은 쪽은 unreadable(같은 날 실제 논문 시험)
 # 12: 쪽 높이의 절반보다 높은 의사코드 상자도 표 안으로 본다(tables.MAX_BAND, 2026-10-16 사용자 논문 IEEE TIM 6쪽 Algorithm 1)
 # 13: 수식에 붙은 작은 글씨 설명(밑 괄호 아래 등)도 수식으로 본다(block_kinds.equation_labels, 같은 논문 7쪽 식 (14))
-LAYOUT_VERSION = "13"
+# 14: 공백 글자 없이 0.5 em 넘게 띄운 글자 사이는 낱말 사이(WORD_GAP), 짧은 줄과 글꼴 크기가 다른 다음 줄은 새 문단(HEADING_SIZE)
+#     (2026-10-16 사용자 논문 IEEE TC: 목차에 "1INTRODUCTION"·"3.1 Task Model"이 빠졌다)
+LAYOUT_VERSION = "14"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)
@@ -48,10 +50,12 @@ DROP_CAP_JOIN = 0.15  # 줄 높이 배수. 큰 글자와 다음 글자 사이가
 BIG_GLYPH = 1.5  # 줄 높이 배수. 이보다 높은 글자(큰 Σ·∫·괄호)는 줄 사이를 잴 때 뺀다: 다음 줄까지 내려온다
 LINE_BAND_SLACK = 0.3  # 줄 높이 배수. 가장 큰 글자의 세로 범위를 이만큼 넓혀 같은 줄을 찾는다(기호마다 상자 높이가 다르다)
 LINE_SPLIT_GAP = 1.5  # 줄 높이 배수. 이보다 멀리 떨어진 글자는 다른 줄(단 사이, 표 칸)이다
+WORD_GAP = 0.5  # em. 공백 글자가 없어도 이보다 넓은 글자 사이는 낱말 사이다(자간·작은 대문자는 좁다)
 SIZE_CHANGE = 0.25  # 글자 높이가 이 비율보다 달라지면 다른 문단(제목, 각주)
 PARAGRAPH_GAP = 0.45  # 줄 사이 빈 공간이 줄 높이의 이 배수보다 크면 다른 문단
 INDENT = 0.6  # 줄 시작이 앞 줄과 줄 높이의 이 배수보다 다르면 다른 문단(들여쓰기, 가운데 수식)
 SHORT_LINE = 2.0  # 줄 높이 배수. 앞 줄이 이만큼 일찍 끝나고 다음 줄이 들어가 있으면 제목 다음 문단이다
+HEADING_SIZE = 0.03  # 짧게 끝난 한 줄과 다음 줄의 글꼴 크기가 이 비율보다 다르면(들여쓰지 않아도) 제목 다음 문단이다
 COLUMN_SHARE = 0.25  # 왼쪽 반·오른쪽 반에만 놓인 문단의 글자가 각각 쪽 글자의 이 비율 이상이면 두 단
 COLUMN_SLACK = 0.02  # 쪽 너비 비율. 가운데선을 이만큼 넘어도 한쪽 단으로 본다
 MIN_TEXT_CHARS = 10  # 글자가 이보다 적으면 글자가 없는 쪽(쪽 번호뿐)으로 본다
@@ -192,6 +196,9 @@ def build_lines(chars: list[Char]) -> list[Line]:
         if current and not _same_line(tallest, current[-1].box, ch.box, base_left, extent, _smaller(ch, current, tallest)):
             lines.append(_line(current))
             current, tallest, base_left, extent, space = [], None, None, None, False
+        if current and not space and current[-1].box is not None and ch.box[0] - extent[2] > WORD_GAP * _em(current[-1], ch):
+            # 공백 글자 없이 띄운 낱말 사이(3B2 장 제목 번호 뒤 1 em, 2026-10-16 사용자 논문 IEEE TC). 줄 오른쪽 끝에서 잰다(넓은 위첨자 아래 첨자)
+            space = True
         if space and current:
             current.append(Char(" ", None))
         current.append(ch)
@@ -204,6 +211,12 @@ def build_lines(chars: list[Char]) -> list[Line]:
     if current:
         lines.append(_line(current))
     return lines
+
+
+def _em(previous: Char, char: Char) -> float:
+    """두 글자 사이 틈을 잴 1 em: 글꼴 크기(모르면 글자 높이)의 큰 쪽."""
+    sizes = [ch.size for ch in (previous, char) if ch.size > MIN_FONT_SIZE]
+    return max(sizes) if sizes else max(_height(previous.box), _height(char.box))
 
 
 def _same_line(
@@ -395,8 +408,13 @@ def _continues(block: _Block, line: Line) -> bool:
     shift = current[0] - previous[0]
     if len(block.lines) == 1:
         # 첫 줄을 들여 쓴 문단(다음 줄이 왼쪽으로 나옴)과 내어 쓴 항목(다음 줄이 들어감)은 이어진다.
-        # 짧은 줄(제목) 다음에 들어간 줄은 새 문단이다.
-        return not (shift > INDENT * height and previous[2] < current[2] - SHORT_LINE * height)
+        # 짧은 줄(제목) 다음에 들어간 줄, 짧은 줄과 글꼴 크기가 다른 줄(들여 쓰지 않은 제목 다음 문단, 2026-10-16 IEEE TC
+        # "3.1 Task Model")은 새 문단이다.
+        short = previous[2] < current[2] - SHORT_LINE * height
+        sized = block.lines[0].size > MIN_FONT_SIZE and line.size > MIN_FONT_SIZE
+        if short and sized and abs(block.lines[0].size - line.size) > HEADING_SIZE * line.size:
+            return False
+        return not (shift > INDENT * height and short)
     first = block.lines[0]
     if first.drop_cap and abs(current[0] - first.box[0]) <= INDENT * height:
         return True  # 큰 글자 아래로 내려와 큰 글자 왼쪽 끝에서 시작하는 줄
