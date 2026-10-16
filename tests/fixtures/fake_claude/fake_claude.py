@@ -10,6 +10,8 @@
 - 질문에 "(느리게)"가 있으면 답하기 전에 10초 기다린다 (E2E 중단 확인용, 브리지가 끝낸다)
 - 질문에 "(문단)"이 있으면 답 끝에 문단 근거 [근거 1¶2]와 문단 범위 [근거 1¶3–4]를 붙인다 (E2E 문단 근거 확인용)
 - FAKE_CLAUDE_STEP: 글 조각 사이에 기다릴 초 (생성되는 대로 전달되는지 확인용)
+- FAKE_CLAUDE_REFRESH_RACE: 작업 폴더에서 처음 이만큼의 실행(프로세스를 가로질러 센다)은 실제 CLI처럼 로그인 토큰 갱신이 겹친
+  API 오류(모델 <synthetic>, 오류 결과)로 끝난다 (2026-10-13 기록의 모양)
 - 쪽 번역(U7, 글에 "## 번역할 쪽 (JSON)"): 문장 id마다 "[번역] 원문"을 JSON으로 답한다. FAKE_CLAUDE_TRANSLATION이
   missing이면 여러 문장인 첫 문단의 둘째 문장(없으면 마지막 문장)을 빼고, text면 JSON이 아닌 글로, joined면 코드 블록으로 감싸고 두 문장 이상인 문단의 둘째 문장을
   첫 문장 번역("[번역·합침] …")에 합친다(뒤 id는 빈 글). stutter면 그 둘째 문장 id를 값 없이 한 번 더 써 JSON 문법을 깬다
@@ -26,6 +28,10 @@ import time
 import uuid
 
 WATCHED_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK")
+REFRESH_RACE = (
+    "Failed to refresh OAuth token: another Claude Code process is refreshing it or exited mid-refresh. This is usually transient; "
+    "retry in a minute, and if it persists close other Claude Code processes or sign in again"
+)
 
 
 def emit(event: dict) -> None:
@@ -75,6 +81,11 @@ def main() -> int:
                     os.remove(lock)
     mode = os.environ.get("FAKE_CLAUDE_MODE", "ok")
     emit({"type": "system", "subtype": "init", "session_id": session, "model": "fake", "apiKeySource": "none", "tools": [], "mcp_servers": []})
+    if lost_refresh_race(int(os.environ.get("FAKE_CLAUDE_REFRESH_RACE", "0"))):
+        emit({"type": "assistant", "uuid": str(uuid.uuid4()), "session_id": session, "error": "server_error",
+              "message": {"role": "assistant", "model": "<synthetic>", "content": [{"type": "text", "text": REFRESH_RACE}]}})
+        emit({"type": "result", "subtype": "success", "is_error": True, "result": REFRESH_RACE, "session_id": session})
+        return 1
     if mode == "crash":
         sys.stderr.write("fake crash\n")
         return 1
@@ -109,6 +120,17 @@ def main() -> int:
     model_usage = {"claude-fake": {"inputTokens": 3, "outputTokens": 50, "contextWindow": 200000}}
     emit({"type": "result", "subtype": "success", "is_error": False, "result": answer, "session_id": session, "usage": usage, "modelUsage": model_usage})
     return 0
+
+
+def lost_refresh_race(count: int) -> bool:
+    """작업 폴더의 처음 count번 실행인가. 표시 파일을 O_EXCL로 하나씩 차지해 동시에 뜬 프로세스끼리도 정확히 count번만 센다."""
+    for index in range(count):
+        try:
+            os.close(os.open(f"fake-refresh-race-{index}", os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return True
+        except FileExistsError:
+            continue
+    return False
 
 
 def translate(text: str, session: str, repair: bool = False) -> int:

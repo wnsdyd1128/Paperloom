@@ -51,6 +51,12 @@ DEFAULT_MODEL = "sonnet"
 # 생각의 깊이(--effort, 2026-10-04 사용자 요청): 대화는 깊게, 쪽 번역은 빠르게. 넘기지 않으면 medium이었다
 CHAT_EFFORT = "high"
 TRANSLATION_EFFORT = "low"
+# 동시에 띄운 Claude Code들이 로그인 토큰 갱신에 겹치면, 갱신하지 못한 실행은 몇 초 기다린 뒤 이 글로 끝난다(2026-10-13 기록:
+# 묶음 하나가 이렇게 끝나 나머지를 멈추면 갱신하던 실행도 끊겨 1분 가까이 다시 번역해도 모두 실패했다). 그 묶음은 쪽 실패로
+# 보지 않고 다른 묶음을 그대로 둔 채 잠시 뒤 다시 실행한다(2026-10-16 사용자 요청).
+REFRESH_RACE = "failed to refresh oauth token"
+REFRESH_RETRIES = 3
+REFRESH_RETRY_SECONDS = 3.0
 
 log = logging.getLogger("paperloom.claude_code")
 
@@ -224,15 +230,24 @@ class _ClaudeFailed(Exception):
 def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threading.Event, system_extra: str) -> list[dict]:
     """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을
     참고로 붙인다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이 틀렸는지 알려 한 번만 다시 받는다
-    (2026-10-16 사용자 요청). 묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다)."""
+    (2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
+    묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다)."""
 
     def ask(text: str, resume: str | None) -> dict:
         content = [{"type": "text", "text": text}]
-        run = cli.run(
-            content, resume=resume, model=model, cancel=cancel, system_prompt=TRANSLATION_PROMPT, system_extra=system_extra,
-            effort=TRANSLATION_EFFORT,
-        )
-        result = [event for event in run if event["type"] == "result"][-1]
+        for attempt in range(REFRESH_RETRIES + 1):
+            run = cli.run(
+                content, resume=resume, model=model, cancel=cancel, system_prompt=TRANSLATION_PROMPT, system_extra=system_extra,
+                effort=TRANSLATION_EFFORT,
+            )
+            result = [event for event in run if event["type"] == "result"][-1]
+            if not _refresh_race(result):
+                break
+            if attempt == REFRESH_RETRIES:
+                raise _ClaudeFailed("Claude Code가 로그인 토큰을 갱신하지 못했습니다(다른 Claude Code 실행과 겹침). 1분쯤 뒤 다시 번역하세요.")
+            log.info("Claude Code 로그인 토큰 갱신이 겹쳐 쪽 번역 묶음을 %.0f초 뒤 다시 실행한다(%d/%d)", REFRESH_RETRY_SECONDS, attempt + 1, REFRESH_RETRIES)
+            if cancel.wait(REFRESH_RETRY_SECONDS):  # 다른 묶음이 실패해 멈췄다
+                raise _ClaudeFailed("중단했습니다.")
         if result["is_error"]:
             raise _ClaudeFailed(result["error"])
         return result
@@ -257,6 +272,12 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
             cancel.set()  # 아직 도는 묶음을 멈춘다
             raise failed
         return [block for future in futures for block in future.result()]
+
+
+def _refresh_race(result: dict) -> bool:
+    """Claude Code가 다른 실행과 겹쳐 로그인 토큰을 갱신하지 못하고 끝난 차례(오류 결과의 글이든 답 글이든 그 글로 시작한다)."""
+    said = result["error"] if result["is_error"] else result["text"]
+    return (said or "").strip().lower().startswith(REFRESH_RACE)
 
 
 class _Running:

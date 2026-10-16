@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
 from paperloom.documents.sentences import sentence_spans
+from paperloom.integrations.claude_code import app as bridge_app
 from paperloom.integrations.claude_code import page_translation
 from paperloom.integrations.claude_code.app import build_app
 from paperloom.integrations.claude_code.cli import ClaudeCli
@@ -209,6 +210,41 @@ def test_each_group_of_the_viewed_page_is_fixed_in_its_own_conversation(core, br
     blocks = page_blocks(core, core["navigation"], 0)
     expected = [f"[번역] {block['text'][start:end]}" for block in blocks for start, end in sentence_spans(block["text"])]
     assert [item["text"] for block in response.json()["translation"]["blocks"] for item in block["sentences"]] == expected
+
+
+def test_groups_that_lost_the_login_refresh_race_run_again_without_stopping_the_others(core, bridge, fake_log, monkeypatch):
+    """동시에 뜬 묶음들이 로그인 토큰 갱신에 겹쳐 일부가 "Failed to refresh OAuth token"으로 끝나도 쪽은 실패하지 않는다. 그 묶음만
+    잠시 뒤 다시 실행하고, 아직 도는 다른 묶음(갱신하던 실행일 수 있다)은 멈추지 않는다 (2026-10-13 기록, 2026-10-16 사용자 요청)."""
+    monkeypatch.setattr(page_translation, "GROUP_CHARS", 40)
+    monkeypatch.setattr(bridge_app, "REFRESH_RETRY_SECONDS", 0.2)
+    monkeypatch.setenv("FAKE_CLAUDE_REFRESH_RACE", "2")
+    monkeypatch.setenv("FAKE_CLAUDE_SLOW", "1")  # 진 실행이 끝날 때 다른 묶음은 아직 돈다
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0, "split": True})
+    assert response.status_code == 200, response.text
+    blocks = page_blocks(core, core["navigation"], 0)
+    groups = len(page_translation.split_units(page_translation.translation_units(blocks)))
+    assert groups >= 3
+    assert len(runs(fake_log)) == groups + 2  # 진 실행 둘만 다시 실행했다
+    expected = [f"[번역] {block['text'][start:end]}" for block in blocks for start, end in sentence_spans(block["text"])]
+    assert [item["text"] for block in response.json()["translation"]["blocks"] for item in block["sentences"]] == expected
+
+
+def test_translation_stops_with_a_clear_message_when_the_login_refresh_keeps_failing(core, bridge, fake_log, monkeypatch):
+    monkeypatch.setattr(bridge_app, "REFRESH_RETRY_SECONDS", 0.05)
+    monkeypatch.setenv("FAKE_CLAUDE_REFRESH_RACE", "99")
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0})
+    assert (response.status_code, response.json()["code"]) == (502, "CLAUDE_FAILED")
+    assert "로그인 토큰을 갱신하지 못했습니다" in response.json()["message"]
+    assert len(runs(fake_log)) == 1 + bridge_app.REFRESH_RETRIES
+    assert core["client"].get(f"/api/v1/versions/{core['navigation']}/pages/0/translations/ko").json()["code"] == "NOT_TRANSLATED"
+
+
+def test_a_refresh_race_is_recognised_in_an_error_or_in_the_answer_text():
+    race = "Failed to refresh OAuth token: another Claude Code process is refreshing it or exited mid-refresh."
+    assert bridge_app._refresh_race({"is_error": True, "error": race, "text": ""})
+    assert bridge_app._refresh_race({"is_error": False, "error": None, "text": f"\n{race}"})
+    assert not bridge_app._refresh_race({"is_error": False, "error": None, "text": '{"1.1": "Failed to refresh OAuth token을 번역"}'})
+    assert not bridge_app._refresh_race({"is_error": True, "error": "중단했습니다.", "text": ""})
 
 
 def test_a_broken_group_refuses_the_whole_viewed_page(core, bridge, fake_log, monkeypatch):
