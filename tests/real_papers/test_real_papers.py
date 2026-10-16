@@ -29,6 +29,8 @@ PREDICTING = "Predicting Inter-Thread Cache Contention on a Chip Multi-Processor
 LIU_LAYLAND = "Scheduling Algorithms for Multiprogramming in a Hard-Real-Time Environment.pdf"  # 글꼴에 유니코드가 없다
 TCPS = "TCPS a task and cache-aware partitioned scheduler for hard real-time multi-core systems.pdf"
 CAAS = "CAAS Cache Affinity Aware Scheduling Framework for RTEMS with Edge Computing Support.pdf"
+STACK_DISTANCE = "Efficient_Stack_Distance_Approximation_Based_on_Workload_Characteristics.pdf"
+LLVM_REUSE = "LLVM Static Analysis for Program Characterization and Memory Reuse Profile Estimation.pdf"
 
 KOREAN = "SMP 기반 RTEMS 운영체제 환경에서의 스케줄링 성능 분석.pdf"  # 메타데이터 제목이 HWP 파일 이름
 FILE_NAME = re.compile(r"\.(?:pdf|docx?|hwpx?|tex|dvi|ps)$", re.IGNORECASE)
@@ -132,6 +134,16 @@ def test_pseudocode_stays_out_of_translation(processed):
     item = one(processed, TCPS)
     inputs = [block for blocks in item["blocks"].values() for block in blocks if block["text"].startswith("Input: Task parameters")]
     assert inputs and all("in_table" in block["quality_flags"] for block in inputs)
+
+
+@pytest.mark.parametrize(("name", "page"), [(STACK_DISTANCE, 5), (LLVM_REUSE, 3)])
+def test_pseudocode_taller_than_half_the_page_stays_out_of_translation(processed, name, page):
+    """2026-10-16 사용자 논문(IEEE TIM 6쪽 Algorithm 1): 쪽 높이 절반이 넘는 의사코드 상자를 머리글·바닥글 줄 사이로 보고 넘겨
+    번역에 들어갔다. 이 폴더의 두 논문도 같은 모양이었다(상자 높이 0.62). 같은 쪽 본문은 그대로 번역한다."""
+    blocks = one(processed, name)["blocks"][page]
+    starts = [block for block in blocks if block["text"].startswith("1: procedure")]
+    assert starts and all("in_table" in block["quality_flags"] for block in starts)
+    assert any(not block["quality_flags"] and len(block["text"]) > 200 for block in blocks)
 
 
 def test_paragraphs_are_not_split_line_by_line(processed):

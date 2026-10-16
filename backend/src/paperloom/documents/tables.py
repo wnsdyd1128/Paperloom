@@ -4,6 +4,8 @@
 놓인 문단을 표 안으로 본다. 다만
 - 띠에 본문 폭의 여러 줄 문단이 있으면(가로줄로 둘러싼 초록 등) 표가 아니다. 다만 띠에 의사코드 줄 번호(1:, 12:)가
   여럿이면 넓은 입력 문단(Input:·Require:)이 있어도 의사코드 상자다(2026-10-05 사용자 요청: 알고리즘은 번역하지 않는다).
+- 두 가로줄이 쪽 높이의 절반(MAX_BAND)보다 멀면 머리글 밑줄과 바닥글 윗줄일 수 있어, 본문 문단 없이 줄 번호가 여럿인 띠만
+  의사코드 상자로 본다(2026-10-16 사용자 논문: 쪽 높이 0.53인 Algorithm 1이 번역에 들어갔다).
 - 가로줄이 둘뿐이면 그 사이가 짧은 줄(표 칸) 여럿일 때만 표다.
 - 캡션(Table 1. …, PSEUDOCODE 1: …)은 띠 안에 있어도 번역한다.
 휴리스틱이다. 바꾸면 text_layout.LAYOUT_VERSION을 올린다.
@@ -19,7 +21,7 @@ Box = tuple[float, float, float, float]  # 정본 좌표 (u0, v0, u1, v1)
 RULE_THICKNESS = 2.0  # pt. 이보다 얇은 경로가 가로줄이다
 RULE_MIN_WIDTH = 0.2  # 쪽 너비 비율. 이보다 짧은 줄은 분수 막대 등이다
 SAME_EDGE = 0.02  # 쪽 너비 비율. 좌우 끝이 이만큼 안에서 같으면 한 표의 줄이다
-MAX_BAND = 0.5  # 쪽 높이 비율. 이보다 멀리 떨어진 두 줄(머리글 밑줄과 바닥글 윗줄 등)은 한 표가 아니다
+MAX_BAND = 0.5  # 쪽 높이 비율. 이보다 멀리 떨어진 두 줄(머리글 밑줄과 바닥글 윗줄 등)은 의사코드 상자일 때만 한 표다
 BODY_LINES = 3  # 줄 수. 이만큼 이상이고
 BODY_WIDTH = 0.8  # 가로줄 폭의 이 비율 이상인 문단은 본문이다
 SHORT_SHARE = 0.6  # 가로줄이 둘뿐이면 사이 문단의 이 비율 이상이 한 줄이어야 표다
@@ -45,10 +47,14 @@ def table_blocks(blocks: list[tuple[list[list[float]], str]], rules: list[Box]) 
     for group in _same_width(rules):
         bands = []
         for upper, lower in zip(group, group[1:]):
-            if lower[1] - upper[3] > MAX_BAND:
-                continue
             inside = [index for index, (regions, _) in enumerate(blocks) if _within(regions, upper, lower)]
-            if inside and (_pseudocode([blocks[index][1] for index in inside]) or not any(_body_paragraph(blocks[index][0], upper) for index in inside)):
+            if not inside:
+                continue
+            pseudocode = _pseudocode([blocks[index][1] for index in inside])
+            body = any(_body_paragraph(blocks[index][0], upper) for index in inside)
+            # 멀리 떨어진 두 줄은 머리글 밑줄과 바닥글 윗줄일 수 있어 줄 번호만 있는 띠(쪽 절반보다 높은 의사코드 상자)만 본다
+            far = lower[1] - upper[3] > MAX_BAND
+            if (pseudocode and not body) if far else (pseudocode or not body):
                 bands.append(inside)
         members = [index for inside in bands for index in inside]
         if len(group) == 2 and (len(members) < 2 or sum(len(blocks[index][0]) == 1 for index in members) < SHORT_SHARE * len(members)):

@@ -182,6 +182,47 @@ def test_pseudocode_box_with_a_wide_input_paragraph_is_still_a_table():
     assert table_blocks(prose, rules_at(0.25, 0.29, 0.41)) == set()  # 가로줄 셋(둘이면 짧은 줄 조건이 먼저 뺀다)
 
 
+def test_a_pseudocode_box_taller_than_half_the_page_is_still_a_table():
+    """2026-10-16 사용자 논문(IEEE TIM, UGV 융합 센서) 6쪽 Algorithm 1: 캡션 아래 줄과 아래 줄 사이가 쪽 높이의 0.53이라 멀리 떨어진
+    두 줄(머리글 밑줄·바닥글 윗줄)로 보고 넘겨 줄 33개가 번역에 들어갔다. 줄 번호는 따로 문단이다. 캡션과 상자 아래 본문은 번역한다."""
+    blocks = [
+        box("Algorithm 1 Adaptive Sampling Control Algorithm for the Fusion Sensor System", 0.070, 0.096, 0.080, 0.490, lines=2),  # 0 캡션
+        box("Input: System parameters v, τ, ε, hworld, himg, dL", 0.102, 0.128, 0.080, 0.469, lines=2),  # 1
+        box("1: Initialize f(t) ← fL 2: Initialize control target set K ← ∅ 3:", 0.131, 0.174, 0.089, 0.335, lines=3),  # 2
+        box("Obtain detected target set B from camera sensor", 0.177, 0.189, 0.124, 0.451),  # 3
+        box("4:", 0.179, 0.188, 0.089, 0.100),  # 4
+        box("for each bi in B do", 0.192, 0.205, 0.124, 0.258),  # 5
+        box("5:", 0.194, 0.203, 0.089, 0.100),  # 6
+        box("end for 33: end while", 0.600, 0.626, 0.083, 0.176, lines=2),  # 7
+        box("32:", 0.602, 0.611, 0.083, 0.100),  # 8
+        box("3D laser sensor operates at fL. A target i is considered to have left the region of interest", 0.660, 0.792, 0.080, 0.490, lines=9),  # 9 본문
+    ]
+    assert table_blocks(blocks, rules_at(0.066, 0.0995, 0.6295, left=0.079, right=0.491)) == {1, 2, 3, 4, 5, 6, 7, 8}
+
+
+def test_far_apart_rules_around_body_text_are_not_a_table_even_with_an_algorithm_inside():
+    """머리글 밑줄과 바닥글 윗줄(같은 폭, 쪽 절반보다 멀다) 사이에 줄 번호가 든 의사코드가 있어도 본문 문단이 있으면 그 띠는 표가 아니다."""
+    blocks = [
+        box("Body paragraph that spans the full width of the column for several lines of text.", 0.10, 0.30, 0.1, 0.9, lines=12),  # 0
+        box("Algorithm 2 Sum of a set", 0.385, 0.395, 0.1, 0.4),  # 1 캡션
+        box("1: x ← 0 2: for i in S do 3: x ← x + i 4: end for", 0.41, 0.54, 0.12, 0.5, lines=4),  # 2
+        box("Body paragraph below the algorithm that again spans the whole width of the column.", 0.60, 0.90, 0.1, 0.9, lines=18),  # 3
+    ]
+    assert table_blocks(blocks, rules_at(0.07, 0.93)) == set()
+    # 상자 줄이 머리글·바닥글 줄과 폭이 같아 한 묶음이어도 상자 안만 표다
+    assert table_blocks(blocks, rules_at(0.07, 0.38, 0.40, 0.55, 0.93)) == {2}
+    # 머리글 밑줄과 아래쪽 표의 줄이 같은 폭이라 셋 넘게 묶여도, 본문이 든 먼 띠는 상자 없는 알고리즘이 있어도 표가 아니다
+    page = [
+        blocks[0],  # 0 본문
+        box("1: x ← 0 2: for i in S do 3: x ← x + i 4: end for", 0.40, 0.54, 0.12, 0.5, lines=4),  # 1 상자 없는 알고리즘
+        box("Body paragraph before the table that spans the whole width of the column.", 0.58, 0.76, 0.1, 0.9, lines=10),  # 2
+        box("Name", 0.805, 0.815),  # 3 표 머리
+        box("expint", 0.83, 0.84),  # 4
+        box("630,291", 0.85, 0.86, 0.6, 0.7),  # 5
+    ]
+    assert table_blocks(page, rules_at(0.07, 0.80, 0.82, 0.90)) == {3, 4, 5}
+
+
 def test_body_paragraphs_between_rules_are_not_tables():
     # 위아래 줄로 둘러싼 초록(본문 폭 여러 줄 문단)과, 멀리 떨어진 두 줄(머리글 밑줄과 바닥글 윗줄)
     abstract = [box("Abstract text that runs over the full width of the column for several lines.", 0.3, 0.4, 0.1, 0.9, lines=6)]
