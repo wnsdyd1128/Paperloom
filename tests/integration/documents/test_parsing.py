@@ -171,6 +171,7 @@ def test_extraction_marks_running_lines_display_equations_and_table_cells(app, c
         assert flags[(page, f"7:{page + 1}")] == ["page_header"]
         assert flags[(page, "Synthetic Parts Journal, Vol. 1, Article 7. Publication date: 2026.")] == ["page_footer"]
     assert flags[(0, "x = a + b")] == flags[(0, "(1)")] == flags[(0, "f g h k")] == ["math"]
+    assert flags[(0, "sum of parts")] == ["math"]  # 수식 바로 아래 작은 글씨 설명(밑 괄호 설명, 2026-10-16)
     assert all(flags[(1, cell)] == ["in_table"] for cell in ("Name", "Value", "alpha", "1,200", "beta", "3,400"))
     body = [
         (0, "Body text before the equation explains the model. It has two sentences on two lines."),
@@ -181,7 +182,7 @@ def test_extraction_marks_running_lines_display_equations_and_table_cells(app, c
         (2, "The last page starts with a drop cap like IEEE papers. The first two lines sit beside the large letter and the next lines run under it from the left edge of the column. It is one paragraph."),
     ]
     assert all(flags[key] == [] for key in body)
-    assert len(flags) == len(body) + 3 * 3 + 3 + 6
+    assert len(flags) == len(body) + 3 * 3 + 4 + 6
 
 
 def test_math_symbols_without_unicode_are_recovered_from_the_font_glyph_names(app, client):

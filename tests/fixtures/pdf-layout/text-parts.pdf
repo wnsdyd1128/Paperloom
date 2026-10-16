@@ -15,7 +15,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
 endobj
 6 0 obj
-<< /Length 625 >>
+<< /Length 669 >>
 stream
 BT /F1 9 Tf 72 760 Td (Synthetic Parts Journal) Tj ET
 BT /F1 9 Tf 500 760 Td (7:1) Tj ET
@@ -23,6 +23,7 @@ BT /F1 10 Tf 72 700 Td (Body text before the equation explains the model. It has
 BT /F1 10 Tf 72 688 Td (sentences on two lines.) Tj ET
 BT /F1 10 Tf 270 640 Td (x = a + b) Tj ET
 BT /F1 10 Tf 520 640 Td (\(1\)) Tj ET
+BT /F1 7 Tf 272 631 Td (sum of parts) Tj ET
 BT /F1 10 Tf 72 600 Td (The equation above sums two terms. It is used below.) Tj ET
 BT /F2 10 Tf 280 570 Td (f g h k) Tj ET
 BT /F1 10 Tf 72 540 Td (The second equation has no number and only math letters.) Tj ET
@@ -79,13 +80,13 @@ xref
 0000000224 00000 n 
 0000000318 00000 n 
 0000000454 00000 n 
-0000001129 00000 n 
-0000001265 00000 n 
-0000001945 00000 n 
-0000002082 00000 n 
-0000002665 00000 n 
+0000001173 00000 n 
+0000001309 00000 n 
+0000001989 00000 n 
+0000002126 00000 n 
+0000002709 00000 n 
 trailer
 << /Size 12 /Root 1 0 R /Info 11 0 R >>
 startxref
-2739
+2783
 %%EOF

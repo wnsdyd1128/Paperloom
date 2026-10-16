@@ -2,7 +2,8 @@
 표 안 글은 빼고 캡션은 번역). 표준 라이브러리만 쓴다.
 
 text-parts.pdf : 세 쪽. 쪽마다 머리글(저널 이름 + 쪽 번호 "7:n")과 바닥글(저널·호·날짜)이 되풀이된다.
-  1쪽: 본문 문단, 가운데 수식 "x = a + b"와 오른쪽 식 번호 "(1)", 본문 문단, 수식 글꼴(CMMI10)로만 쓴 번호 없는 수식
+  1쪽: 본문 문단, 가운데 수식 "x = a + b"와 오른쪽 식 번호 "(1)", 그 수식 바로 아래 작은 글씨(7pt) 설명 "sum of parts"
+       (2026-10-16: 밑 괄호 설명도 수식이다), 본문 문단, 수식 글꼴(CMMI10)로만 쓴 번호 없는 수식
        "f g h k"(유니코드 수학 기호 없음), 본문 문단
   2쪽: 표 캡션 "Table 1. …", 가로줄 셋(위·머리 아래·아래) 사이의 표 칸, 본문 문단
   3쪽: IEEE 들어가기처럼 큰 첫 글자(28pt "T")로 시작하는 문단 하나(큰 글자 옆 두 줄, 그 아래 두 줄)
@@ -44,6 +45,7 @@ PAGES = [
         paragraph(700, ["Body text before the equation explains the model. It has two", "sentences on two lines."])
         + text(270, 640, "x = a + b")
         + text(520, 640, "(1)")
+        + text(272, 631, "sum of parts", 7)
         + paragraph(600, ["The equation above sums two terms. It is used below."])
         + text(280, 570, "f g h k", font="F2")
         + paragraph(540, ["The second equation has no number and only math letters."]),

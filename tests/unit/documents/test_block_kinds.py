@@ -3,7 +3,7 @@
 
 import pytest
 
-from paperloom.documents.block_kinds import is_display_math
+from paperloom.documents.block_kinds import equation_labels, is_display_math
 from paperloom.documents.fonts import is_math_font
 from paperloom.documents.running import running_lines
 from paperloom.documents.tables import horizontal_rules, table_blocks
@@ -91,6 +91,45 @@ def page(index, *blocks):
         "blocks": [{"text": text, "regions": [[0.1, top + (bottom - top) * line / lines, 0.9, top + (bottom - top) * (line + 1) / lines] for line in range(lines)]}
                    for text, top, bottom, *rest in blocks for lines in [rest[0] if rest else 1]],
     }
+
+
+def part(text, left, top, right, bottom, size, flags=(), lines=1):
+    """(줄 상자들, 글, 글꼴 크기, 표시): equation_labels가 받는 문단"""
+    return ([[left, top + (bottom - top) * line / lines, right, top + (bottom - top) * (line + 1) / lines] for line in range(lines)], text, size, list(flags))
+
+
+def test_small_labels_under_the_braces_of_a_display_equation_belong_to_the_equation():
+    """2026-10-16 사용자 논문(IEEE TIM) 7쪽 식 (14): 밑 괄호 아래 작은 글씨("Saving-state contribution")는 낱말뿐이라 본문으로 남아
+    번역되고, 수식이 빠진 번역 쪽 빈자리에 떠 있었다. 수식 문단에 붙은 본문보다 작은 한 줄 설명은 수식으로 본다."""
+    blocks = [
+        part("E[tsaving] + E[tactive] + 2τ", 0.124, 0.109, 0.313, 0.122, 8.46, ["math"]),  # 0
+        part("{z", 0.273, 0.126, 0.288, 0.135, 9.96, ["unmapped_chars", "math"]),  # 1 밑 괄호 조각
+        part("Saving-state contribution", 0.222, 0.133, 0.338, 0.141, 6.97),  # 2 설명
+        part("E[tactive]", 0.201, 0.153, 0.265, 0.166, 6.97, ["math"]),  # 3
+        part("{z", 0.296, 0.248, 0.311, 0.257, 9.96, ["math"]),  # 4
+        part("Switching contribution", 0.251, 0.255, 0.357, 0.263, 6.97),  # 5 설명(아래는 본문)
+        part("(14)", 0.463, 0.265, 0.490, 0.276, 9.96, ["math"]),  # 6
+        part("The three terms in (14) represent the contributions of the Saving state, Active state, and switching.", 0.080, 0.279, 0.490, 0.366, 9.96, lines=6),  # 7
+        part("For the Saving state,", 0.096, 0.370, 0.234, 0.381, 9.96),  # 8 수식 앞 본문 한 줄(본문 크기)
+        part("PF ixed − P saving AS = P active L − P saving L .", 0.151, 0.384, 0.419, 0.401, 9.96, ["math"]),  # 9 바로 아래 수식
+        part("y = f(x)", 0.600, 0.140, 0.700, 0.152, 6.97, ["math"]),  # 10 그림 안 수식 글
+        part("Fig. 7. Overall power-saving ratio", 0.540, 0.155, 0.800, 0.163, 6.97),  # 11 그 바로 아래 작은 캡션(번역한다)
+        part("x-axis label", 0.300, 0.402, 0.380, 0.410, 6.97, ["in_figure"]),  # 12 이미 본문이 아닌 문단
+    ]
+    assert equation_labels(blocks) == {2, 5}
+
+
+def test_small_text_that_does_not_touch_an_equation_stays_body_text():
+    blocks = [
+        part("Body paragraph that runs over several lines of the column at the normal body size. " * 4, 0.08, 0.10, 0.49, 0.20, 10.0, lines=8),
+        part("y = a x + b", 0.20, 0.25, 0.35, 0.26, 10.0, ["math"]),
+        part("small note below", 0.20, 0.275, 0.35, 0.282, 7.0),  # 수식과 줄 높이의 두 배쯤 떨어져 있다
+        part("side note", 0.40, 0.261, 0.48, 0.268, 7.0),  # 수식 바로 아래 높이지만 옆이다(가로로 겹치지 않는다)
+        part("A small note that is long enough to be a sentence of prose under the formula", 0.12, 0.262, 0.48, 0.270, 7.0),  # 낱말이 많다
+        part("Two line small", 0.20, 0.226, 0.35, 0.248, 7.0, lines=2),  # 여러 줄
+    ]
+    assert equation_labels(blocks) == set()
+    assert equation_labels([part("y = a x + b", 0.2, 0.25, 0.35, 0.26, 10.0, ["math"]), part("tiny", 0.2, 0.261, 0.3, 0.268, 7.0)]) == set()  # 본문이 없는 쪽
 
 
 def test_running_headers_and_footers_repeat_at_the_page_edges_apart_from_numbers():

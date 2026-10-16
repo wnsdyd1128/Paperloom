@@ -29,6 +29,9 @@ _OPERATORS = frozenset({"max", "min", "sup", "inf", "lim", "log", "exp", "sin", 
 # 수식 줄 안의 이음말(경우 나누기·조건·제약): 산문 낱말로 세지 않는다
 _CONNECTIVES = frozenset({"and", "for", "all", "otherwise", "subject", "where", "such", "that", "when", "else", "then", "with"})
 MATH_FONT_SHARE = 0.5  # 문단 글자의 이만큼 이상이 수식 글꼴(fonts.is_math_font)이면 수식이다
+# 수식에 붙은 설명(밑·위 괄호의 "Saving-state contribution" 등): 본문 글꼴의 이 비율보다 작고 이만큼 이하 낱말인 한 줄
+LABEL_SIZE = 0.85
+LABEL_WORDS = 6
 
 
 def is_caption(text: str) -> bool:
@@ -53,6 +56,45 @@ def is_display_math(text: str, math_font_share: float = 0.0) -> bool:
     if any(_math_char(char) for char in stripped):
         return True
     return bool(tokens) and all(token.lower() in _OPERATORS for token in tokens)
+
+
+def equation_labels(blocks: list[tuple[list[list[float]], str, float | None, list[str]]]) -> set[int]:
+    """따로 놓인 수식에 붙은 작은 글씨 설명 문단의 차례. blocks는 쪽 문단마다 (줄 상자들(정본 좌표), 글, 글꼴 크기, 표시)다.
+    본문 글꼴보다 작은 짧은 한 줄이 수식 문단 바로 위나 아래에 닿아 있으면(가로로 겹치고 세로 틈이 그 줄 높이 이하) 수식의
+    일부다. 낱말뿐이라 is_display_math가 본문으로 두면 번역되어, 수식이 빠진 번역 쪽에 혼자 떠 있었다(2026-10-16 사용자 논문
+    IEEE TIM 7쪽 식 (14)의 밑 괄호 설명). 캡션과 이미 본문이 아닌 문단은 두고, 본문 크기 글은 수식에 닿아도 본문이다."""
+    body = _body_size([(size, len(text)) for _, text, size, flags in blocks if size and NOT_BODY.isdisjoint(flags)])
+    if body is None:
+        return set()
+    equations = [_bounds(regions) for regions, _, _, flags in blocks if MATH in flags]
+    found = set()
+    for index, (regions, text, size, flags) in enumerate(blocks):
+        if not NOT_BODY.isdisjoint(flags) or len(regions) != 1 or not size or size >= LABEL_SIZE * body:
+            continue
+        if len(text.split()) > LABEL_WORDS or is_caption(text):
+            continue
+        left, top, right, bottom = _bounds(regions)
+        height = bottom - top
+        if any(
+            other_left < right and left < other_right and (abs(top - other_bottom) <= height or abs(other_top - bottom) <= height)
+            for other_left, other_top, other_right, other_bottom in equations
+        ):
+            found.add(index)
+    return found
+
+
+def _body_size(weighted: list[tuple[float, int]]) -> float | None:
+    """본문 글꼴 크기: 글자 수로 무게를 단 가운데값. 본문 문단이 없으면 None."""
+    half, seen = sum(length for _, length in weighted) / 2, 0
+    for size, length in sorted(weighted):
+        seen += length
+        if seen >= half:
+            return size
+    return None
+
+
+def _bounds(regions: list[list[float]]) -> tuple[float, float, float, float]:
+    return min(r[0] for r in regions), min(r[1] for r in regions), max(r[2] for r in regions), max(r[3] for r in regions)
 
 
 def _prose_word(token: str) -> bool:

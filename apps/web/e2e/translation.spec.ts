@@ -303,7 +303,7 @@ test("본문만 번역한다: 머리글·바닥글, 따로 놓인 수식·식 �
   const first = translated(page, 0).locator(".translated-block");
   await expect(first).toHaveCount(3, { timeout: 15_000 });
   await expect(first).toContainText(["[번역] Body text before the equation", "[번역] The equation above sums two terms.", "[번역] The second equation has no number"]);
-  for (const text of ["Synthetic Parts Journal", "7:1", "x = a + b", "(1)", "f g h k"]) {
+  for (const text of ["Synthetic Parts Journal", "7:1", "x = a + b", "(1)", "sum of parts", "f g h k"]) {
     await expect(translated(page, 0)).not.toContainText(text);
     expect(JSON.stringify(translationRuns().at(-1)!.message)).not.toContain(text);
   }

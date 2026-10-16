@@ -18,7 +18,7 @@ import statistics
 import unicodedata
 from dataclasses import dataclass, field
 
-from paperloom.documents.block_kinds import IN_FIGURE, IN_TABLE, MATH, is_display_math
+from paperloom.documents.block_kinds import IN_FIGURE, IN_TABLE, MATH, equation_labels, is_display_math
 from paperloom.documents.tables import table_blocks
 
 Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용자 공간)
@@ -36,7 +36,8 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 # 11: 3B2 조판 PDF의 AdvP 수식 글꼴을 TeX 글꼴 자리의 글자로 되돌린다(glyphs.kind_3b2, 2026-10-14 사용자 논문 IEEE TC), 사용자 영역
 #     Symbol 글자·괄호 조각을 되찾고 모르는 것은 뺀다(glyphs.pua_text), 글자 대부분을 못 읽은 쪽은 unreadable(같은 날 실제 논문 시험)
 # 12: 쪽 높이의 절반보다 높은 의사코드 상자도 표 안으로 본다(tables.MAX_BAND, 2026-10-16 사용자 논문 IEEE TIM 6쪽 Algorithm 1)
-LAYOUT_VERSION = "12"
+# 13: 수식에 붙은 작은 글씨 설명(밑 괄호 아래 등)도 수식으로 본다(block_kinds.equation_labels, 같은 논문 7쪽 식 (14))
+LAYOUT_VERSION = "13"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)
@@ -164,6 +165,8 @@ def layout_page(
         sizes = [line.size for line in block.lines if line.size > 0]
         font_size = round(statistics.median(sizes), 2) if sizes else None
         text_blocks.append(TextBlock(text=text, regions=regions, quality_flags=flags, styles=block_styles(block.lines, text), font_size=font_size))
+    for index in equation_labels([(block.regions, block.text, block.font_size, block.quality_flags) for block in text_blocks]):
+        text_blocks[index].quality_flags.append(MATH)
     for index in table_blocks([(block.regions, block.text) for block in text_blocks], rules):
         text_blocks[index].quality_flags.append(IN_TABLE)
     glyphs = sum(1 for ch in chars if ch.box is not None and ch.text.strip())
