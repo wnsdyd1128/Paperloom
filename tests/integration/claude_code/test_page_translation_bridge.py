@@ -195,6 +195,22 @@ def test_the_viewed_page_is_translated_in_parallel_groups_and_saved_as_one_page(
     assert [item["text"] for block in translation["blocks"] for item in block["sentences"]] == [f"[번역] {text}" for text in expected]
 
 
+def test_each_group_of_the_viewed_page_is_fixed_in_its_own_conversation(core, bridge, fake_log, monkeypatch):
+    """동시에 번역하는 묶음마다 처음 답이 틀려도 각자 자기 대화에 다시 물어 고친다(2026-10-16 사용자 논문 6쪽: 넷 중 한 묶음이
+    틀려 쪽 전체가 실패했다)."""
+    monkeypatch.setattr(page_translation, "GROUP_CHARS", 40)
+    monkeypatch.setenv("FAKE_CLAUDE_TRANSLATION", "stutter-once")
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0, "split": True})
+    assert response.status_code == 200, response.text
+    log = runs(fake_log)
+    firsts = {run["session"] for run in log if "--resume" not in run["args"]}
+    resumed = [run["args"][run["args"].index("--resume") + 1] for run in log if "--resume" in run["args"]]
+    assert len(firsts) >= 2 and sorted(resumed) == sorted(firsts)  # 묶음마다 한 번, 자기 대화로
+    blocks = page_blocks(core, core["navigation"], 0)
+    expected = [f"[번역] {block['text'][start:end]}" for block in blocks for start, end in sentence_spans(block["text"])]
+    assert [item["text"] for block in response.json()["translation"]["blocks"] for item in block["sentences"]] == expected
+
+
 def test_a_broken_group_refuses_the_whole_viewed_page(core, bridge, fake_log, monkeypatch):
     monkeypatch.setattr(page_translation, "GROUP_CHARS", 40)
     monkeypatch.setenv("FAKE_CLAUDE_TRANSLATION", "text")
@@ -214,12 +230,41 @@ def test_a_saved_page_is_not_translated_again_unless_asked(core, bridge, fake_lo
     assert len(runs(fake_log)) == 2  # 다시 번역
 
 
-@pytest.mark.parametrize("mode", ["missing", "text"])
-def test_a_broken_translation_is_refused_and_not_saved(core, bridge, monkeypatch, mode):
-    monkeypatch.setenv("FAKE_CLAUDE_TRANSLATION", mode)  # missing: 두 문장 문단의 둘째 문장이 빠짐, text: JSON이 아님
+def message_text(run: dict) -> str:
+    [text] = [block["text"] for block in run["message"]["message"]["content"] if block["type"] == "text"]
+    return text
+
+
+@pytest.mark.parametrize("mode", ["missing", "text", "stutter"])
+def test_a_translation_still_broken_after_asking_again_is_refused_and_not_saved(core, bridge, fake_log, monkeypatch, mode):
+    """missing: 두 문장 문단의 둘째 문장이 빠짐, text: JSON이 아님, stutter: 값 없는 키로 JSON 문법이 깨짐. 가짜 CLI는 다시 답해도
+    같은 식으로 틀린다. 고쳐 달라는 요청은 한 번뿐이다."""
+    monkeypatch.setenv("FAKE_CLAUDE_TRANSLATION", mode)
     response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0})
     assert (response.status_code, response.json()["code"]) == (502, "BAD_TRANSLATION")
     assert core["client"].get(f"/api/v1/versions/{core['navigation']}/pages/0/translations/ko").json()["code"] == "NOT_TRANSLATED"
+    first, again = runs(fake_log)
+    assert "--resume" not in first["args"] and again["args"][again["args"].index("--resume") + 1] == first["session"]
+
+
+@pytest.mark.parametrize(("mode", "problem"), [("stutter-once", "JSON 문법이 틀렸습니다"), ("missing-once", "번역이 없는 id: {second}")])
+def test_an_unreadable_answer_is_fixed_by_asking_once_more_in_the_same_conversation(core, bridge, fake_log, monkeypatch, mode, problem):
+    """읽지 못한 답(JSON 문법 오류·id 빠짐)은 같은 대화에 무엇이 틀렸는지 알려 다시 받는다 (2026-10-16 사용자 요청: "다시 번역"
+    해도 같은 쪽이 같은 식으로 틀렸다). 다시 받은 답이 맞으면 쪽을 저장한다."""
+    monkeypatch.setenv("FAKE_CLAUDE_TRANSLATION", mode)  # 처음 답만 틀린다
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0})
+    assert response.status_code == 200, response.text
+    blocks = page_blocks(core, core["navigation"], 0)
+    expected = [f"[번역] {block['text'][start:end]}" for block in blocks for start, end in sentence_spans(block["text"])]
+    assert [item["text"] for block in response.json()["translation"]["blocks"] for item in block["sentences"]] == expected
+    first, again = runs(fake_log)
+    assert again["args"][again["args"].index("--resume") + 1] == first["session"]  # 같은 대화(앞 답을 본다)
+    assert again["args"][again["args"].index("--effort") + 1] == "low" and "번역" in again["system_prompt"]
+    payload = json.loads(message_text(first).split("```json")[1].split("```")[0])
+    second = next(paragraph for paragraph in payload["paragraphs"] if len(paragraph["sentences"]) > 1)["sentences"][1]["id"]
+    text = message_text(again)
+    assert text.startswith("## 앞 답을 읽지 못했습니다") and problem.format(second=second) in text
+    assert "## 번역할 쪽" not in text  # 쪽 글은 다시 보내지 않는다(대화에 있다)
 
 
 def test_a_fenced_answer_and_sentences_joined_for_word_order_are_accepted(core, bridge, monkeypatch):

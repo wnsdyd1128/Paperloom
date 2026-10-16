@@ -127,21 +127,41 @@ def translation_request(units: list[Unit], context: str | None = None) -> str:
 def parse_translation(text: str, units: list[Unit]) -> list[dict]:
     """응답에서 문단마다 문장 번역 목록(Core PUT 본문의 blocks)을 만든다. 코드 블록으로 감쌌어도 읽는다.
     id가 하나라도 빠지거나, 글이 아니거나, 쪽의 첫 문장이 비면 BadTranslation(다른 문단의 첫 문장은 앞 문단에 합쳐 비울 수
-    있다. Core 저장 검사와 같은 규칙)."""
+    있다. Core 저장 검사와 같은 규칙). 그 메시지는 무엇이 틀렸는지(JSON 문법 오류 자리, 빠진 id 전부)를 말하며, 모델에게
+    고쳐 달라는 글(repair_request)에 그대로 쓴다. 답 글 조각이 들 수 있으니 로그에 남기지 않는다."""
     body = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text.strip())
     start, end = body.find("{"), body.rfind("}")
+    if not 0 <= start < end:
+        raise BadTranslation("답에 JSON 객체가 없습니다.")
     try:
-        answer = json.loads(body[start:end + 1]) if 0 <= start < end else None
-    except ValueError:
-        answer = None
+        answer = json.loads(body[start:end + 1])
+    except json.JSONDecodeError as error:
+        near = error.doc[max(0, error.pos - 60): error.pos + 30]
+        raise BadTranslation(f"JSON 문법이 틀렸습니다({error.msg}). 틀린 곳 부근: …{near}…") from None
     if not isinstance(answer, dict):
-        raise BadTranslation("JSON 객체가 아닙니다.")
-    blocks = []
-    for paragraph, (block_id, sentences) in enumerate(units, 1):
-        translated = [answer.get(f"{paragraph}.{index}") for index in range(1, len(sentences) + 1)]
-        if not all(isinstance(item, str) for item in translated):
-            raise BadTranslation(f"문단 {paragraph}의 문장 번역이 빠졌습니다.")
-        if paragraph == 1 and not translated[0].strip():
-            raise BadTranslation("쪽의 첫 문장 번역이 비었습니다.")
-        blocks.append({"block_id": block_id, "sentences": [item.strip() for item in translated]})
+        raise BadTranslation("답이 JSON 객체가 아닙니다.")
+    missing = [
+        f"{paragraph}.{index}"
+        for paragraph, (_, sentences) in enumerate(units, 1)
+        for index in range(1, len(sentences) + 1)
+        if not isinstance(answer.get(f"{paragraph}.{index}"), str)
+    ]
+    if missing:
+        raise BadTranslation(f"번역이 없는 id: {', '.join(missing)}")
+    blocks = [
+        {"block_id": block_id, "sentences": [answer[f"{paragraph}.{index}"].strip() for index in range(1, len(sentences) + 1)]}
+        for paragraph, (block_id, sentences) in enumerate(units, 1)
+    ]
+    if not blocks[0]["sentences"][0]:
+        raise BadTranslation('첫 id "1.1"의 번역이 비었습니다.')
     return blocks
+
+
+def repair_request(problem: str) -> str:
+    """앞 답을 읽지 못했을 때 같은 대화에 이어 보내는 글(problem: BadTranslation 메시지). 2026-10-16 사용자 요청: 다시 번역해도
+    같은 쪽이 같은 식으로 틀렸다(값 없는 키 "13.3", 같은 그림 캡션에서 합친 문장의 id를 빼먹음)."""
+    return (
+        f"## 앞 답을 읽지 못했습니다\n\n{problem}\n\n"
+        "같은 글의 모든 문장 id에 번역을 하나씩 담은 JSON 객체 하나로 처음부터 다시 답하세요. "
+        '앞 문장에 합쳐 옮긴 id도 빼지 말고 빈 글("")로 주세요. JSON 밖에 다른 글을 쓰지 마세요.'
+    )

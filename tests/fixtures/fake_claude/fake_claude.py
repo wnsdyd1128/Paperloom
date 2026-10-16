@@ -12,7 +12,10 @@
 - FAKE_CLAUDE_STEP: 글 조각 사이에 기다릴 초 (생성되는 대로 전달되는지 확인용)
 - 쪽 번역(U7, 글에 "## 번역할 쪽 (JSON)"): 문장 id마다 "[번역] 원문"을 JSON으로 답한다. FAKE_CLAUDE_TRANSLATION이
   missing이면 여러 문장인 첫 문단의 둘째 문장(없으면 마지막 문장)을 빼고, text면 JSON이 아닌 글로, joined면 코드 블록으로 감싸고 두 문장 이상인 문단의 둘째 문장을
-  첫 문장 번역("[번역·합침] …")에 합친다(뒤 id는 빈 글).
+  첫 문장 번역("[번역·합침] …")에 합친다(뒤 id는 빈 글). stutter면 그 둘째 문장 id를 값 없이 한 번 더 써 JSON 문법을 깬다
+  (2026-10-16 사용자 논문에서 본 모양 `"13.3","13.3":"…"`). 받은 쪽 글은 작업 폴더에 대화 ID로 남긴다.
+- 고쳐 달라는 글("## 앞 답을 읽지 못했습니다", --resume): 그 대화에서 받은 쪽 글로 다시 답한다. 모드 끝이 "-once"면
+  (missing-once 등) 처음 답만 그 모드로 틀리고 다시 답할 때는 맞게 답한다. 아니면 다시 답해도 같은 모드다.
 """
 
 import contextlib
@@ -45,7 +48,7 @@ def main() -> int:
     # 갈래(--fork-session)는 이어받은 대화의 새 ID다
     session = args[args.index("--resume") + 1] if "--resume" in args and "--fork-session" not in args else str(uuid.uuid4())
     if log := os.environ.get("FAKE_CLAUDE_LOG"):
-        record = {"args": args, "env": sorted(key for key in WATCHED_ENV if key in os.environ), "message": message, "cwd": os.getcwd()}
+        record = {"args": args, "env": sorted(key for key in WATCHED_ENV if key in os.environ), "message": message, "cwd": os.getcwd(), "session": session}
         if "--system-prompt-file" in args:  # 설정의 개인화가 시스템 프롬프트에 붙는지 본다 (U6)
             with open(args[args.index("--system-prompt-file") + 1], encoding="utf-8") as prompt:
                 record["system_prompt"] = prompt.read()
@@ -80,7 +83,12 @@ def main() -> int:
     images = sum(1 for block in content if block["type"] == "image")
     question = texts[-1].strip().splitlines()[-1][:60]
     if "## 번역할 쪽 (JSON)" in texts[-1]:
+        with open(f"fake-translation-{session}.txt", "w", encoding="utf-8") as saved:
+            saved.write(texts[-1])
         return translate(texts[-1], session)
+    if "## 앞 답을 읽지 못했습니다" in texts[-1]:
+        with open(f"fake-translation-{session}.txt", encoding="utf-8") as saved:
+            return translate(saved.read(), session, repair=True)
     answer = (
         f"**가짜 답**입니다. 근거를 봤고 [근거 1] 이미지 {images}개를 받았습니다. 참고문헌 [12]는 근거가 아닙니다.\n\n"
         f"- 근거 글 {len(texts)}개\n- 수식 $C_i \\le T_i$\n- 식 번호 $S = A_i \\tag{{1.4}}$\n\n질문: {question}"
@@ -103,11 +111,13 @@ def main() -> int:
     return 0
 
 
-def translate(text: str, session: str) -> int:
-    """쪽 번역 차례: 문장 id마다 번역을 담은 JSON 객체 하나로 답한다."""
+def translate(text: str, session: str, repair: bool = False) -> int:
+    """쪽 번역 차례: 문장 id마다 번역을 담은 JSON 객체 하나로 답한다. repair는 고쳐 달라는 글에 다시 답하는 차례다."""
     time.sleep(float(os.environ.get("FAKE_CLAUDE_SLOW", "0")))
     payload = json.loads(text.split("```json")[1].split("```")[0])
     mode = os.environ.get("FAKE_CLAUDE_TRANSLATION", "ok")
+    if mode.endswith("-once"):
+        mode = "ok" if repair else mode.removesuffix("-once")
     answer = {}
     for paragraph in payload["paragraphs"]:
         sentences = paragraph["sentences"]
@@ -116,10 +126,13 @@ def translate(text: str, session: str) -> int:
         if mode == "joined" and len(sentences) > 1:
             answer[sentences[0]["id"]] = "[번역·합침] " + " ".join(sentence["text"] for sentence in sentences[:2])
             answer[sentences[1]["id"]] = ""
+    several = next((paragraph["sentences"] for paragraph in payload["paragraphs"] if len(paragraph["sentences"]) > 1), None)
+    second = several[1]["id"] if several else list(answer)[-1]
     if mode == "missing":
-        several = next((paragraph["sentences"] for paragraph in payload["paragraphs"] if len(paragraph["sentences"]) > 1), None)
-        answer.pop(several[1]["id"] if several else list(answer)[-1])
+        answer.pop(second)
     result = "번역했습니다." if mode == "text" else json.dumps(answer, ensure_ascii=False)
+    if mode == "stutter":
+        result = result.replace(f'"{second}": ', f'"{second}", "{second}": ', 1)
     if mode == "joined":
         result = f"```json\n{result}\n```"
     emit({"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": result}}})

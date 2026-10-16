@@ -9,7 +9,8 @@
   첫 사건(start)의 실행 ID로 중단(/cancel)하면 Claude Code를 끝내고 답을 저장하지 않는다(2026-10-02 사용자 요청).
 - 갈래(fork): 저장된 대화를 이어받은 새 대화로 묻는다(Claude Code --fork-session). 원래 대화는 그대로다.
 - 쪽 번역(U7, `POST /translate-page`): 받는 것은 버전 ID와 쪽 번호뿐이다. 문단은 Core에서 읽어 문장으로 나누고, 문장마다
-  번역을 JSON으로 받아 검사한 뒤 Core에 저장한다. 저장된 쪽은 다시 실행하지 않는다(다시 번역은 force). 대화와 같은
+  번역을 JSON으로 받아 검사한 뒤 Core에 저장한다(읽지 못한 답은 같은 대화에 한 번 고쳐 달라고 한다). 저장된 쪽은 다시
+  실행하지 않는다(다시 번역은 force). 대화와 같은
   자물쇠로 한 번에 한 차례다(UI_PLAN D3·D10, ADR 0003).
 - 로그에는 packet ID·결과·시간만 남기고 질문·답은 남기지 않는다(IMPL §15).
 """
@@ -38,6 +39,7 @@ from paperloom.integrations.claude_code.page_translation import (
     BadTranslation,
     group_context,
     parse_translation,
+    repair_request,
     split_units,
     translation_request,
     translation_units,
@@ -221,16 +223,31 @@ class _ClaudeFailed(Exception):
 
 def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threading.Event, system_extra: str) -> list[dict]:
     """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을
-    참고로 붙인다. 묶음 하나라도 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다)."""
+    참고로 붙인다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이 틀렸는지 알려 한 번만 다시 받는다
+    (2026-10-16 사용자 요청). 묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다)."""
 
-    def translate(index: int) -> list[dict]:
-        context = group_context(groups[index - 1][-1]) if index else None
-        content = [{"type": "text", "text": translation_request(groups[index], context)}]
-        run = cli.run(content, model=model, cancel=cancel, system_prompt=TRANSLATION_PROMPT, system_extra=system_extra, effort=TRANSLATION_EFFORT)
+    def ask(text: str, resume: str | None) -> dict:
+        content = [{"type": "text", "text": text}]
+        run = cli.run(
+            content, resume=resume, model=model, cancel=cancel, system_prompt=TRANSLATION_PROMPT, system_extra=system_extra,
+            effort=TRANSLATION_EFFORT,
+        )
         result = [event for event in run if event["type"] == "result"][-1]
         if result["is_error"]:
             raise _ClaudeFailed(result["error"])
-        return parse_translation(result["text"], groups[index])
+        return result
+
+    def translate(index: int) -> list[dict]:
+        context = group_context(groups[index - 1][-1]) if index else None
+        result = ask(translation_request(groups[index], context), None)
+        try:
+            return parse_translation(result["text"], groups[index])
+        except BadTranslation as bad:
+            if not result["session_id"]:
+                raise
+            log.info("쪽 번역 묶음 %d/%d의 답을 읽지 못해 같은 대화에 다시 묻는다", index + 1, len(groups))
+            again = ask(repair_request(str(bad)), result["session_id"])
+            return parse_translation(again["text"], groups[index])
 
     with ThreadPoolExecutor(max_workers=len(groups)) as pool:
         futures = [pool.submit(translate, index) for index in range(len(groups))]

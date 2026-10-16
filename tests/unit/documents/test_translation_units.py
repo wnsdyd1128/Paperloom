@@ -7,6 +7,7 @@ from paperloom.integrations.claude_code.page_translation import (
     TRANSLATION_PROMPT,
     BadTranslation,
     parse_translation,
+    repair_request,
     split_units,
     translation_request,
     translation_units,
@@ -52,6 +53,22 @@ def test_a_paragraph_that_starts_mid_sentence_may_be_merged_into_the_paragraph_b
     with pytest.raises(BadTranslation):
         parse_translation('{"1.1": "", "2.1": "코어에.", "2.2": "그다음 반복한다."}', units)
     assert "앞 문단" in TRANSLATION_PROMPT
+
+
+def test_an_unreadable_answer_says_what_is_wrong_so_it_can_be_asked_again():
+    """읽지 못한 답의 까닭은 모델에게 고쳐 달라고 그대로 보낸다(repair_request, 2026-10-16 사용자 요청). JSON 문법 오류는 틀린
+    곳 부근을, id 빠짐은 빠진 id를 모두 말한다."""
+    units = [("a", ["One.", "Two."]), ("b", ["Three."]), ("c", ["Four.", "Five."])]
+    with pytest.raises(BadTranslation) as stutter:
+        parse_translation('{"1.1": "하나.", "1.2", "1.2": "둘.", "2.1": "셋."}', units)  # 2026-10-16 사용자 논문 6쪽의 모양
+    assert str(stutter.value).startswith("JSON 문법이 틀렸습니다(Expecting ':' delimiter)") and '"1.2", "1.2"' in str(stutter.value)
+    with pytest.raises(BadTranslation) as missing:
+        parse_translation('{"1.1": "하나.", "2.1": "셋.", "3.1": "넷."}', units)
+    assert str(missing.value) == "번역이 없는 id: 1.2, 3.2"
+    with pytest.raises(BadTranslation, match="JSON 객체가 없습니다"):
+        parse_translation("번역했습니다.", units)
+    request = repair_request(str(missing.value))
+    assert request.startswith("## 앞 답을 읽지 못했습니다") and "번역이 없는 id: 1.2, 3.2" in request and '빈 글("")' in request
 
 
 def group_sizes(groups) -> list[int]:
