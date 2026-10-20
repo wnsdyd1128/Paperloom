@@ -6,6 +6,9 @@ app:
   port: 8000
   data_dir: /data
   web_dist_dir: /app/web
+layout:
+  model_path: /app/models/pp-doclayout-plus-l/inference.onnx  # 이미지에 넣은 모델(ops/compose/Dockerfile)
+  device: auto  # GPU 이미지를 GPU와 함께 띄우면 CUDA, 아니면 CPU
 cost_policy:
   mode: plan_only
   paid_model_calls_allowed: false

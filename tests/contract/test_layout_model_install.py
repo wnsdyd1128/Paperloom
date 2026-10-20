@@ -1,11 +1,26 @@
-"""설치 계약: 문서 레이아웃 모델(documents.layout_model)이 onnxruntime의 사용 통계 전송을 끈다 (2026-10-19)."""
+"""설치 계약: 문서 레이아웃 모델(documents.layout_model)의 이미지가 코드와 맞아야 한다 (2026-10-19).
+
+Docker 이미지는 빌드할 때 모델을 받아 sha256을 확인한다. 주소·해시가 코드와 다르면 다른 모델을 쓰거나 빌드가 깨진다.
+"""
 
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
+from paperloom.documents.layout_model import MODEL_SHA256, MODEL_URL
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_the_image_downloads_the_model_the_code_expects_where_the_config_points():
+    dockerfile = (REPO_ROOT / "ops" / "compose" / "Dockerfile").read_text(encoding="utf-8")
+    [(checksum, url, destination)] = re.findall(r"^ADD --checksum=sha256:(\w+) [^\n]*\\\n\s+(\S+) \\\n\s+(\S+)$", dockerfile, re.MULTILINE)
+    assert (url, checksum) == (MODEL_URL, MODEL_SHA256)
+    config = yaml.safe_load((REPO_ROOT / "ops" / "config" / "docker.yaml").read_text(encoding="utf-8"))
+    assert config["layout"]["model_path"] == destination
 
 
 def test_onnxruntime_is_imported_only_after_its_telemetry_is_turned_off():

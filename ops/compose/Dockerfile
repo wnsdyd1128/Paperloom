@@ -13,6 +13,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PAPERLOOM_CONFIG=/app/config/paperloom.yaml
 WORKDIR /app
+# 문서 레이아웃 모델(130MB, Apache-2.0). 주소와 sha256은 documents.layout_model의 MODEL_URL·MODEL_SHA256과 같다(tests/contract가 확인)
+ADD --checksum=sha256:77afb2caa74dd13240d087d2eced91d7fcd2caebd16006a0a66162fc8707ff0e --chmod=644 \
+    https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx/resolve/feb74619326f634e0e883218598096a3733ad9f7/inference.onnx \
+    /app/models/pp-doclayout-plus-l/inference.onnx
 COPY backend/requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 COPY backend/ ./backend/
@@ -20,7 +24,9 @@ RUN pip install --no-cache-dir --no-deps ./backend && rm -rf ./backend
 COPY ops/config/docker.yaml /app/config/paperloom.yaml
 COPY --from=web /web/dist /app/web
 # named volume이 처음 만들어질 때 /data의 소유자를 이어받도록 이미지에서 먼저 만든다.
-RUN useradd --system --uid 10001 paperloom && mkdir /data && chown paperloom /data
+# 모델 ADD의 --chmod=644가 만든 폴더에도 붙어 서버(paperloom)가 모델에 닿지 못하므로 폴더를 755로 되돌린다(2026-10-19 시험 이미지)
+RUN useradd --system --uid 10001 paperloom && mkdir /data && chown paperloom /data \
+    && chmod 755 /app/models /app/models/pp-doclayout-plus-l
 USER paperloom
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
