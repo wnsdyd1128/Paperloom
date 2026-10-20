@@ -4,6 +4,11 @@
 큰 괄호·≠ 등이 pdfium에서 제어 문자로 나와 빠졌다(ToUnicode가 그 코드를 빠뜨렸거나, Adobe 글리프 목록에 없는 TeX 이름이다).
 pdfium은 글꼴 사전을 주지 않으므로 그 쪽 글꼴의 /Differences를 pypdf로 읽는다(제어 문자가 나온 쪽만, 처음 필요할 때).
 수식 글꼴(fonts.is_math_font)만 되찾는다: pdfium은 줄 끝에서 나눈 낱말의 하이픈도 0x02로 주므로 본문 글꼴은 건드리지 않는다.
+
+글리프 번호 글꼴(2026-10-19 사용자 논문 SayCan의 그림, Google 슬라이드에서 만든 듯): Type0 Identity-H 글꼴의 ToUnicode가 비었고 내장
+TrueType에 cmap·post 표가 없어 PDF 어디에도 글자가 없다. pdfium은 글리프 번호를 글자로 주어 "+XPDQ"(Human)처럼 29자 밀린 글이
+되고 매핑 오류로 쪽이 "일부 쪽만 검색 가능"이 되었다. 원래 글꼴이 매킨토시 표준 글리프 차례(글리프 36 = A)를 따르므로 그 차례로
+읽는다(MAC_GLYPHS). 차례가 다른 글꼴이면 엉뚱한 글이 되므로 글꼴마다 읽은 글이 말글처럼 보일 때만 쓴다(looks_like_text).
 """
 
 import re
@@ -139,6 +144,16 @@ SYMBOL = {
     **dict(zip(range(0xA0, 0xF0), "€ϒ′≤⁄∞ƒ♣♦♥♠↔←↑→↓°±″≥×∝∂•÷≠≡≈…  ↵ℵℑℜ℘⊗⊕∅∩∪⊃⊇⊄⊂⊆∈∉∠∇®©™∏√⋅¬∧∨⇔⇐⇑⇒⇓◊⟨®©™∑(  [  {   ", strict=True)),
     **dict(zip(range(0xF1, 0xFF), "⟩∫∫  )  ]  }  ", strict=True)),
 }
+# TrueType 매킨토시 표준 글리프 차례(post 표 형식 1의 258개) → 글자. 0–2(.notdef·.null·nonmarkingreturn)와 210(apple)은 없다
+MAC_GLYPHS = {
+    **dict(zip(range(3, 98), map(chr, range(0x20, 0x7F)), strict=True)),  # space … asciitilde
+    **dict(zip(range(98, 210), "ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ", strict=True)),
+    **dict(zip(range(211, 258), "ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇŁłŠšŽž¦ÐðÝýÞþ−×¹²³½¼¾₣ĞğİŞşĆćČčđ", strict=True)),
+}
+# 글리프 차례로 읽은 한 글꼴의 글이 말글이려면: 영문자가 이만큼 이상이고 그 가운데 모음(aeiou)이 이 비율 이상(영어 약 0.38,
+# 사용자 논문 그림 글 0.39–0.44, 밀린 채로는 0.06–0.14, 차례가 다른 글꼴을 잘못 읽으면 고른 글자라 약 0.19)
+GLYPH_ORDER_LETTERS = 8
+GLYPH_ORDER_VOWELS = 0.3
 _TEX_NAME = re.compile(r"^C(\d+)$")
 _DELIMITER_PAIRS = ((0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (16, 17), (18, 19), (22, 23), (24, 25), (26, 27))
 
@@ -151,6 +166,12 @@ def glyph_text(name: str) -> str | None:
     if unicode:
         return chr(int(unicode.group(1), 16))
     return GLYPHS.get(_SIZE.sub("", name))
+
+
+def looks_like_text(text: str) -> bool:
+    """글리프 차례(MAC_GLYPHS)로 읽은 한 글꼴의 글이 말글처럼 보이는지(GLYPH_ORDER_LETTERS·GLYPH_ORDER_VOWELS)."""
+    letters = [char.lower() for char in text if char.isascii() and char.isalpha()]
+    return len(letters) >= GLYPH_ORDER_LETTERS and sum(char in "aeiou" for char in letters) >= GLYPH_ORDER_VOWELS * len(letters)
 
 
 def kind_3b2(names: dict[int, str]) -> str | None:
@@ -188,13 +209,13 @@ def text_3b2(kind: str, code: int, name: str | None) -> str | None:
 
 
 class FontDifferences:
-    """쪽 글꼴의 /Differences(글자 코드 → 글리프 이름). PDF는 처음 필요할 때 pypdf로 열고 쪽마다 한 번 읽는다.
+    """쪽 글꼴의 /Differences(글자 코드 → 글리프 이름)와 글리프 번호 글꼴. PDF는 처음 필요할 때 pypdf로 열고 쪽마다 한 번 읽는다.
     PDF를 읽지 못하면(신뢰할 수 없는 PDF) 되찾지 않는다."""
 
     def __init__(self, path: str) -> None:
         self._path = path
         self._reader = None
-        self._pages: dict[int, dict[str, dict[int, str] | None]] = {}
+        self._pages: dict[int, tuple[dict[str, dict[int, str] | None], dict[str, bool]]] = {}
 
     def text(self, page_index: int, font: str, code: int) -> str | None:
         """그 쪽 그 글꼴(부분 글꼴 접두 없이)의 글자 코드가 가리키는 글자. 같은 이름의 글꼴이 코드를 다르게 쓰거나 모르면 None."""
@@ -208,26 +229,33 @@ class FontDifferences:
         kind = kind_3b2(names) if names else None
         return text_3b2(kind, code, names.get(code)) if kind else None
 
-    def _names(self, page_index: int, font: str) -> dict[int, str] | None:
-        fonts = self._pages.get(page_index)
-        if fonts is None:
-            fonts = self._pages[page_index] = self._read(page_index)
-        return fonts.get(_SUBSET.sub("", font))
+    def glyph_ids(self, page_index: int, font: str) -> bool:
+        """그 쪽 그 글꼴이 글리프 번호 글꼴(_glyph_ids)인지. 같은 이름의 글꼴이 모두 그래야 한다."""
+        return self._read_page(page_index)[1].get(_SUBSET.sub("", font), False)
 
-    def _read(self, page_index: int) -> dict[str, dict[int, str] | None]:
+    def _names(self, page_index: int, font: str) -> dict[int, str] | None:
+        return self._read_page(page_index)[0].get(_SUBSET.sub("", font))
+
+    def _read_page(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool]]:
+        if page_index not in self._pages:
+            self._pages[page_index] = self._read(page_index)
+        return self._pages[page_index]
+
+    def _read(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool]]:
         try:
             if self._reader is None:
                 from pypdf import PdfReader
 
                 self._reader = PdfReader(self._path)
             fonts: dict[str, dict[int, str] | None] = {}
-            _collect(self._reader.pages[page_index].get("/Resources"), fonts, depth=0)
-            return fonts
+            glyph_ids: dict[str, bool] = {}
+            _collect(self._reader.pages[page_index].get("/Resources"), fonts, glyph_ids, depth=0)
+            return fonts, glyph_ids
         except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF. 되찾지 못해도 본문 추출은 계속한다
-            return {}
+            return {}, {}
 
 
-def _collect(resources, fonts: dict[str, dict[int, str] | None], depth: int) -> None:
+def _collect(resources, fonts: dict[str, dict[int, str] | None], glyph_ids: dict[str, bool], depth: int) -> None:
     """자원의 글꼴(그림 안 Form의 글꼴 포함, 세 겹까지). 같은 이름인데 /Differences가 다르면 None(쓰지 않는다)."""
     if resources is None or depth > 3:
         return
@@ -237,10 +265,33 @@ def _collect(resources, fonts: dict[str, dict[int, str] | None], depth: int) -> 
         name = _SUBSET.sub("", str(font.get("/BaseFont", ""))[1:])
         differences = _differences(font)
         fonts[name] = differences if fonts.get(name, differences) == differences else None
+        glyph_ids[name] = glyph_ids.get(name, True) and _glyph_ids(font)
     for ref in (resources.get("/XObject") or {}).values():
         form = ref.get_object()
         if form.get("/Subtype") == "/Form":
-            _collect(form.get("/Resources"), fonts, depth + 1)
+            _collect(form.get("/Resources"), fonts, glyph_ids, depth + 1)
+
+
+def _glyph_ids(font) -> bool:
+    """글리프 번호를 글자 코드로 쓰고(Type0 Identity-H, CIDToGIDMap Identity) 글자를 알려 주지 않는(ToUnicode가 없거나 비었고
+    내장 TrueType에 cmap 표가 없는) 글꼴. pdfium은 글리프 번호를 글자로 주고 매핑 오류로 표시한다."""
+    try:
+        if font.get("/Subtype") != "/Type0" or font.get("/Encoding") != "/Identity-H":
+            return False
+        to_unicode = font.get("/ToUnicode")
+        if to_unicode is not None and re.search(rb"begin(?:bfchar|bfrange)", to_unicode.get_object().get_data()):
+            return False
+        descendant = font["/DescendantFonts"].get_object()[0].get_object()
+        if descendant.get("/CIDToGIDMap", "/Identity") != "/Identity":
+            return False
+        program = descendant["/FontDescriptor"].get_object().get("/FontFile2")
+        if program is None:
+            return False
+        data = program.get_object().get_data()
+        tags = {data[12 + 16 * index : 16 + 16 * index] for index in range(int.from_bytes(data[4:6], "big"))}
+        return b"cmap" not in tags
+    except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF의 글꼴. 모르면 글리프 번호 글꼴로 보지 않는다
+        return False
 
 
 def _differences(font) -> dict[int, str]:

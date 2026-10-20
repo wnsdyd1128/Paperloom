@@ -2,7 +2,7 @@
 
 import pytest
 
-from paperloom.documents.glyphs import glyph_text, kind_3b2, pua_text, text_3b2
+from paperloom.documents.glyphs import MAC_GLYPHS, glyph_text, kind_3b2, looks_like_text, pua_text, text_3b2
 
 
 @pytest.mark.parametrize(
@@ -152,3 +152,20 @@ def test_3b2_delimiter_font_codes_give_the_cmex_symbol(code, expected):
 )
 def test_private_use_symbols_give_the_symbol_they_draw(font, code, expected):
     assert pua_text(font, code) == expected
+
+
+def test_glyph_ids_in_the_standard_macintosh_order_give_their_letters():
+    """유니코드 지도가 빈 글리프 번호 글꼴(2026-10-19 사용자 논문 SayCan 그림)의 글리프 번호는 매킨토시 표준 차례로 읽는다:
+    pdfium은 번호를 글자로 주어 "+XPDQ"가 되었다(글리프 43 = H)."""
+    assert "".join(MAC_GLYPHS[ord(char)] for char in "+XPDQ") == "Human"
+    assert (MAC_GLYPHS[3], MAC_GLYPHS[19], MAC_GLYPHS[36], MAC_GLYPHS[68], MAC_GLYPHS[97]) == (" ", "0", "A", "a", "~")
+    assert (MAC_GLYPHS[171], MAC_GLYPHS[178], MAC_GLYPHS[180], MAC_GLYPHS[183], MAC_GLYPHS[257]) == ("…", "–", "“", "’", "đ")
+    assert {0, 1, 2, 210}.isdisjoint(MAC_GLYPHS) and max(MAC_GLYPHS) == 257
+
+
+def test_only_text_that_reads_like_language_is_taken_from_the_glyph_order():
+    """차례가 다른 글꼴을 매킨토시 차례로 읽으면 엉뚱한 글이 된다. 한 글꼴의 글이 말글처럼 보일 때만 쓴다."""
+    assert looks_like_text("Human: I spilled my coke, can you bring me something?")
+    assert not looks_like_text("+XPDQ ,VSLOOHG P\\FRNH")  # 밀린 채(모음 0.06)
+    assert not looks_like_text("Bcd fgh jklm npqr")  # 자음뿐
+    assert not looks_like_text("Done")  # 영문자가 너무 적다

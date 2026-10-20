@@ -231,6 +231,23 @@ def test_private_use_characters_give_their_symbols_or_leave_the_text(app, client
     assert [block["quality_flags"] for block in page["blocks"]] == [[], [], ["unmapped_chars"]]
 
 
+def test_glyph_id_fonts_without_a_unicode_map_are_read_in_the_macintosh_glyph_order(app, client):
+    """2026-10-19 사용자 논문 SayCan: 그림 글꼴의 ToUnicode가 비고 내장 TrueType에 cmap이 없어 pdfium이 글리프 번호를 글자로 주었다
+    ("+XPDQ" = Human). 그림 세 쪽의 매핑 오류로 논문이 "일부 쪽만 검색 가능"이 되었다. 매킨토시 표준 글리프 차례로 읽되, 읽은 글이
+    말글 같지 않은 글꼴(차례가 다르다)은 그대로 둔다."""
+    paper = upload(client, "text-glyph-ids.pdf")
+    drain(app.state.parsing)
+    version_id = version_of(client, paper)["version_id"]
+    pages = client.get(f"/api/v1/versions/{version_id}/pages").json()["pages"]
+    assert [page["text_status"] for page in pages] == ["usable", "partial"]
+    figure, other = (client.get(f"/api/v1/versions/{version_id}/pages/{index}").json()["blocks"] for index in (0, 1))
+    assert [(block["text"], block["quality_flags"]) for block in figure] == [
+        ("Robots follow the plan in the figure below.", []),
+        ("Human: I spilled my coke, can you bring me a sponge?", ["in_figure"]),
+    ]
+    assert other[1]["quality_flags"] == ["unmapped_chars"]
+
+
 def test_a_font_with_broken_ascent_and_descent_still_gives_whole_paragraphs(app, client):
     """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져(글꼴 크기의 0.45·0) pdfium loose box가 글자 모양 상자였고,
     줄 높이가 x 높이쯤이 되어 문단이 줄마다 나뉘었다(번역이 줄마다 따로 작게 그려졌다). 그런 글꼴의 글자는 기준선 둘레로 넓힌다."""

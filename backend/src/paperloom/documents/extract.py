@@ -21,7 +21,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from paperloom.documents.fonts import font_style, is_math_font
-from paperloom.documents.glyphs import FontDifferences, pua_text
+from paperloom.documents.glyphs import MAC_GLYPHS, FontDifferences, looks_like_text, pua_text
 from paperloom.documents.layout_model import INPUT_SIZE
 from paperloom.documents.tables import horizontal_rules
 from paperloom.documents.text_layout import Char, layout_page
@@ -96,6 +96,7 @@ def _extract(path: str, first: int, stop: int, plain: bool = False, images: str 
                     lambda font, code, index=index: differences.text(index, font, code),
                     lambda font, code, index=index: differences.text_3b2(index, font, code),
                     _form_clips(page, pdfium_c),
+                    lambda font, index=index: differences.glyph_ids(index, font),
                 )
                 graphics = _graphics(page)
                 layout = layout_page(
@@ -135,16 +136,19 @@ def _extract(path: str, first: int, stop: int, plain: bool = False, images: str 
         document.close()
 
 
-def _read_chars(page, pdfium_c, recover=None, recover_3b2=None, clips=None) -> tuple[list[Char], int]:
+def _read_chars(page, pdfium_c, recover=None, recover_3b2=None, clips=None, glyph_ids=None) -> tuple[list[Char], int]:
     """pdfium 텍스트 순서의 글자와 가장 많은 글자의 글줄 방향(반시계, 90의 배수). recover(글꼴 이름, 코드)는 수식 글꼴이
     유니코드를 주지 않아 제어 문자로 나온 글자를 되찾는다(없으면 None). recover_3b2(글꼴 이름, 코드)는 3B2 AdvP 수식 글꼴의
     글자를 TeX 글꼴 자리의 글자로 바꾼다(glyphs.FontDifferences.text_3b2, 늘이는 괄호 조각은 " "). clips(글자 객체 주소 →
-    쪽 좌표 잘라내기 상자, reading.figures.form_text_clips)에서 글자 가운데가 상자 밖이면 보이지 않는 글자라 뺀다."""
+    쪽 좌표 잘라내기 상자, reading.figures.form_text_clips)에서 글자 가운데가 상자 밖이면 보이지 않는 글자라 뺀다.
+    glyph_ids(글꼴 이름)가 참인 글꼴(glyphs.FontDifferences.glyph_ids)의 매핑 오류 글자는 글리프 번호를 매킨토시 표준 차례로
+    읽는다. 한 글꼴의 그런 글자를 모아 읽은 글이 말글처럼 보일 때만 바꾼다(glyphs.looks_like_text)."""
     textpage = page.get_textpage()
     rect = pdfium_c.FS_RECTF()
     font = _FontReader(textpage.raw, pdfium_c)
     chars = []
     angles: Counter[int] = Counter()
+    glyph_chars: dict[str, list[tuple[int, str | None]]] = {}  # 글리프 번호 글꼴 → (chars 안 자리, 매킨토시 차례의 글자)
     try:
         for index in range(textpage.count_chars()):
             code = pdfium_c.FPDFText_GetUnicode(textpage.raw, index)
@@ -161,6 +165,8 @@ def _read_chars(page, pdfium_c, recover=None, recover_3b2=None, clips=None) -> t
                     continue
             unmapped = bool(pdfium_c.FPDFText_HasUnicodeMapError(textpage.raw, index)) or _is_unmapped(code)
             style, size, math_font = font.read(index)
+            if unmapped and glyph_ids is not None and glyph_ids(font.name):
+                glyph_chars.setdefault(font.name, []).append((len(chars), MAC_GLYPHS.get(code)))
             box = (rect.left, rect.bottom, rect.right, rect.top)
             band = None if math_font else font.baseline_band(index, size)  # 수식 글꼴은 원래 글꼴 정보가 남다르다(rtxmi ascent 0)
             if band:
@@ -194,6 +200,11 @@ def _read_chars(page, pdfium_c, recover=None, recover_3b2=None, clips=None) -> t
                     angles[-round(math.degrees(angle) / 90) % 4 * 90] += 1
     finally:
         textpage.close()
+    for found in glyph_chars.values():
+        if looks_like_text("".join(char or "" for _, char in found)):
+            for position, char in found:
+                if char is not None:
+                    chars[position] = replace(chars[position], text=char, unmapped=False) if char.strip() else Char(" ", None)
     # 3B2 기호 글꼴의 빗금(U+0338)은 긋는 글자보다 먼저 나온다("6¼"가 ≠). 결합 문자는 뒤에 와야 하므로 글만 바꾼다(NFKC에서 "=\u0338"은 ≠)
     index = 0
     while index < len(chars) - 1:
