@@ -21,6 +21,9 @@ Box = tuple[float, float, float, float]  # PDF 사용자 공간 (left, bottom, r
 
 MERGE_GAP = 3.0  # pt. 이만큼 떨어진 객체는 한 그림으로 본다
 MIN_SIDE = 36.0  # pt. 폭·높이가 이보다 작으면 선이나 장식(로고·아이콘)이다
+# pt. Form(넣은 그림 파일)은 긴 쪽이 MIN_SIDE 이상이면 짧은 쪽이 이만큼만 되어도 그림이다: 잘라 보이는 부분이 얇은 띠인
+# 그림(2026-10-17 실제 논문 Survey 27쪽 그림 23, 386×29pt)
+MIN_FORM_SIDE = 12.0
 MAX_PAGE_FRACTION = 0.8  # 쪽 넓이에서 이보다 크면 배경이다
 MIN_VISIBLE_FRACTION = 0.5  # 객체가 쪽 안에 이만큼은 있어야 한다
 
@@ -91,9 +94,10 @@ def figure_candidates(graphics: list[Graphic], view_box: Box) -> list[Figure]:
     figures = []
     for box, members in clusters:
         width, height = box[2] - box[0], box[3] - box[1]
-        if width < MIN_SIDE or height < MIN_SIDE or width * height > MAX_PAGE_FRACTION * page_area:
-            continue
         kinds = {member.kind for member in members}
+        shortest = MIN_FORM_SIDE if "form" in kinds else MIN_SIDE
+        if max(width, height) < MIN_SIDE or min(width, height) < shortest or width * height > MAX_PAGE_FRACTION * page_area:
+            continue
         # 경로 하나짜리 선(획만 있는 경로)은 그림이 아니다. 이미지·Form·음영, 여러 경로, 채운 도형은 그림이다.
         if kinds <= {"path"} and len(members) < 2 and not members[0].filled:
             continue
@@ -166,8 +170,78 @@ def page_graphics(page) -> list[Graphic]:
         fill, stroke = ctypes.c_int(0), ctypes.c_int(0)
         if kind == "path":
             pdfium_c.FPDFPath_GetDrawMode(obj.raw, ctypes.byref(fill), ctypes.byref(stroke))
-        graphics.append(Graphic(kind, tuple(obj.get_bounds()), fill.value != 0, bool(stroke.value)))
+        box = tuple(obj.get_bounds())
+        if kind == "form":
+            box = _visible_form_box(obj.raw, box, pdfium_c)
+        graphics.append(Graphic(kind, box, fill.value != 0, bool(stroke.value)))
     return graphics
+
+
+def _visible_form_box(raw, bounds: Box, pdfium_c) -> Box:
+    """Form XObject가 실제로 보이는 상자. pdfium의 객체 상자는 Form 안의 잘라내기(clip)를 무시해 잘려 보이지 않는 그림까지
+    덮는다(2026-10-17 실제 논문 LLVM Static Analysis 4쪽: 그림 5의 Form이 쪽 맨 위부터 가운데 아래까지 잡혀 그 아래 본문
+    17줄이 그림 안 글자가 되어 번역에서 빠졌다). Form 안 객체마다 상자(Form 좌표)를 그 객체의 잘라내기 상자로 자르고(잘라내기가
+    없는 객체는 그대로 — 그래프의 축 글자는 잘라내기 밖에 그린다) 합쳐, Form 행렬로 쪽 좌표로 옮긴 뒤 객체 상자와 겹친 부분만 남긴다.
+    안 객체를 읽지 못하면 객체 상자 그대로다."""
+    import ctypes
+
+    visible = None
+    left, bottom, right, top = ctypes.c_float(), ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
+    for index in range(max(pdfium_c.FPDFFormObj_CountObjects(raw), 0)):
+        child = pdfium_c.FPDFFormObj_GetObject(raw, index)
+        if not child or not pdfium_c.FPDFPageObj_GetBounds(child, *(ctypes.byref(value) for value in (left, bottom, right, top))):
+            continue
+        box: Box | None = (left.value, bottom.value, right.value, top.value)
+        if (clip := _clip_box(child, pdfium_c)) is not None:
+            box = _intersect(box, clip)
+        if box is not None:
+            visible = box if visible is None else _union(visible, box)
+    matrix = pdfium_c.FS_MATRIX()
+    if visible is None or not pdfium_c.FPDFPageObj_GetMatrix(raw, ctypes.byref(matrix)):
+        return bounds
+    return _intersect(_transformed(visible, matrix), bounds) or bounds
+
+
+def form_text_clips(page, pdfium_c) -> dict[int, Box]:
+    """Form 안 글자 객체(주소) → 그 잘라내기 상자(쪽 좌표). 잘라내기 밖의 글자는 쪽에 보이지 않는다: 본문 추출이 뺀다
+    (2026-10-17 실제 논문 LLVM 4쪽: 잘려 보이지 않는 CFG 마디 이름 "BB1 main:0:[/ENTRY/]"이 쪽 맨 위 글자로 뽑혔다)."""
+    import ctypes
+
+    clips: dict[int, Box] = {}
+    matrix = pdfium_c.FS_MATRIX()
+    for obj in page.get_objects(max_depth=1, filter=[pdfium_c.FPDF_PAGEOBJ_FORM]):
+        if not pdfium_c.FPDFPageObj_GetMatrix(obj.raw, ctypes.byref(matrix)):
+            continue
+        for index in range(max(pdfium_c.FPDFFormObj_CountObjects(obj.raw), 0)):
+            child = pdfium_c.FPDFFormObj_GetObject(obj.raw, index)
+            if child and pdfium_c.FPDFPageObj_GetType(child) == pdfium_c.FPDF_PAGEOBJ_TEXT and (clip := _clip_box(child, pdfium_c)) is not None:
+                clips[ctypes.cast(child, ctypes.c_void_p).value] = _transformed(clip, matrix)
+    return clips
+
+
+def _transformed(box: Box, matrix) -> Box:
+    """상자의 네 귀퉁이를 행렬(FS_MATRIX)로 옮겨 감싸는 상자"""
+    corners = [(x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
+    points = [(matrix.a * x + matrix.c * y + matrix.e, matrix.b * x + matrix.d * y + matrix.f) for x, y in corners]
+    return min(x for x, _ in points), min(y for _, y in points), max(x for x, _ in points), max(y for _, y in points)
+
+
+def _clip_box(obj, pdfium_c) -> Box | None:
+    """객체에 걸린 잘라내기 경로의 점들을 감싸는 상자(그 객체의 좌표). 없으면 None."""
+    import ctypes
+
+    clip = pdfium_c.FPDFPageObj_GetClipPath(obj)
+    if not clip:
+        return None
+    xs, ys = [], []
+    x, y = ctypes.c_float(), ctypes.c_float()
+    for path in range(max(pdfium_c.FPDFClipPath_CountPaths(clip), 0)):
+        for index in range(max(pdfium_c.FPDFClipPath_CountPathSegments(clip, path), 0)):
+            segment = pdfium_c.FPDFClipPath_GetPathSegment(clip, path, index)
+            if segment and pdfium_c.FPDFPathSegment_GetPoint(segment, ctypes.byref(x), ctypes.byref(y)):
+                xs.append(x.value)
+                ys.append(y.value)
+    return (min(xs), min(ys), max(xs), max(ys)) if xs else None
 
 
 def _main() -> None:

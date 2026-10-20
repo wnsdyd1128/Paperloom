@@ -62,6 +62,15 @@ def test_single_filled_shape_and_form_count_as_figures():
     assert [f.source for f in figures] == ["form", "vector"]
 
 
+def test_a_thin_form_strip_is_a_figure_but_thin_paths_and_tiny_forms_are_not():
+    """잘라 보이는 부분이 얇은 띠인 Form(넣은 그림 파일)도 그림이다(2026-10-17 실제 논문 Survey 27쪽 그림 23, 386×29pt).
+    같은 크기의 벡터 경로 묶음, 선처럼 얇은 Form, 작은 Form(아이콘)은 그림이 아니다."""
+    assert pt_boxes(figure_candidates([Graphic("form", (100, 500, 486, 529))], PAGE)) == [(100, 500, 486, 529)]
+    assert figure_candidates([path(100, 500, 486, 515), path(100, 514, 486, 529)], PAGE) == []
+    assert figure_candidates([Graphic("form", (100, 500, 486, 508))], PAGE) == []
+    assert figure_candidates([Graphic("form", (100, 500, 130, 529))], PAGE) == []
+
+
 def test_boxes_are_normalized_against_view_box_and_clipped():
     view_box = (36.0, 72.0, 576.0, 756.0)  # CropBox 오프셋
     figures = figure_candidates([Graphic("image", (30, 600, 200, 760))], view_box)  # 왼쪽·위로 조금 넘침

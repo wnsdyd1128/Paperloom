@@ -39,7 +39,8 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 # 13: 수식에 붙은 작은 글씨 설명(밑 괄호 아래 등)도 수식으로 본다(block_kinds.equation_labels, 같은 논문 7쪽 식 (14))
 # 14: 공백 글자 없이 0.5 em 넘게 띄운 글자 사이는 낱말 사이(WORD_GAP), 짧은 줄과 글꼴 크기가 다른 다음 줄은 새 문단(HEADING_SIZE)
 #     (2026-10-16 사용자 논문 IEEE TC: 목차에 "1INTRODUCTION"·"3.1 Task Model"이 빠졌다)
-LAYOUT_VERSION = "14"
+# 15: Form 안에서 잘린 그림은 보이는 부분만 그림 후보다(reading.figures._visible_form_box, 2026-10-17 실제 논문 LLVM 4쪽)
+LAYOUT_VERSION = "15"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)

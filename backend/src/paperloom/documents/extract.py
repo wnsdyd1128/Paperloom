@@ -21,7 +21,7 @@ from paperloom.documents.glyphs import FontDifferences, pua_text
 from paperloom.documents.tables import horizontal_rules
 from paperloom.documents.text_layout import Char, layout_page
 from paperloom.infrastructure.isolation import limit_resources
-from paperloom.reading.figures import Graphic, figure_candidates, page_graphics
+from paperloom.reading.figures import Graphic, figure_candidates, form_text_clips, page_graphics
 
 PARSER_NAME = "pypdfium2"
 # 글꼴의 ascent − descent가 글꼴 크기의 이만큼보다 작으면 글꼴 정보가 망가졌다: pdfium의 loose box가 글자 모양 상자가 되어(e는 짧고
@@ -81,6 +81,7 @@ def _extract(path: str, first: int, stop: int) -> dict:
                 pdfium_c,
                 lambda font, code, index=index: differences.text(index, font, code),
                 lambda font, code, index=index: differences.text_3b2(index, font, code),
+                _form_clips(page, pdfium_c),
             )
             graphics = _graphics(page)
             layout = layout_page(
@@ -118,10 +119,11 @@ def _extract(path: str, first: int, stop: int) -> dict:
         document.close()
 
 
-def _read_chars(page, pdfium_c, recover=None, recover_3b2=None) -> tuple[list[Char], int]:
+def _read_chars(page, pdfium_c, recover=None, recover_3b2=None, clips=None) -> tuple[list[Char], int]:
     """pdfium 텍스트 순서의 글자와 가장 많은 글자의 글줄 방향(반시계, 90의 배수). recover(글꼴 이름, 코드)는 수식 글꼴이
     유니코드를 주지 않아 제어 문자로 나온 글자를 되찾는다(없으면 None). recover_3b2(글꼴 이름, 코드)는 3B2 AdvP 수식 글꼴의
-    글자를 TeX 글꼴 자리의 글자로 바꾼다(glyphs.FontDifferences.text_3b2, 늘이는 괄호 조각은 " ")."""
+    글자를 TeX 글꼴 자리의 글자로 바꾼다(glyphs.FontDifferences.text_3b2, 늘이는 괄호 조각은 " "). clips(글자 객체 주소 →
+    쪽 좌표 잘라내기 상자, reading.figures.form_text_clips)에서 글자 가운데가 상자 밖이면 보이지 않는 글자라 뺀다."""
     textpage = page.get_textpage()
     rect = pdfium_c.FS_RECTF()
     font = _FontReader(textpage.raw, pdfium_c)
@@ -137,6 +139,10 @@ def _read_chars(page, pdfium_c, recover=None, recover_3b2=None) -> tuple[list[Ch
             if not pdfium_c.FPDFText_GetLooseCharBox(textpage.raw, index, ctypes.byref(rect)):
                 chars.append(Char(" ", None))
                 continue
+            if clips and (clip := clips.get(ctypes.cast(pdfium_c.FPDFText_GetTextObject(textpage.raw, index), ctypes.c_void_p).value)):
+                if not (clip[0] <= (rect.left + rect.right) / 2 <= clip[2] and clip[1] <= (rect.bottom + rect.top) / 2 <= clip[3]):
+                    chars.append(Char(" ", None))  # Form 안에서 잘려 보이지 않는 글자
+                    continue
             unmapped = bool(pdfium_c.FPDFText_HasUnicodeMapError(textpage.raw, index)) or _is_unmapped(code)
             style, size, math_font = font.read(index)
             box = (rect.left, rect.bottom, rect.right, rect.top)
@@ -235,6 +241,14 @@ def _graphics(page) -> list[Graphic]:
         return page_graphics(page)
     except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF의 객체. 본문 추출은 계속한다
         return []
+
+
+def _form_clips(page, pdfium_c) -> dict[int, tuple[float, float, float, float]]:
+    """Form 안 글자 객체의 잘라내기 상자. 읽지 못하면 없는 것으로 본다(글자를 빼지 않는다)."""
+    try:
+        return form_text_clips(page, pdfium_c)
+    except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF의 객체. 본문 추출은 계속한다
+        return {}
 
 
 def _is_unmapped(code: int) -> bool:

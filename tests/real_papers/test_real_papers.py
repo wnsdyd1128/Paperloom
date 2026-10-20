@@ -156,6 +156,14 @@ def test_pseudocode_taller_than_half_the_page_stays_out_of_translation(processed
     assert any(not block["quality_flags"] and len(block["text"]) > 200 for block in blocks)
 
 
+def test_body_text_under_a_clipped_form_figure_is_not_figure_text(processed):
+    """2026-10-17 사용자 요청: LLVM 4쪽 그림 5(Form 안에서 잘린 CFG)의 객체 상자가 쪽 가운데 아래까지 잡혀 그 아래 본문 17줄이
+    그림 안 글자로 번역에서 빠졌다."""
+    blocks = one(processed, LLVM_REUSE)["blocks"][3]
+    [body] = [block for block in blocks if block["text"].startswith("Once we have the CFG")]
+    assert "in_figure" not in body["quality_flags"]
+
+
 def test_paragraphs_are_not_split_line_by_line(processed):
     """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져 문단이 줄마다 나뉘었다(본문 쪽의 문단 길이 가운데값 > 100자)."""
     item = one(processed, CAAS)

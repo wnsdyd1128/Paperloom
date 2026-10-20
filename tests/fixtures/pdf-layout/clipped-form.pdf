@@ -1,0 +1,63 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> /XObject << /Fm1 6 0 R /Fm2 8 0 R >> >> >>
+endobj
+5 0 obj
+<< /Length 622 >>
+stream
+q 0.5 0 0 0.5 100 500 cm /Fm1 Do Q
+q 1 0 0 1 350 500 cm /Fm2 Do Q
+BT /F1 9 Tf 100 488 Td (Figure 1. A clipped drawing of a graph.) Tj ET
+BT /F1 10 Tf 100 450 Td (Once we have the graph with block execution counts and branch) Tj ET
+BT /F1 10 Tf 100 438 Td (probabilities, we make a virtual trace of the memory accesses from) Tj ET
+BT /F1 10 Tf 100 426 Td (it. We use a Python library to read the graph, stored in the dot) Tj ET
+BT /F1 10 Tf 100 414 Td (format. Each node represents a basic block of the target function,) Tj ET
+BT /F1 10 Tf 100 402 Td (and the edges represent the direction from one node to another.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-100 -600 500 600] /Resources << /Font << /F1 3 0 R >> >> /Length 207 >>
+stream
+0 0 400 300 re W n
+0 0 1 RG 2 w 10 -500 380 1000 re S 200 -500 m 200 500 l S
+0.9 0.8 0.5 rg 60 160 120 80 re f 220 40 120 80 re f
+0 g BT /F1 20 Tf 90 190 Td (BB3) Tj ET
+BT /F1 20 Tf 90 420 Td (HIDDEN) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Title (Paperloom clipped form fixture \(synthetic\)) >>
+endobj
+8 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-50 -50 250 150] /Resources << /Font << /F1 3 0 R >> >> /Length 146 >>
+stream
+0 0 0 RG 1 w 0 0 m 200 0 l S 0 0 m 0 100 l S
+0 g BT /F1 10 Tf 80 -15 Td (axis label) Tj ET
+q 10 10 30 30 re W n 0.2 0.6 0.2 rg 0 0 200 100 re f Q
+endstream
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000348 00000 n 
+0000001020 00000 n 
+0000001372 00000 n 
+0000001447 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R /Info 7 0 R >>
+startxref
+1736
+%%EOF
