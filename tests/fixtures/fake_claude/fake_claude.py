@@ -28,6 +28,7 @@ import time
 import uuid
 
 WATCHED_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK")
+STALE_LOCK_SECONDS = 2  # 기록 잠금 파일이 이보다 오래되었으면 잡은 채 죽은 차례의 것이다
 REFRESH_RACE = (
     "Failed to refresh OAuth token: another Claude Code process is refreshing it or exited mid-refresh. This is usually transient; "
     "retry in a minute, and if it persists close other Claude Code processes or sign in again"
@@ -68,6 +69,12 @@ def main() -> int:
                 os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
                 locked = True
             except (FileExistsError, PermissionError):  # Windows: 다른 차례가 지우는 중인 잠금 파일은 PermissionError다
+                # 잠금은 몇 ms만 잡는다. 오래된 잠금은 잡은 채 끝난 차례(중단 시험이 끝낸 프로세스)의 것이라 지운다
+                # (2026-10-17: 남은 잠금 때문에 그 뒤 차례마다 5초씩 기다려 E2E 번역 시험이 시간을 넘겼다)
+                with contextlib.suppress(OSError):
+                    if time.time() - os.path.getmtime(lock) > STALE_LOCK_SECONDS:
+                        os.remove(lock)
+                        continue
                 if time.monotonic() > deadline:
                     break
                 time.sleep(0.01)

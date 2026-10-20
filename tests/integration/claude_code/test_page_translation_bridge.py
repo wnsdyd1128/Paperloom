@@ -6,6 +6,7 @@ JSON으로 받아 검사한 뒤 Core에 저장한다. 저장된 쪽은 다시 �
 """
 
 import json
+import os
 import socket
 import sqlite3
 import sys
@@ -309,6 +310,19 @@ def test_a_fenced_answer_and_sentences_joined_for_word_order_are_accepted(core, 
     assert response.status_code == 200, response.text
     two = next(block for block in response.json()["translation"]["blocks"] if len(block["sentences"]) == 2)
     assert two["sentences"][0]["text"].startswith("[번역·합침]") and two["sentences"][1]["text"] == ""
+
+
+def test_a_log_lock_left_by_a_killed_run_does_not_slow_the_next_run(core, bridge, fake_log):
+    """중단 시험이 기록 잠금을 잡은 가짜 CLI를 끝내면 잠금 파일이 남아, 그 뒤 차례마다 잠금을 5초씩 기다렸다(2026-10-17 E2E 번역
+    시험이 쪽마다 5.1초 걸려 시간을 넘겼다). 오래된 잠금은 지우고 바로 쓴다."""
+    lock = Path(f"{fake_log}.lock")
+    lock.touch()
+    old = time.time() - 60
+    os.utime(lock, (old, old))
+    started = time.monotonic()
+    assert bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0}).status_code == 200
+    assert time.monotonic() - started < 3
+    assert len(runs(fake_log)) == 1 and not lock.exists()
 
 
 def test_a_page_without_text_is_refused_without_running_claude(core, bridge, fake_log):
