@@ -1,0 +1,16 @@
+# NVIDIA GPU용 덧붙임: compose.yaml과 함께 쓴다. ops/start.ps1·ops/start.sh가 GPU를 찾으면 쓴다.
+# 직접: docker compose -f ops/compose/compose.yaml -f ops/compose/compose.gpu.yaml up -d --build
+# 문서 레이아웃 모델을 CUDA로 돌린다(쪽마다 약 20ms, CPU는 약 260ms). 데이터 volume은 CPU 이미지와 같다.
+services:
+  app:
+    build:
+      args:
+        RUNTIME: gpu
+    image: paperloom-app:0.2.0-gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

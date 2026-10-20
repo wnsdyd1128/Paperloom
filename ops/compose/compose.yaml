@@ -1,4 +1,5 @@
 # 실행: docker compose -f ops/compose/compose.yaml up -d --build
+# NVIDIA GPU가 있으면 ops/start.ps1(Windows)·ops/start.sh가 compose.gpu.yaml을 덧붙여 GPU 이미지로 띄운다(없으면 이 파일만).
 # IDE·터미널을 닫아도 유지되고, 재부팅 후 Docker가 시작되면 다시 올라온다 (PLAN A12).
 name: paperloom
 

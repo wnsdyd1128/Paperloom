@@ -9,6 +9,9 @@ COPY apps/web/ ./
 RUN npm run build
 
 FROM python:3.13-slim AS runtime
+# cpu 또는 gpu. gpu는 onnxruntime 대신 onnxruntime-gpu와 CUDA 13·cuDNN 라이브러리를 깐다(requirements-gpu.lock,
+# ops/compose/compose.gpu.yaml). GPU 이미지를 GPU 없이 띄워도 레이아웃 모델은 CPU로 돈다.
+ARG RUNTIME=cpu
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PAPERLOOM_CONFIG=/app/config/paperloom.yaml
@@ -17,8 +20,9 @@ WORKDIR /app
 ADD --checksum=sha256:77afb2caa74dd13240d087d2eced91d7fcd2caebd16006a0a66162fc8707ff0e --chmod=644 \
     https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx/resolve/feb74619326f634e0e883218598096a3733ad9f7/inference.onnx \
     /app/models/pp-doclayout-plus-l/inference.onnx
-COPY backend/requirements.lock ./
-RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
+COPY backend/requirements.lock backend/requirements-gpu.lock ./
+RUN pip install --no-cache-dir --require-hashes --no-deps -r "$([ "$RUNTIME" = gpu ] && echo requirements-gpu.lock || echo requirements.lock)" \
+    && rm requirements*.lock
 COPY backend/ ./backend/
 RUN pip install --no-cache-dir --no-deps ./backend && rm -rf ./backend
 COPY ops/config/docker.yaml /app/config/paperloom.yaml

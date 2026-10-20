@@ -83,12 +83,14 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 ```powershell
 git clone <저장소 주소> Paperloom
 cd Paperloom
-docker compose -f ops/compose/compose.yaml up -d --build
+powershell -ExecutionPolicy Bypass -File ops\start.ps1
 ```
 
 브라우저에서 <http://127.0.0.1:8000>을 엽니다. 서버는 재부팅 뒤 Docker가 시작되면 자동으로 다시 올라옵니다.
 
-빌드하지 않고 [릴리스 이미지](https://github.com/wnsdyd1128/Paperloom/pkgs/container/paperloom)를 받아 쓸 수도 있습니다. 위 Compose와 같은 데이터 볼륨을 쓰므로 둘 가운데 하나만 실행합니다.
+`ops\start.ps1`은 NVIDIA GPU가 있으면 GPU 이미지(약 2GB 더 받음)로, 없거나 GPU로 띄우지 못하면 CPU 이미지로 서버를 띄웁니다. 직접 고르려면 `docker compose -f ops/compose/compose.yaml up -d --build`(CPU)에 GPU면 `-f ops/compose/compose.gpu.yaml`을 덧붙입니다. 어느 쪽인지는 <http://127.0.0.1:8000/api/v1/health>의 `layout_model.device`(`cuda`·`cpu`)로 봅니다.
+
+빌드하지 않고 [릴리스 이미지](https://github.com/wnsdyd1128/Paperloom/pkgs/container/paperloom)(CPU)를 받아 쓸 수도 있습니다. 위 Compose와 같은 데이터 볼륨을 쓰므로 둘 가운데 하나만 실행합니다.
 
 ```powershell
 docker run -d --name paperloom --restart unless-stopped -p 127.0.0.1:8000:8000 -v paperloom_paperloom-data:/data ghcr.io/wnsdyd1128/paperloom:latest
@@ -176,7 +178,7 @@ backend\.venv\Scripts\python.exe -m paperloom.integrations.claude_code
 
 ```powershell
 git pull
-docker compose -f ops/compose/compose.yaml up -d --build
+powershell -ExecutionPolicy Bypass -File ops\start.ps1
 ```
 
 - 릴리스 이미지로 실행했다면 `docker pull ghcr.io/wnsdyd1128/paperloom:latest` 뒤 `docker rm -f paperloom`으로 컨테이너를 지우고 위 `docker run`을 다시 실행합니다. 데이터는 볼륨에 남습니다.
@@ -221,6 +223,8 @@ apps/web/                       웹앱 (React, PDF.js)
 tests/                          단위·통합·계약 시험, 합성 PDF fixture, 가짜 Claude CLI
 ops/                            Docker Compose와 실행 설정
 ```
+
+직접 띄운 서버도 GPU를 쓰려면 CUDA 13과 그 판의 cuDNN 9를 설치하고 `onnxruntime` 대신 `onnxruntime-gpu`를 깝니다(`backend\.venv\Scripts\python.exe -m pip uninstall -y onnxruntime` 뒤 `requirements-gpu.lock`의 `onnxruntime-gpu` 판). `requirements-gpu.lock`은 리눅스 GPU 이미지용입니다(만든 방법은 파일 머리에 있습니다).
 
 유료 모델 API·SDK는 의존성에 넣지 않습니다. `tests/contract/test_dependency_policy.py`가 잠금 파일과 소스를 검사합니다.
 
