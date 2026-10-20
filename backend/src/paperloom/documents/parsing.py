@@ -1,7 +1,9 @@
 """본문 추출 작업 (IMPL §5.2–5.3): 대기열, lease, 재시도, 결과 저장, 백그라운드 worker.
 
 업로드가 run을 QUEUED로 넣고, worker 스레드가 하나씩 가져가 격리 하위 프로세스에서 쪽 묶음(chunk_pages)을
-추출한다. 묶음이 시간 초과·비정상 종료로 실패하면 그 묶음을 한 쪽씩 다시 추출해, 실패한 쪽만 `extract_failed`로 남긴다.
+추출한다. 묶음이 시간 초과·비정상 종료로 실패하면 그 묶음을 한 쪽씩 다시 추출한다. 그래도 실패한 쪽은 까닭에 맞춰 되살려
+본다(_recover: 시간 초과면 더 긴 시간으로, 그래도 안 되거나 하위 프로세스가 죽었으면 간이 추출). 끝내 안 된 쪽만
+`extract_failed`로 남긴다.
 
 - 버전 상태: READY_TO_READ(추출 전) → PARSING → INDEXED | PARTIAL | FAILED(+ status_reason, PARTIAL은 기호만 못 읽었을 때
   UNMAPPED_CHARS). 어느 상태든 원본은 읽을 수 있다.
@@ -47,6 +49,7 @@ _DOCUMENT_ERRORS = {"PASSWORD_REQUIRED", "MALFORMED_PDF"}
 class ParseSettings:
     chunk_pages: int = 25
     chunk_timeout_seconds: float = 30
+    page_retry_timeout_seconds: float = 90  # 실패한 한 쪽을 되살릴 때(_recover)의 시간 제한. lease보다 짧아야 한다
     lease_seconds: float = 120  # 한 묶음의 시간 제한보다 길어야 한다. 묶음마다 연장한다
     max_attempts: int = 2  # 자동 재시도 1회
     poll_seconds: float = 5
@@ -190,7 +193,7 @@ class ParseService:
                 raise FileNotFoundError(run.version_id)
             pages: list[dict] = []
             for first in range(0, version.page_count, self._settings.chunk_pages):
-                pages += self._extract_range(path, first, min(first + self._settings.chunk_pages, version.page_count))
+                pages += self._extract_range(path, first, min(first + self._settings.chunk_pages, version.page_count), run)
                 if not self._extend_lease(run):
                     log.warning("본문 추출 %s의 lease를 잃어 결과를 버립니다.", run.parse_run_id)
                     return True
@@ -227,13 +230,32 @@ class ParseService:
         )
         return True
 
-    def _extract_range(self, path: Path, first: int, stop: int) -> list[dict]:
+    def _extract_range(self, path: Path, first: int, stop: int, run: runs.ParseRun) -> list[dict]:
         try:
             return extract_pages(path, first, stop, self._settings.chunk_timeout_seconds)
         except ExtractFailed as failed:
-            if stop - first == 1 or failed.code in _DOCUMENT_ERRORS:
+            if failed.code in _DOCUMENT_ERRORS:
                 return [_failed_page(index, failed.code) for index in range(first, stop)]
-            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1)]
+            if stop - first == 1:
+                return [self._recover(path, first, failed.code, run)]
+            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1, run)]
+
+    def _recover(self, path: Path, index: int, code: str, run: runs.ParseRun) -> dict:
+        """한 쪽 추출이 실패하면 까닭에 맞춰 다시 해 본다(2026-10-17 사용자 요청: 쪽 번역이 읽지 못한 답을 고쳐 받는 것처럼).
+        시간이 모자랐으면(RESOURCE_LIMIT) 더 긴 시간으로 한 번, 그래도 안 되거나 하위 프로세스가 죽었으면(PARSER_ERROR 등 — 같은
+        추출을 다시 해도 같다) 글꼴 사전·그림 분석 없이 글자만 뽑는다(간이 추출, extract_simplified). 끝내 안 되면 extract_failed."""
+        attempts = [False, True] if code == "RESOURCE_LIMIT" else [True]
+        for plain in attempts:
+            self._extend_lease(run)  # 한 쪽에 오래 걸려도 다른 worker가 run을 가져가지 않게
+            try:
+                [page] = extract_pages(path, index, index + 1, self._settings.page_retry_timeout_seconds, plain=plain)
+            except ExtractFailed as failed:
+                code = failed.code
+                continue
+            log.info("본문 추출 %s의 %d쪽을 %s 되살렸습니다.", run.parse_run_id, index + 1, "간이 추출로" if plain else "더 긴 시간으로")
+            return page
+        log.warning("본문 추출 %s의 %d쪽을 되살리지 못했습니다(%s).", run.parse_run_id, index + 1, code)
+        return _failed_page(index, code)
 
     def _extend_lease(self, run: runs.ParseRun) -> bool:
         with closing(connect(self._db_path)) as connection, connection:

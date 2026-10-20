@@ -4,7 +4,9 @@ pypdfium2(pdfium)로 글자·loose box를 읽고 text_layout으로 문단을 묶
 글꼴 사전의 글리프 이름으로 되찾고, 3B2 조판 PDF의 AdvP 수식 글꼴은 TeX 글꼴 자리로 되돌린다(glyphs, pypdf). 신뢰할 수 없는 PDF이므로
 documents.inspect처럼 시간 제한을 두고, POSIX에서는 메모리·CPU도 제한한다(`infrastructure.isolation`).
 
-하위 프로세스: `python -m paperloom.documents.extract <pdf> <first_page> <stop_page>` → stdout에 JSON 한 줄.
+하위 프로세스: `python -m paperloom.documents.extract <pdf> <first_page> <stop_page> [--plain]` → stdout에 JSON 한 줄.
+--plain(간이 추출, 한 쪽 추출이 실패했을 때 parsing이 다시 해 본다): 글꼴 사전 읽기(pypdf)·그림·표 가로줄·Form 잘라내기·이미지
+넓이를 보지 않고 pdfium 글자로만 문단을 묶는다. 쪽에 extract_simplified 표시를 붙인다(그림·표 안 글자를 가리지 못한다).
 """
 
 import ctypes
@@ -24,6 +26,7 @@ from paperloom.infrastructure.isolation import limit_resources
 from paperloom.reading.figures import Graphic, figure_candidates, form_text_clips, page_graphics
 
 PARSER_NAME = "pypdfium2"
+SIMPLIFIED = "extract_simplified"  # 쪽 표시: 간이 추출(--plain)로 뽑았다
 # 글꼴의 ascent − descent가 글꼴 크기의 이만큼보다 작으면 글꼴 정보가 망가졌다: pdfium의 loose box가 글자 모양 상자가 되어(e는 짧고
 # d·p는 길다) 줄 높이가 x 높이쯤이 되고 보통의 줄 사이도 문단 사이로 보였다(2026-10-04 사용자 논문 CAAS, LinLibertineT 0.45·0).
 MIN_FONT_SPAN = 0.6
@@ -40,11 +43,11 @@ class ExtractFailed(Exception):
         self.code = code
 
 
-def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float) -> list[dict]:
-    """[first, stop) 쪽의 추출 결과. 실패하면 ExtractFailed. 하위 프로세스를 띄우지 못하면 OSError."""
+def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float, plain: bool = False) -> list[dict]:
+    """[first, stop) 쪽의 추출 결과. 실패하면 ExtractFailed. 하위 프로세스를 띄우지 못하면 OSError. plain은 간이 추출이다."""
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "paperloom.documents.extract", str(path), str(first), str(stop)],
+            [sys.executable, "-m", "paperloom.documents.extract", str(path), str(first), str(stop), *(["--plain"] if plain else [])],
             capture_output=True,
             timeout=timeout_seconds,
             check=False,
@@ -60,7 +63,7 @@ def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float) -> 
     return report["pages"]
 
 
-def _extract(path: str, first: int, stop: int) -> dict:
+def _extract(path: str, first: int, stop: int, plain: bool = False) -> dict:
     import pypdfium2 as pdfium
     import pypdfium2.raw as pdfium_c
 
@@ -72,26 +75,30 @@ def _extract(path: str, first: int, stop: int) -> dict:
         return {"code": "PASSWORD_REQUIRED" if error.err_code == pdfium_c.FPDF_ERR_PASSWORD else "MALFORMED_PDF"}
     try:
         pages = []
-        differences = FontDifferences(path)
+        differences = None if plain else FontDifferences(path)
         for index in range(first, stop):
             page = document[index]
             geometry = page_geometry(page)
-            chars, rotation = _read_chars(
-                page,
-                pdfium_c,
-                lambda font, code, index=index: differences.text(index, font, code),
-                lambda font, code, index=index: differences.text_3b2(index, font, code),
-                _form_clips(page, pdfium_c),
-            )
-            graphics = _graphics(page)
-            layout = layout_page(
-                chars,
-                geometry.view_box,
-                _image_coverage(page, geometry.view_box, pdfium_c),
-                rotation,
-                [figure.box for figure in figure_candidates(graphics, geometry.view_box)],
-                horizontal_rules(graphics, geometry.view_box),
-            )
+            if plain:
+                chars, rotation = _read_chars(page, pdfium_c)
+                layout = layout_page(chars, geometry.view_box, 0.0, rotation)
+            else:
+                chars, rotation = _read_chars(
+                    page,
+                    pdfium_c,
+                    lambda font, code, index=index: differences.text(index, font, code),
+                    lambda font, code, index=index: differences.text_3b2(index, font, code),
+                    _form_clips(page, pdfium_c),
+                )
+                graphics = _graphics(page)
+                layout = layout_page(
+                    chars,
+                    geometry.view_box,
+                    _image_coverage(page, geometry.view_box, pdfium_c),
+                    rotation,
+                    [figure.box for figure in figure_candidates(graphics, geometry.view_box)],
+                    horizontal_rules(graphics, geometry.view_box),
+                )
             pages.append(
                 {
                     "page_index": index,
@@ -99,7 +106,7 @@ def _extract(path: str, first: int, stop: int) -> dict:
                     "view_box": list(geometry.view_box),
                     "rotation": geometry.rotation,
                     "text_status": layout.text_status,
-                    "flags": layout.flags,
+                    "flags": [*layout.flags, SIMPLIFIED] if plain else layout.flags,
                     "quality": layout.quality,
                     "blocks": [
                         {
@@ -271,7 +278,7 @@ def _image_coverage(page, view_box, pdfium_c) -> float:
 def _main() -> None:
     limit_resources()
     try:
-        report = _extract(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
+        report = _extract(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), plain="--plain" in sys.argv[4:])
     except MemoryError:
         report = {"code": "RESOURCE_LIMIT"}
     print(json.dumps(report))

@@ -369,14 +369,17 @@ def test_transient_io_error_recovers_on_the_automatic_retry(app, client, data_di
 def test_failed_chunk_is_retried_page_by_page(app, client, data_dir, monkeypatch):
     paper = upload(client, "text-digital.pdf")
     bad_page = 2
+    calls = []
 
-    def fails_on_bad_page(path, first, stop, timeout_seconds):
+    def fails_on_bad_page(path, first, stop, timeout_seconds, plain=False):
+        calls.append((first, stop, timeout_seconds, plain))
         if first <= bad_page < stop:
             raise ExtractFailed("RESOURCE_LIMIT")
-        return extract_pages(path, first, stop, timeout_seconds)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
 
     monkeypatch.setattr(parsing_module, "extract_pages", fails_on_bad_page)
-    chunked = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), ParseSettings(chunk_pages=3))
+    settings = ParseSettings(chunk_pages=3)
+    chunked = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), settings)
     drain(chunked)
 
     version = version_of(client, paper)
@@ -386,11 +389,84 @@ def test_failed_chunk_is_retried_page_by_page(app, client, data_dir, monkeypatch
     assert pages[bad_page]["flags"] == ["extract_failed"] and pages[bad_page]["quality"]["error"] == "RESOURCE_LIMIT"
     # 실패한 묶음의 다른 쪽은 한 쪽씩 다시 추출해 남는다
     assert client.get(f"/api/v1/versions/{version['version_id']}/pages/1").json()["blocks"]
+    # 끝내 실패한 쪽은 더 긴 시간으로 한 번, 간이 추출로 한 번 되살려 본 뒤 남긴다
+    assert [call for call in calls if call[0] == bad_page and call[1] == bad_page + 1] == [
+        (bad_page, bad_page + 1, settings.chunk_timeout_seconds, False),
+        (bad_page, bad_page + 1, settings.page_retry_timeout_seconds, False),
+        (bad_page, bad_page + 1, settings.page_retry_timeout_seconds, True),
+    ]
+
+
+def test_a_page_that_ran_out_of_time_is_recovered_with_a_longer_limit(app, client, data_dir, monkeypatch):
+    """한 쪽 추출이 시간 안에 끝나지 않으면 더 긴 시간으로 다시 해 본다(2026-10-17 사용자 요청: 쪽 번역의 답 고쳐 받기처럼)."""
+    paper = upload(client, "text-digital.pdf")
+    bad_page = 2
+    settings = ParseSettings(chunk_pages=3)
+
+    def slow_bad_page(path, first, stop, timeout_seconds, plain=False):
+        if first <= bad_page < stop and timeout_seconds < settings.page_retry_timeout_seconds:
+            raise ExtractFailed("RESOURCE_LIMIT")
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
+
+    monkeypatch.setattr(parsing_module, "extract_pages", slow_bad_page)
+    drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), settings))
+
+    version = version_of(client, paper)
+    assert (version["status"], version["status_reason"]) == ("INDEXED", None)  # 되살리지 못했으면 PARTIAL이다
+    pages = client.get(f"/api/v1/versions/{version['version_id']}/pages").json()["pages"]
+    assert pages[bad_page]["text_status"] == "usable" and "extract_simplified" not in pages[bad_page]["flags"]
+    assert client.get(f"/api/v1/versions/{version['version_id']}/pages/{bad_page}").json()["blocks"]
+
+
+def test_a_page_whose_extractor_crashed_is_recovered_with_plain_extraction(app, client, data_dir, monkeypatch):
+    """추출 하위 프로세스가 죽은 쪽(같은 추출을 다시 해도 같다)은 글꼴 사전·그림 분석 없이 글자만 뽑는다. 쪽에 간이 추출 표시가
+    붙고 글은 검색된다. 더 긴 시간으로는 다시 하지 않는다."""
+    paper = upload(client, "figures.pdf")
+    calls = []
+
+    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False):
+        calls.append(plain)
+        if not plain:
+            raise ExtractFailed("PARSER_ERROR")
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
+
+    monkeypatch.setattr(parsing_module, "extract_pages", crashes_unless_plain)
+    service = app.state.parsing
+    extended = []
+    keep_lease = service._extend_lease
+    monkeypatch.setattr(service, "_extend_lease", lambda run: extended.append(run.parse_run_id) or keep_lease(run))
+    drain(service)
+    assert len(extended) == 2  # 되살리기 전에 한 번(오래 걸려도 다른 worker가 가져가지 않게), 묶음 뒤 한 번
+
+    version = version_of(client, paper)
+    assert (version["status"], version["status_reason"]) == ("INDEXED", None)
+    [page] = client.get(f"/api/v1/versions/{version['version_id']}/pages").json()["pages"]
+    assert page["text_status"] == "usable" and "extract_simplified" in page["flags"]
+    blocks = client.get(f"/api/v1/versions/{version['version_id']}/pages/0").json()["blocks"]
+    assert any(block["text"] == "BODY TEXT THAT IS NOT A FIGURE" for block in blocks)
+    assert calls == [False, True]  # 묶음(한 쪽) 한 번, 곧바로 간이 추출
+
+
+def test_plain_extraction_reads_no_font_dictionaries_or_graphics(monkeypatch):
+    """간이 추출은 pypdf 글꼴 사전·그림 객체를 읽지 않는다(느리거나 깨질 수 있는 부분). 그래서 그림 안 글자도 가리지 못한다."""
+    from paperloom.documents import extract as extract_module
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("간이 추출에서 읽으면 안 된다")
+
+    monkeypatch.setattr(extract_module, "FontDifferences", forbidden)
+    monkeypatch.setattr(extract_module, "page_graphics", forbidden)
+    monkeypatch.setattr(extract_module, "form_text_clips", forbidden)
+    [page] = extract_module._extract(str(FIXTURE_DIR / "figures.pdf"), 0, 1, plain=True)["pages"]
+    assert "extract_simplified" in page["flags"]
+    texts = {block["text"]: block["quality_flags"] for block in page["blocks"]}
+    assert texts["Synthetic values"] == []  # 그림 안 글자지만 그림을 보지 않았다
 
 
 def test_subprocess_timeout_marks_every_page_and_fails_the_document(app, client, data_dir):
     paper = upload(client, "text-mixed.pdf")
-    impatient = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), ParseSettings(chunk_timeout_seconds=0.001))
+    settings = ParseSettings(chunk_timeout_seconds=0.001, page_retry_timeout_seconds=0.001)  # 되살리기도 시간 안에 못 한다
+    impatient = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), settings)
     drain(impatient)
 
     version = version_of(client, paper)
