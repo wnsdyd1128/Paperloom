@@ -65,7 +65,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
                      claude CLI (구독 로그인) ──► Anthropic
 ```
 
-- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다.
+- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다. 본문을 추출할 때 문서 레이아웃 모델(PP-DocLayout_plus-L)로 쪽의 표·알고리즘·수식·그림·머리글을 찾아 번역에서 뺍니다. 모델은 이 PC에서 돌고, NVIDIA GPU가 있으면 GPU로, 없으면 CPU로 돕니다.
 - 브리지는 이 PC에서 `claude` CLI를 실행합니다. Docker 안에서는 Claude Code 로그인을 쓸 수 없어서 따로 켭니다. 브리지가 꺼져 있어도 읽기·검색·하이라이트·주석은 그대로 됩니다.
 
 ## 요구 사항
@@ -208,6 +208,7 @@ cd apps\web; npm ci
 | 할 일 | 명령 | 비고 |
 |---|---|---|
 | 서버 | `backend\.venv\Scripts\python.exe -m paperloom --config ops\config\local.yaml` | 데이터는 `var/` |
+| 레이아웃 모델 받기 | `backend\.venv\Scripts\python.exe -m paperloom.documents.layout_model download --config ops\config\local.yaml` | `var/models`에 130MB. 없으면 규칙만으로 표·그림을 가림 |
 | 웹 개발 서버 | `apps\web`에서 `npm run dev` | <http://127.0.0.1:5173>, 서버는 따로 실행 |
 | 백엔드 시험 | `backend\.venv\Scripts\python.exe -m pytest -q` | |
 | 웹 시험 | `apps\web`에서 `npm run typecheck`, `npx vitest run` | |

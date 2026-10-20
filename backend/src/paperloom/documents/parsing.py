@@ -3,7 +3,8 @@
 업로드가 run을 QUEUED로 넣고, worker 스레드가 하나씩 가져가 격리 하위 프로세스에서 쪽 묶음(chunk_pages)을
 추출한다. 묶음이 시간 초과·비정상 종료로 실패하면 그 묶음을 한 쪽씩 다시 추출한다. 그래도 실패한 쪽은 까닭에 맞춰 되살려
 본다(_recover: 시간 초과면 더 긴 시간으로, 그래도 안 되거나 하위 프로세스가 죽었으면 간이 추출). 끝내 안 된 쪽만
-`extract_failed`로 남긴다.
+`extract_failed`로 남긴다. 레이아웃 모델(documents.layout_model)이 있으면 하위 프로세스가 그린 쪽 그림에서 영역을 찾아 문단의
+본문 아님 표시를 고친다(layout_regions). 모델이 없거나 실패한 쪽은 규칙 표시 그대로다.
 
 - 버전 상태: READY_TO_READ(추출 전) → PARSING → INDEXED | PARTIAL | FAILED(+ status_reason, PARTIAL은 기호만 못 읽었을 때
   UNMAPPED_CHARS). 어느 상태든 원본은 읽을 수 있다.
@@ -16,6 +17,7 @@
 import json
 import logging
 import sqlite3
+import tempfile
 import threading
 import time
 import uuid
@@ -31,6 +33,8 @@ from paperloom.documents.extract import PARSER_NAME, ExtractFailed, extract_page
 from paperloom.documents.metadata import DOI_PAGES, find_doi, paper_doi
 from paperloom.documents.block_kinds import NO_BODY_TEXT, NOT_BODY, REFERENCE
 from paperloom.documents.inspect import clean_text
+from paperloom.documents.layout_model import LayoutModel
+from paperloom.documents.layout_regions import apply_layout
 from paperloom.documents.references import REFERENCES_FLAG, REFERENCES_VERSION, reference_blocks, reference_pages
 from paperloom.documents.running import running_lines
 from paperloom.documents.text_layout import LAYOUT_VERSION, config_hash, document_status
@@ -65,9 +69,9 @@ def _stored_block(row: sqlite3.Row) -> dict:
 
 
 def _marked(page: dict, marks: dict[tuple[int, int], list[str]]) -> dict:
-    """쪽의 문단에 표시를 더하고, 글은 있지만 모두 본문이 아닌 쪽에 no_body_text를 붙인다."""
+    """쪽의 문단에 표시를 더하고(레이아웃 모델이 이미 붙인 표시는 겹치지 않게), 글은 있지만 모두 본문이 아닌 쪽에 no_body_text를 붙인다."""
     blocks = [
-        {**block, "quality_flags": [*block["quality_flags"], *marks.get((page["page_index"], index), [])]}
+        {**block, "quality_flags": [*block["quality_flags"], *(flag for flag in marks.get((page["page_index"], index), []) if flag not in block["quality_flags"])]}
         for index, block in enumerate(page["blocks"])
     ]
     no_body = bool(blocks) and all(NOT_BODY.intersection(block["quality_flags"]) for block in blocks)
@@ -81,16 +85,20 @@ class ParseService:
         store: SourceStore,
         settings: ParseSettings = ParseSettings(),
         clock: Callable[[], float] = time.time,
+        layout: LayoutModel | None = None,
     ) -> None:
         self._db_path = db_path
         self._store = store
         self._settings = settings
         self._clock = clock
+        self._layout = layout
         self._worker_id = f"worker-{uuid.uuid4()}"
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.parser_version = f"{package_version('pypdfium2')}+layout{LAYOUT_VERSION}+refs{REFERENCES_VERSION}"
+        if layout is not None:
+            self.parser_version += f"+dla-{layout.identity()}"  # 모델을 켜거나 끄거나 바꾸면 다시 추출한다
         self.config_hash = config_hash()
 
     # 대기열 -----------------------------------------------------------------
@@ -152,6 +160,11 @@ class ParseService:
             self._thread.join(timeout_seconds)
 
     def _loop(self) -> None:
+        if self._layout is not None:
+            try:
+                self._layout.load()  # 첫 추출이 모델 열기를 기다리지 않게, health가 장치를 보이게
+            except Exception:  # noqa: BLE001 - 쪽마다 다시 해 보고, 안 되면 규칙 표시만 쓴다(_with_layout)
+                log.warning("레이아웃 모델을 열지 못했습니다.", exc_info=True)
         while not self._stop.is_set():
             try:
                 worked = self.run_next()
@@ -192,11 +205,13 @@ class ParseService:
             if version is None or storage_ref is None or not (path := self._store.path_for(storage_ref)).is_file():
                 raise FileNotFoundError(run.version_id)
             pages: list[dict] = []
-            for first in range(0, version.page_count, self._settings.chunk_pages):
-                pages += self._extract_range(path, first, min(first + self._settings.chunk_pages, version.page_count), run)
-                if not self._extend_lease(run):
-                    log.warning("본문 추출 %s의 lease를 잃어 결과를 버립니다.", run.parse_run_id)
-                    return True
+            with tempfile.TemporaryDirectory(prefix="paperloom-layout-") as images:
+                for first in range(0, version.page_count, self._settings.chunk_pages):
+                    stop = min(first + self._settings.chunk_pages, version.page_count)
+                    pages += self._extract_range(path, first, stop, run, Path(images) if self._layout else None)
+                    if not self._extend_lease(run):
+                        log.warning("본문 추출 %s의 lease를 잃어 결과를 버립니다.", run.parse_run_id)
+                        return True
         except OSError:
             log.warning("본문 추출 %s가 I/O 오류로 멈췄습니다 (시도 %d).", run.parse_run_id, run.attempts, exc_info=True)
             self._retry_or_fail(run)
@@ -230,17 +245,35 @@ class ParseService:
         )
         return True
 
-    def _extract_range(self, path: Path, first: int, stop: int, run: runs.ParseRun) -> list[dict]:
+    def _extract_range(self, path: Path, first: int, stop: int, run: runs.ParseRun, images: Path | None) -> list[dict]:
+        """images는 레이아웃 모델 입력 그림을 둘 폴더다(모델이 없으면 None)."""
         try:
-            return extract_pages(path, first, stop, self._settings.chunk_timeout_seconds)
+            return self._with_layout(extract_pages(path, first, stop, self._settings.chunk_timeout_seconds, images=images), images)
         except ExtractFailed as failed:
             if failed.code in _DOCUMENT_ERRORS:
                 return [_failed_page(index, failed.code) for index in range(first, stop)]
             if stop - first == 1:
-                return [self._recover(path, first, failed.code, run)]
-            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1, run)]
+                return [self._recover(path, first, failed.code, run, images)]
+            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1, run, images)]
 
-    def _recover(self, path: Path, index: int, code: str, run: runs.ParseRun) -> dict:
+    def _with_layout(self, pages: list[dict], images: Path | None) -> list[dict]:
+        """레이아웃 모델로 문단 표시를 고친다. 쪽 그림이 없거나(간이 추출, 그리지 못한 쪽) 모델이 실패한 쪽은 규칙 표시 그대로다."""
+        if images is None:
+            return pages
+        result = []
+        for page in pages:
+            image = images / f"{page['page_index']}.rgb"
+            if image.is_file():
+                try:
+                    page = apply_layout(page, self._layout.detect(image.read_bytes()))
+                except Exception:  # noqa: BLE001 - 모델 실패는 규칙 표시로 둔다
+                    log.warning("레이아웃 모델이 %d쪽을 보지 못해 규칙 표시만 씁니다.", page["page_index"] + 1, exc_info=True)
+                finally:
+                    image.unlink()
+            result.append(page)
+        return result
+
+    def _recover(self, path: Path, index: int, code: str, run: runs.ParseRun, images: Path | None) -> dict:
         """한 쪽 추출이 실패하면 까닭에 맞춰 다시 해 본다(2026-10-17 사용자 요청: 쪽 번역이 읽지 못한 답을 고쳐 받는 것처럼).
         시간이 모자랐으면(RESOURCE_LIMIT) 더 긴 시간으로 한 번, 그래도 안 되거나 하위 프로세스가 죽었으면(PARSER_ERROR 등 — 같은
         추출을 다시 해도 같다) 글꼴 사전·그림 분석 없이 글자만 뽑는다(간이 추출, extract_simplified). 끝내 안 되면 extract_failed."""
@@ -248,11 +281,12 @@ class ParseService:
         for plain in attempts:
             self._extend_lease(run)  # 한 쪽에 오래 걸려도 다른 worker가 run을 가져가지 않게
             try:
-                [page] = extract_pages(path, index, index + 1, self._settings.page_retry_timeout_seconds, plain=plain)
+                pages = extract_pages(path, index, index + 1, self._settings.page_retry_timeout_seconds, plain=plain, images=None if plain else images)
             except ExtractFailed as failed:
                 code = failed.code
                 continue
             log.info("본문 추출 %s의 %d쪽을 %s 되살렸습니다.", run.parse_run_id, index + 1, "간이 추출로" if plain else "더 긴 시간으로")
+            [page] = self._with_layout(pages, images)
             return page
         log.warning("본문 추출 %s의 %d쪽을 되살리지 못했습니다(%s).", run.parse_run_id, index + 1, code)
         return _failed_page(index, code)

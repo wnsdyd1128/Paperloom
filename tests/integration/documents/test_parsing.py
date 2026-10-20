@@ -18,6 +18,7 @@ from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
 from paperloom.documents import parsing as parsing_module
 from paperloom.documents.extract import ExtractFailed, extract_pages
+from paperloom.documents.layout_model import INPUT_SIZE, Region
 from paperloom.documents.parsing import ParseService, ParseSettings
 from paperloom.infrastructure.files.source_store import SourceStore
 
@@ -371,11 +372,11 @@ def test_failed_chunk_is_retried_page_by_page(app, client, data_dir, monkeypatch
     bad_page = 2
     calls = []
 
-    def fails_on_bad_page(path, first, stop, timeout_seconds, plain=False):
+    def fails_on_bad_page(path, first, stop, timeout_seconds, plain=False, images=None):
         calls.append((first, stop, timeout_seconds, plain))
         if first <= bad_page < stop:
             raise ExtractFailed("RESOURCE_LIMIT")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
 
     monkeypatch.setattr(parsing_module, "extract_pages", fails_on_bad_page)
     settings = ParseSettings(chunk_pages=3)
@@ -403,10 +404,10 @@ def test_a_page_that_ran_out_of_time_is_recovered_with_a_longer_limit(app, clien
     bad_page = 2
     settings = ParseSettings(chunk_pages=3)
 
-    def slow_bad_page(path, first, stop, timeout_seconds, plain=False):
+    def slow_bad_page(path, first, stop, timeout_seconds, plain=False, images=None):
         if first <= bad_page < stop and timeout_seconds < settings.page_retry_timeout_seconds:
             raise ExtractFailed("RESOURCE_LIMIT")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
 
     monkeypatch.setattr(parsing_module, "extract_pages", slow_bad_page)
     drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), settings))
@@ -424,11 +425,11 @@ def test_a_page_whose_extractor_crashed_is_recovered_with_plain_extraction(app, 
     paper = upload(client, "figures.pdf")
     calls = []
 
-    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False):
+    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, images=None):
         calls.append(plain)
         if not plain:
             raise ExtractFailed("PARSER_ERROR")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
 
     monkeypatch.setattr(parsing_module, "extract_pages", crashes_unless_plain)
     service = app.state.parsing
@@ -461,6 +462,93 @@ def test_plain_extraction_reads_no_font_dictionaries_or_graphics(monkeypatch):
     assert "extract_simplified" in page["flags"]
     texts = {block["text"]: block["quality_flags"] for block in page["blocks"]}
     assert texts["Synthetic values"] == []  # 그림 안 글자지만 그림을 보지 않았다
+
+
+class FakeLayout:
+    """레이아웃 모델 대신 정해 둔 영역을 돌려준다(진짜 모델은 tests/real_papers). fail이면 모델이 실패한다."""
+
+    device_in_use = "cpu"
+
+    def __init__(self, regions: list[Region], fail: bool = False) -> None:
+        self.regions, self.fail = regions, fail
+        self.images: list[int] = []  # 받은 그림의 바이트 수
+
+    def identity(self) -> str:
+        return "fake-0001"
+
+    def load(self) -> str:
+        return self.device_in_use
+
+    def detect(self, image: bytes) -> list[Region]:
+        self.images.append(len(image))
+        if self.fail:
+            raise RuntimeError("모델 실패")
+        return self.regions
+
+
+def test_extraction_draws_the_layout_model_input_for_every_page_but_not_in_plain_mode(tmp_path):
+    images = tmp_path / "images"
+    images.mkdir()
+    pages = extract_pages(FIXTURE_DIR / "text-digital.pdf", 0, 3, 30, images=images)
+    assert sorted(path.name for path in images.iterdir()) == [f"{page['page_index']}.rgb" for page in pages] == ["0.rgb", "1.rgb", "2.rgb"]
+    assert {path.stat().st_size for path in images.iterdir()} == {INPUT_SIZE * INPUT_SIZE * 3}
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    extract_pages(FIXTURE_DIR / "text-digital.pdf", 0, 1, 30, plain=True, images=plain)
+    assert not list(plain.iterdir())
+
+
+def test_the_layout_model_marks_what_it_sees_as_algorithms_and_reextracts_when_turned_on(app, client, data_dir):
+    """2026-10-19 사용자 요청("알고리즘이나 표 이런 게 자꾸 번역되네"): 모델이 알고리즘으로 본 영역의 문단은 번역하지 않는다.
+    모델을 켜면 추출기 버전이 바뀌어 저장된 논문을 다시 추출한다. 쪽 그림은 다 쓴 뒤 지운다."""
+    paper = upload(client, "text-digital.pdf")
+    drain(app.state.parsing)
+    version_id = version_of(client, paper)["version_id"]
+    assert all("in_table" not in block["quality_flags"] for block in client.get(f"/api/v1/versions/{version_id}/pages/0").json()["blocks"])
+
+    layout = FakeLayout([Region("algorithm", 0.9, (0.0, 0.0, 1.0, 1.0))])
+    service = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), layout=layout)
+    assert service.parser_version == f"{app.state.parsing.parser_version}+dla-fake-0001"
+    service.prepare()
+    drain(service)
+
+    pages = client.get(f"/api/v1/versions/{version_id}/pages").json()["pages"]
+    assert layout.images == [INPUT_SIZE * INPUT_SIZE * 3] * len(pages)
+    for page in pages:
+        blocks = client.get(f"/api/v1/versions/{version_id}/pages/{page['page_index']}").json()["blocks"]
+        assert all("in_table" in block["quality_flags"] for block in blocks)
+        assert ("no_body_text" in page["flags"]) == bool(blocks)  # 글이 있는 쪽은 쪽 번역 차례가 건너뛴다
+    assert run_rows(data_dir)[-1]["parser_version"] == service.parser_version
+
+
+def test_a_failing_layout_model_leaves_the_rule_marks(app, client, data_dir):
+    paper = upload(client, "figures.pdf")
+    layout = FakeLayout([], fail=True)
+    drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), layout=layout))
+
+    version = version_of(client, paper)
+    assert version["status"] == "INDEXED" and layout.images
+    texts = {block["text"]: block["quality_flags"] for block in client.get(f"/api/v1/versions/{version['version_id']}/pages/0").json()["blocks"]}
+    assert texts["Synthetic values"] == ["in_figure"] and texts["BODY TEXT THAT IS NOT A FIGURE"] == []
+
+
+def test_plain_recovery_draws_no_page_for_the_layout_model(app, client, data_dir, monkeypatch):
+    """간이 추출은 쪽을 그리지 않는다(그리기가 하위 프로세스를 죽였을 수도 있다). 그 쪽은 규칙 표시만 쓴다."""
+    upload(client, "figures.pdf")
+    calls = []
+
+    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, images=None):
+        calls.append((plain, images is not None))
+        if not plain:
+            raise ExtractFailed("PARSER_ERROR")
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
+
+    monkeypatch.setattr(parsing_module, "extract_pages", crashes_unless_plain)
+    layout = FakeLayout([Region("algorithm", 0.9, (0.0, 0.0, 1.0, 1.0))])
+    drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), layout=layout))
+
+    assert calls == [(False, True), (True, False)]
+    assert layout.images == []
 
 
 def test_subprocess_timeout_marks_every_page_and_fails_the_document(app, client, data_dir):

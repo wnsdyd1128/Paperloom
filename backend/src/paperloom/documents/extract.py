@@ -4,9 +4,11 @@ pypdfium2(pdfium)로 글자·loose box를 읽고 text_layout으로 문단을 묶
 글꼴 사전의 글리프 이름으로 되찾고, 3B2 조판 PDF의 AdvP 수식 글꼴은 TeX 글꼴 자리로 되돌린다(glyphs, pypdf). 신뢰할 수 없는 PDF이므로
 documents.inspect처럼 시간 제한을 두고, POSIX에서는 메모리·CPU도 제한한다(`infrastructure.isolation`).
 
-하위 프로세스: `python -m paperloom.documents.extract <pdf> <first_page> <stop_page> [--plain]` → stdout에 JSON 한 줄.
+하위 프로세스: `python -m paperloom.documents.extract <pdf> <first_page> <stop_page> [--plain] [--images <폴더>]` → stdout에 JSON 한 줄.
 --plain(간이 추출, 한 쪽 추출이 실패했을 때 parsing이 다시 해 본다): 글꼴 사전 읽기(pypdf)·그림·표 가로줄·Form 잘라내기·이미지
 넓이를 보지 않고 pdfium 글자로만 문단을 묶는다. 쪽에 extract_simplified 표시를 붙인다(그림·표 안 글자를 가리지 못한다).
+--images: 쪽마다 레이아웃 모델(documents.layout_model) 입력 그림을 `<폴더>/<page_index>.rgb`에 쓴다. 모델은 서버 프로세스가
+돌린다(이 프로세스의 메모리 제한 아래에서는 CUDA를 시작하지 못한다). 간이 추출은 그리지 않는다.
 """
 
 import ctypes
@@ -20,6 +22,7 @@ from pathlib import Path
 
 from paperloom.documents.fonts import font_style, is_math_font
 from paperloom.documents.glyphs import FontDifferences, pua_text
+from paperloom.documents.layout_model import INPUT_SIZE
 from paperloom.documents.tables import horizontal_rules
 from paperloom.documents.text_layout import Char, layout_page
 from paperloom.infrastructure.isolation import limit_resources
@@ -33,6 +36,8 @@ MIN_FONT_SPAN = 0.6
 # 그런 본문 글꼴의 글자는 기준선 둘레 보통 글꼴의 아래·위(글꼴 크기 배수)까지 넓힌다(사용자 논문 −0.24·0.71, CBANA −0.22·0.70).
 # 수식 글꼴은 넓히지 않는다: 사용자 논문의 rtxmi는 ascent 0인데 넓히면 따로 놓인 수식의 줄이 달라졌다(cases 둘째 줄이 본문 문단으로).
 BASELINE_BAND = (-0.22, 0.72)
+# 레이아웃 모델 입력은 쪽을 긴 변 이만큼(px)으로 그린 뒤 INPUT_SIZE 정사각형으로 줄인다(모델을 평가한 그림과 같게)
+LAYOUT_RENDER_SIDE = 1100
 
 
 class ExtractFailed(Exception):
@@ -43,11 +48,13 @@ class ExtractFailed(Exception):
         self.code = code
 
 
-def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float, plain: bool = False) -> list[dict]:
-    """[first, stop) 쪽의 추출 결과. 실패하면 ExtractFailed. 하위 프로세스를 띄우지 못하면 OSError. plain은 간이 추출이다."""
+def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float, plain: bool = False, images: Path | None = None) -> list[dict]:
+    """[first, stop) 쪽의 추출 결과. 실패하면 ExtractFailed. 하위 프로세스를 띄우지 못하면 OSError. plain은 간이 추출이다.
+    images가 있으면 그 폴더에 쪽마다 레이아웃 모델 입력 그림(<page_index>.rgb)을 쓴다(간이 추출과 그리지 못한 쪽은 없다)."""
+    options = [*(["--plain"] if plain else []), *(["--images", str(images)] if images is not None else [])]
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "paperloom.documents.extract", str(path), str(first), str(stop), *(["--plain"] if plain else [])],
+            [sys.executable, "-m", "paperloom.documents.extract", str(path), str(first), str(stop), *options],
             capture_output=True,
             timeout=timeout_seconds,
             check=False,
@@ -63,7 +70,7 @@ def extract_pages(path: Path, first: int, stop: int, timeout_seconds: float, pla
     return report["pages"]
 
 
-def _extract(path: str, first: int, stop: int, plain: bool = False) -> dict:
+def _extract(path: str, first: int, stop: int, plain: bool = False, images: str | None = None) -> dict:
     import pypdfium2 as pdfium
     import pypdfium2.raw as pdfium_c
 
@@ -99,6 +106,8 @@ def _extract(path: str, first: int, stop: int, plain: bool = False) -> dict:
                     [figure.box for figure in figure_candidates(graphics, geometry.view_box)],
                     horizontal_rules(graphics, geometry.view_box),
                 )
+                if images is not None:
+                    _write_layout_image(page, Path(images) / f"{index}.rgb")
             pages.append(
                 {
                     "page_index": index,
@@ -258,6 +267,18 @@ def _form_clips(page, pdfium_c) -> dict[int, tuple[float, float, float, float]]:
         return {}
 
 
+def _write_layout_image(page, path: Path) -> None:
+    """레이아웃 모델 입력 그림(INPUT_SIZE × INPUT_SIZE RGB 바이트, /Rotate 적용). 그리지 못하면 쓰지 않는다(그 쪽은 규칙만 쓴다)."""
+    from PIL import Image
+
+    try:
+        width, height = page.get_size()
+        image = page.render(scale=LAYOUT_RENDER_SIDE / max(width, height)).to_pil().convert("RGB")
+        path.write_bytes(image.resize((INPUT_SIZE, INPUT_SIZE), Image.BICUBIC).tobytes())
+    except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF의 쪽. 본문 추출은 계속한다
+        pass
+
+
 def _is_unmapped(code: int) -> bool:
     return code in (0, 0xFFFD) or 0xE000 <= code <= 0xF8FF
 
@@ -278,7 +299,9 @@ def _image_coverage(page, view_box, pdfium_c) -> float:
 def _main() -> None:
     limit_resources()
     try:
-        report = _extract(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), plain="--plain" in sys.argv[4:])
+        options = sys.argv[4:]
+        images = options[options.index("--images") + 1] if "--images" in options else None
+        report = _extract(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), plain="--plain" in options, images=images)
     except MemoryError:
         report = {"code": "RESOURCE_LIMIT"}
     print(json.dumps(report))

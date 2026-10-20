@@ -5,6 +5,8 @@ tests/e2e_papers/의 PDF는 저작권 때문에 저장소에 넣지 않는다(.g
 
 모든 논문을 서버 경로(업로드 → 첫 쪽 제목 → 본문 추출)로 한 번 처리한다. 모든 논문에 성립해야 할 성질과, 사용자가 알린 논문
 문제의 고침(그 파일이 있을 때만)을 본다. 첫 실행 결과는 docs/gates/evidence/ui/2026-10-14_real-papers.md.
+레이아웃 모델(documents.layout_model)이 var/models에 있으면 그것도 쓴다(로컬 서버 설정 ops/config/local.yaml의 자리). 모델에 기대는
+시험은 모델이 없으면 건너뛴다.
 """
 
 import re
@@ -17,13 +19,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from paperloom.bootstrap.app import create_app
-from paperloom.bootstrap.config import AppSettings, Settings
+from paperloom.bootstrap.config import AppSettings, LayoutSettings, Settings
 from paperloom.documents.headings import headings
 from paperloom.documents.titles import looks_like_filename
 
 PAPERS = Path(__file__).resolve().parents[1] / "e2e_papers"
 NAMES = sorted(path.name for path in PAPERS.glob("*.pdf")) if PAPERS.is_dir() else []
 pytestmark = [pytest.mark.real_papers, pytest.mark.skipif(not NAMES, reason="tests/e2e_papers에 실제 논문이 없다")]
+MODEL = Path(__file__).resolve().parents[2] / "var" / "models" / "pp-doclayout-plus-l" / "inference.onnx"
+needs_model = pytest.mark.skipif(not MODEL.is_file(), reason="var/models에 레이아웃 모델이 없다(python -m paperloom.documents.layout_model download)")
 
 SCHEDULABILITY = "Schedulability Analysis of Global Scheduling for Multicore Systems With Shared Caches.pdf"  # 3B2 수식 글꼴
 PREDICTING = "Predicting Inter-Thread Cache Contention on a Chip Multi-Processor Architecture.pdf"  # Word 수식(Type3)
@@ -32,6 +36,8 @@ TCPS = "TCPS a task and cache-aware partitioned scheduler for hard real-time mul
 CAAS = "CAAS Cache Affinity Aware Scheduling Framework for RTEMS with Edge Computing Support.pdf"
 STACK_DISTANCE = "Efficient_Stack_Distance_Approximation_Based_on_Workload_Characteristics.pdf"
 LLVM_REUSE = "LLVM Static Analysis for Program Characterization and Memory Reuse Profile Estimation.pdf"
+PARTITIONED = "Partitioned_Scheduling_With_Shared_Resources_on_Imprecise_Mixed-Criticality_Multiprocessor_Systems.pdf"
+POWER_OF_10 = "The_power_of_10_rules_for_developing_safety-critical_code.pdf"
 
 KOREAN = "SMP 기반 RTEMS 운영체제 환경에서의 스케줄링 성능 분석.pdf"  # 메타데이터 제목이 HWP 파일 이름
 FILE_NAME = re.compile(r"\.(?:pdf|docx?|hwpx?|tex|dvi|ps)$", re.IGNORECASE)
@@ -40,7 +46,8 @@ FILE_NAME = re.compile(r"\.(?:pdf|docx?|hwpx?|tex|dvi|ps)$", re.IGNORECASE)
 @pytest.fixture(scope="module")
 def processed(tmp_path_factory) -> dict[str, dict]:
     """논문 이름 → {paper, pages, blocks(쪽 → 문단)}. 빈 데이터 폴더에 하나씩 올리고 본문 추출을 끝낸다."""
-    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path_factory.mktemp("real-papers") / "data")))
+    data_dir = tmp_path_factory.mktemp("real-papers") / "data"
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=data_dir), layout=LayoutSettings(model_path=MODEL)))
     client = TestClient(app)
     result = {}
     for name in NAMES:
@@ -170,3 +177,25 @@ def test_paragraphs_are_not_split_line_by_line(processed):
     for page in (1, 2, 3, 5, 6):
         body = [len(block["text"]) for block in item["blocks"][page] if not block["quality_flags"]]
         assert statistics.median(body) > 100, page
+
+
+@needs_model
+def test_an_algorithm_the_rules_missed_stays_out_of_translation(processed):
+    """2026-10-19 사용자 요청("알고리즘이나 표 이런 게 자꾸 번역되네"): 상자 줄이 없는 알고리즘(8쪽 Algorithm 1)은 규칙이 본문으로
+    보아 번역했다. 레이아웃 모델이 알고리즘으로 본다. 캡션과 그 아래 본문은 번역한다."""
+    blocks = one(processed, PARTITIONED)["blocks"][7]
+    ties = [block for block in blocks if block["text"].startswith("In case of a tie")]
+    assert len(ties) == 2 and all("in_table" in block["quality_flags"] for block in ties)
+    [caption] = [block for block in blocks if block["text"].startswith("Algorithm 1: RA-CU-WFD")]
+    [body] = [block for block in blocks if block["text"].startswith("Algorithm 1 presents the RA-CU-WFD algorithm")]
+    assert not caption["quality_flags"] and not body["quality_flags"]
+
+
+@needs_model
+def test_body_text_the_rules_took_for_figure_text_is_translated(processed):
+    """규칙의 그림 후보 상자가 본문 단을 덮어 The Power of 10 1–3쪽 본문이 그림 안 글자로 빠졌다(2026-10-19 평가). 모델이 본문으로
+    확신하면 그림 표시를 뗀다."""
+    item = one(processed, POWER_OF_10)
+    for page, start in ((0, "Among the many coding guidelines"), (1, "Rule 5: The code’s assertion density"), (2, "If these rules seem draconian")):
+        [block] = [block for block in item["blocks"][page] if block["text"].startswith(start)]
+        assert "in_figure" not in block["quality_flags"], (page, start)

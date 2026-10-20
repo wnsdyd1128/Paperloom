@@ -28,6 +28,15 @@ class AppSettings(_Strict):
     claude_code_url: str = "http://127.0.0.1:8001"
 
 
+class LayoutSettings(_Strict):
+    """문서 레이아웃 모델(documents.layout_model). 모델 파일이 없으면 규칙만으로 본문이 아닌 글을 가린다."""
+
+    # None이면 <data_dir>/models/pp-doclayout-plus-l/inference.onnx
+    model_path: Path | None = None
+    # auto: CUDA를 쓸 수 있으면 GPU, 아니면 CPU
+    device: Literal["auto", "cpu", "cuda"] = "auto"
+
+
 class CostPolicy(_Strict):
     mode: Literal["plan_only"] = "plan_only"
     paid_model_calls_allowed: Literal[False] = False
@@ -37,6 +46,7 @@ class CostPolicy(_Strict):
 
 class Settings(_Strict):
     app: AppSettings
+    layout: LayoutSettings = LayoutSettings()
     cost_policy: CostPolicy = CostPolicy()
 
 
@@ -51,7 +61,9 @@ def load_settings(path: Path) -> Settings:
             "web_dist_dir": _resolve(base, web_dist_dir) if web_dist_dir else None,
         }
     )
-    return settings.model_copy(update={"app": app})
+    model_path = settings.layout.model_path
+    layout = settings.layout.model_copy(update={"model_path": _resolve(base, model_path) if model_path else None})
+    return settings.model_copy(update={"app": app, "layout": layout})
 
 
 def _resolve(base: Path, path: Path) -> Path:

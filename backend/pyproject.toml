@@ -10,6 +10,9 @@ requires-python = ">=3.13"
 # 모델 API·임베딩·OCR SDK는 넣지 않는다 (PLAN §2.2, tests/contract/test_dependency_policy.py).
 dependencies = [
     "fastapi>=0.141",
+    # 문서 레이아웃 모델(PP-DocLayout_plus-L, ONNX)을 이 PC에서 돌린다(documents.layout_model). 모델 API가 아니다.
+    "onnxruntime>=1.31",
+    "pillow>=13",  # 레이아웃 모델 입력 그림(쪽을 그려 800×800으로 줄인다)
     "pydantic>=2.11",
     "pypdf>=6.19",  # 수식 글꼴의 /Differences 글리프 이름(유니코드가 없는 수식 기호 되찾기, documents.glyphs). 테스트의 합성 PDF 생성에도 쓴다
     "pypdfium2>=5.13",
