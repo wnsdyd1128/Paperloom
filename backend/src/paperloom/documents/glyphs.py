@@ -9,9 +9,23 @@ pdfium은 글꼴 사전을 주지 않으므로 그 쪽 글꼴의 /Differences를
 TrueType에 cmap·post 표가 없어 PDF 어디에도 글자가 없다. pdfium은 글리프 번호를 글자로 주어 "+XPDQ"(Human)처럼 29자 밀린 글이
 되고 매핑 오류로 쪽이 "일부 쪽만 검색 가능"이 되었다. 원래 글꼴이 매킨토시 표준 글리프 차례(글리프 36 = A)를 따르므로 그 차례로
 읽는다(MAC_GLYPHS). 차례가 다른 글꼴이면 엉뚱한 글이 되므로 글꼴마다 읽은 글이 말글처럼 보일 때만 쓴다(looks_like_text).
+
+2026-10-21 사용자 논문(Resource-Aware Task Scheduling, "일부 기호를 읽지 못함"):
+- 차트의 Type3 글꼴은 글리프 이름이 유니코드가 아니라 글리프 번호다(/uni00000024 = 글리프 36 = A). pdfium은 이름을 글자로 바꾸지 못해
+  글자 코드(A)를 그대로 주며 매핑 오류로 표시했다. 글은 맞으므로 글리프 번호를 매킨토시 차례로 읽은 글자가 글자 코드와 같으면 읽은
+  글자로 센다(glyph_id_name_agrees).
+- TeX 큰 기호 글꼴(CMEX10)의 ToUnicode가 늘이는 괄호 조각만 주어 ∑·큰 괄호가 X·n·o로 나왔다. CMEX의 글자 자리는 TeX가 정해
+  두었으므로(OMX) 그 표로 읽는다(cmex_text). /Differences로 다시 인코딩한 CMEX는 자리가 달라(실제 논문 PARDA: 코드 2가 큰
+  중괄호) 글꼴 안 인코딩을 쓰는 글꼴에만 쓴다(FontDifferences.cmex_text).
+
+2026-10-21 사용자 요청("Self-recovery 좀 더 고도화"): 논문 40편에서 남은 못 읽은 글자의 큰 덩어리가 matplotlib 차트의 Type3 글꼴
+(/zero·/A 같은 표준 글리프 이름, ToUnicode 없음: pdfium은 이름을 보지 않고 글자 코드를 매핑 오류로 준다)과 Symbol 글꼴이었다.
+매핑 오류 글자는 그 글꼴의 표준 글리프 이름(standard_text, FontDifferences.name_text)이나 Symbol 인코딩(symbol_text)으로 읽는다.
+이름이 대부분 표준 이름이 아닌 글꼴(dvips 비트맵 /BP·/AE, Word 수식 /CG 꼴)은 이름을 쓰지 않는다: /AE가 Æ가 된다.
 """
 
 import re
+import unicodedata
 
 # Adobe 글리프 목록과 TeX 수식 글꼴(cmsy·cmex·newtx)의 이름. 크기 꼬리(big·Big·bigg·Bigg·display·text)는 떼고 찾는다.
 # 늘여 쓰는 조각(…tp·…mid·…bt·…ex)은 글자가 아니라 넣지 않는다(그런 이름은 찾지 못해 빠진다).
@@ -94,6 +108,11 @@ GLYPHS = {
 _SIZE = re.compile(r"(?:big|Big|bigg|Bigg|display|text)$")
 _UNI = re.compile(r"^uni([0-9A-F]{4})$")
 _SUBSET = re.compile(r"^[A-Z]{6}\+")
+_CMEX = re.compile(r"^(?:[A-Z]{6}\+)?CMEX\d*$", re.IGNORECASE)  # TeX 큰 기호 글꼴(cmex5–10)
+_GLYPH_ID_NAME = re.compile(r"^uni([0-9A-Fa-f]{8})$")  # 글리프 번호를 담은 글리프 이름(유니코드 이름 uniXXXX는 4자리다)
+_UNI_SEQUENCE = re.compile(r"^uni(?:[0-9A-F]{4})+$")  # Adobe 글리프 목록 규칙: uni + 대문자 16진수 4자리씩
+_U_NAME = re.compile(r"^u([0-9A-F]{4,6})$")
+_SYMBOL_FONT = re.compile(r"^(?:[A-Z]{6}\+)?Symbol(?:MT)?(?:[,-].*)?$")
 
 # 3B2(Arbortext) 조판 PDF의 AdvP 수식 글꼴 (2026-10-14 사용자 논문, IEEE TC): TeX 수식 글꼴을 다시 인코딩했다.
 # 코드 32 이상은 TeX 글꼴의 같은 자리 글자다(글리프 이름은 그 자리의 ASCII 이름이라 "two"가 ∈다). 32보다 작은 코드는
@@ -154,6 +173,32 @@ MAC_GLYPHS = {
 # 사용자 논문 그림 글 0.39–0.44, 밀린 채로는 0.06–0.14, 차례가 다른 글꼴을 잘못 읽으면 고른 글자라 약 0.19)
 GLYPH_ORDER_LETTERS = 8
 GLYPH_ORDER_VOWELS = 0.3
+# 표준 글리프 이름 → 글자: 매킨토시 표준 차례(MAC_GLYPHS)의 이름(ASCII 95개, 98–257)과 합자
+_ASCII_NAMES = (
+    "space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash "
+    "zero one two three four five six seven eight nine colon semicolon less equal greater question at " + " ".join("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    + " bracketleft backslash bracketright asciicircum underscore grave " + " ".join("abcdefghijklmnopqrstuvwxyz")
+    + " braceleft bar braceright asciitilde"
+).split()
+_MAC_NAMES = (  # 98–209, 211–257 (210 apple 없음)
+    "Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave "
+    "ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex "
+    "udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE "
+    "Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae "
+    "oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace "
+    "Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction "
+    "currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex "
+    "Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex "
+    "Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash "
+    "Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf "
+    "onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat"
+).split()
+STANDARD_NAMES = {
+    **dict(zip(_ASCII_NAMES + _MAC_NAMES, MAC_GLYPHS.values(), strict=True)),
+    "ff": "ﬀ", "ffi": "ﬃ", "ffl": "ﬄ", "nbspace": " ", "Euro": "€",
+}
+_GREEK_VARIANTS = {"theta1": "ϑ", "phi1": "ϕ", "omega1": "ϖ", "sigma1": "ς", "Upsilon1": "ϒ", "epsilon1": "ϵ"}
+STANDARD_SHARE = 0.8  # 글꼴의 /Differences 이름 가운데 이만큼 이상이 표준 이름이어야 그 글꼴의 이름을 쓴다
 _TEX_NAME = re.compile(r"^C(\d+)$")
 _DELIMITER_PAIRS = ((0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (16, 17), (18, 19), (22, 23), (24, 25), (26, 27))
 
@@ -166,6 +211,24 @@ def glyph_text(name: str) -> str | None:
     if unicode:
         return chr(int(unicode.group(1), 16))
     return GLYPHS.get(_SIZE.sub("", name))
+
+
+def standard_text(name: str) -> str | None:
+    """표준 글리프 이름의 글자: ASCII·매킨토시 표준 이름과 합자(STANDARD_NAMES), uniXXXX(여럿)·uXXXX–uXXXXXX, 그리스 문자 이름, 수식
+    글꼴 이름(glyph_text). 모르면 None. 제어 문자가 되는 uni 이름(글리프 번호 이름 uni00000024 등)은 모른다."""
+    if name in STANDARD_NAMES:
+        return STANDARD_NAMES[name]
+    if _UNI_SEQUENCE.match(name) or _U_NAME.match(name):
+        codes = [int(name[3 + i : 7 + i], 16) for i in range(0, len(name) - 3, 4)] if name.startswith("uni") else [int(name[1:], 16)]
+        return "".join(map(chr, codes)) if all(code >= 0x20 for code in codes) else None
+    if name in _GREEK_VARIANTS:
+        return _GREEK_VARIANTS[name]
+    if len(name) > 1 and name.isascii() and name.isalpha():
+        try:
+            return unicodedata.lookup(f"GREEK {'CAPITAL' if name[0].isupper() else 'SMALL'} LETTER {name.upper()}")
+        except KeyError:
+            pass
+    return glyph_text(name)
 
 
 def looks_like_text(text: str) -> bool:
@@ -200,6 +263,17 @@ def pua_text(font: str, code: int) -> str | None:
     return None
 
 
+def cmex_text(font: str, code: int) -> str | None:
+    """TeX 큰 기호 글꼴(CMEX)의 글자 코드가 그리는 글자(OMX, 늘이는 괄호 조각은 " "). 다른 글꼴이거나 모르면 None."""
+    return OMX.get(code) if _CMEX.match(font) else None
+
+
+def glyph_id_name_agrees(name: str | None, code: int) -> bool:
+    """글리프 이름이 글리프 번호 이름(uni + 8자리)이고, 그 번호를 매킨토시 표준 차례로 읽은 글자가 글자 코드의 글자와 같은지."""
+    match = _GLYPH_ID_NAME.match(name or "")
+    return bool(match) and MAC_GLYPHS.get(int(match.group(1), 16)) == chr(code)
+
+
 def text_3b2(kind: str, code: int, name: str | None) -> str | None:
     """kind_3b2 글꼴의 글자 코드(그 자리의 글리프 이름 name)가 그리는 글자. 늘이는 괄호 조각은 " ", 모르면 None(그대로 둔다)."""
     if kind == "oms" and name in _EXTRAS_3B2:
@@ -215,7 +289,7 @@ class FontDifferences:
     def __init__(self, path: str) -> None:
         self._path = path
         self._reader = None
-        self._pages: dict[int, tuple[dict[str, dict[int, str] | None], dict[str, bool]]] = {}
+        self._pages: dict[int, tuple[dict[str, dict[int, str] | None], dict[str, bool], dict[str, dict[int, str | None]]]] = {}
 
     def text(self, page_index: int, font: str, code: int) -> str | None:
         """그 쪽 그 글꼴(부분 글꼴 접두 없이)의 글자 코드가 가리키는 글자. 같은 이름의 글꼴이 코드를 다르게 쓰거나 모르면 None."""
@@ -233,15 +307,37 @@ class FontDifferences:
         """그 쪽 그 글꼴이 글리프 번호 글꼴(_glyph_ids)인지. 같은 이름의 글꼴이 모두 그래야 한다."""
         return self._read_page(page_index)[1].get(_SUBSET.sub("", font), False)
 
+    def name_text(self, page_index: int, font: str, code: int) -> str | None:
+        """그 쪽 그 글꼴의 글자 코드 글리프 이름(같은 이름의 글꼴들이 그 코드에 같은 이름을 줄 때 — 그림마다 같은 글꼴을 다른 부분
+        글꼴로 넣어 /Differences 전체는 서로 다르다)이 가리키는 글자. 글리프 번호 이름은 그 번호의 매킨토시 차례 글자가 글자 코드와
+        같을 때 그 글자(glyph_id_name_agrees), 표준 이름은 이름의 글자(standard_text, 이름이 STANDARD_SHARE 이상 표준인 글꼴만). 모르면 None."""
+        names = self._read_page(page_index)[2].get(_SUBSET.sub("", font), {})
+        name = names.get(code)
+        if not name:
+            return None
+        if _GLYPH_ID_NAME.match(name):
+            return chr(code) if glyph_id_name_agrees(name, code) else None
+        known = [glyph for glyph in names.values() if glyph]
+        standard = sum(1 for glyph in known if standard_text(glyph) is not None)
+        return standard_text(name) if standard >= STANDARD_SHARE * len(known) else None
+
+    def symbol_text(self, page_index: int, font: str, code: int) -> str | None:
+        """그 쪽 그 글꼴이 /Differences 없는 Symbol 글꼴이면 글자 코드의 Symbol 인코딩 글자(늘이는 조각은 " "). 아니면 None."""
+        return SYMBOL.get(code) if _SYMBOL_FONT.match(font) and self._names(page_index, font) == {} else None
+
+    def cmex_text(self, page_index: int, font: str, code: int) -> str | None:
+        """그 쪽 그 글꼴이 /Differences 없이 글꼴 안 인코딩을 쓰는 TeX 큰 기호 글꼴이면 글자 코드 자리의 글자(cmex_text). 아니면 None."""
+        return cmex_text(font, code) if self._names(page_index, font) == {} else None
+
     def _names(self, page_index: int, font: str) -> dict[int, str] | None:
         return self._read_page(page_index)[0].get(_SUBSET.sub("", font))
 
-    def _read_page(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool]]:
+    def _read_page(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool], dict[str, dict[int, str | None]]]:
         if page_index not in self._pages:
             self._pages[page_index] = self._read(page_index)
         return self._pages[page_index]
 
-    def _read(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool]]:
+    def _read(self, page_index: int) -> tuple[dict[str, dict[int, str] | None], dict[str, bool], dict[str, dict[int, str | None]]]:
         try:
             if self._reader is None:
                 from pypdf import PdfReader
@@ -249,14 +345,17 @@ class FontDifferences:
                 self._reader = PdfReader(self._path)
             fonts: dict[str, dict[int, str] | None] = {}
             glyph_ids: dict[str, bool] = {}
-            _collect(self._reader.pages[page_index].get("/Resources"), fonts, glyph_ids, depth=0)
-            return fonts, glyph_ids
+            code_names: dict[str, dict[int, str | None]] = {}
+            _collect(self._reader.pages[page_index].get("/Resources"), fonts, glyph_ids, code_names, depth=0)
+            return fonts, glyph_ids, code_names
         except Exception:  # noqa: BLE001 - 신뢰할 수 없는 PDF. 되찾지 못해도 본문 추출은 계속한다
-            return {}, {}
+            return {}, {}, {}
 
 
-def _collect(resources, fonts: dict[str, dict[int, str] | None], glyph_ids: dict[str, bool], depth: int) -> None:
-    """자원의 글꼴(그림 안 Form의 글꼴 포함, 세 겹까지). 같은 이름인데 /Differences가 다르면 None(쓰지 않는다)."""
+def _collect(resources, fonts: dict[str, dict[int, str] | None], glyph_ids: dict[str, bool], code_names: dict[str, dict[int, str | None]],
+             depth: int) -> None:
+    """자원의 글꼴(그림 안 Form의 글꼴 포함, 세 겹까지). 같은 이름인데 /Differences가 다르면 None(쓰지 않는다). code_names는 코드마다
+    같은 이름의 글꼴들이 주는 글리프 이름이다(어긋나면 None)."""
     if resources is None or depth > 3:
         return
     resources = resources.get_object()
@@ -266,10 +365,13 @@ def _collect(resources, fonts: dict[str, dict[int, str] | None], glyph_ids: dict
         differences = _differences(font)
         fonts[name] = differences if fonts.get(name, differences) == differences else None
         glyph_ids[name] = glyph_ids.get(name, True) and _glyph_ids(font)
+        names = code_names.setdefault(name, {})
+        for code, glyph in differences.items():
+            names[code] = glyph if names.get(code, glyph) == glyph else None
     for ref in (resources.get("/XObject") or {}).values():
         form = ref.get_object()
         if form.get("/Subtype") == "/Form":
-            _collect(form.get("/Resources"), fonts, glyph_ids, depth + 1)
+            _collect(form.get("/Resources"), fonts, glyph_ids, code_names, depth + 1)
 
 
 def _glyph_ids(font) -> bool:

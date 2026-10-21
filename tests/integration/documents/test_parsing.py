@@ -248,6 +248,26 @@ def test_glyph_id_fonts_without_a_unicode_map_are_read_in_the_macintosh_glyph_or
     assert other[1]["quality_flags"] == ["unmapped_chars"]
 
 
+def test_chart_type3_glyph_id_names_and_tex_extension_symbols_are_read(app, client):
+    """2026-10-21 사용자 논문(Resource-Aware Task Scheduling)이 "일부 기호를 읽지 못함"이었다. 차트 Type3 글꼴의 글은 맞는데 글리프
+    이름이 글리프 번호라 매핑 오류로 셌고(8쪽 432자), CMEX10의 ∑·큰 괄호는 X·n·o로 나왔다. 글리프 이름이 글자와 맞지 않는 글꼴은
+    그대로 둔다. 같은 날 "Self-recovery 고도화": matplotlib 차트의 표준 글리프 이름(Type3)과 Symbol 글꼴의 매핑 오류 글자도 읽는다."""
+    paper = upload(client, "text-chart-fonts.pdf")
+    drain(app.state.parsing)
+    version = version_of(client, paper)
+    pages = client.get(f"/api/v1/versions/{version['version_id']}/pages").json()["pages"]
+    assert [page["text_status"] for page in pages] == ["usable", "partial", "usable"]
+    charts, other, named = (client.get(f"/api/v1/versions/{version['version_id']}/pages/{index}").json()["blocks"] for index in (0, 1, 2))
+    assert [(block["text"], "unmapped_chars" in block["quality_flags"]) for block in charts] == [
+        ("Schedulability results are shown in the figures below.", False),
+        ("Number of processors", False),
+        ("Schedulability (%)", False),
+        ("I = ∑{} C", False),
+    ]
+    assert other[1]["text"] == "Response time" and "unmapped_chars" in other[1]["quality_flags"]
+    assert [(block["text"], "unmapped_chars" in block["quality_flags"]) for block in named] == [("Reuse Distance 0.5", False), ("x = y − z", False)]
+
+
 def test_a_font_with_broken_ascent_and_descent_still_gives_whole_paragraphs(app, client):
     """2026-10-04 사용자 논문 CAAS: 글꼴의 ascent·descent가 망가져(글꼴 크기의 0.45·0) pdfium loose box가 글자 모양 상자였고,
     줄 높이가 x 높이쯤이 되어 문단이 줄마다 나뉘었다(번역이 줄마다 따로 작게 그려졌다). 그런 글꼴의 글자는 기준선 둘레로 넓힌다."""

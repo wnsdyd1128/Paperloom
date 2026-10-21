@@ -2,7 +2,18 @@
 
 import pytest
 
-from paperloom.documents.glyphs import MAC_GLYPHS, glyph_text, kind_3b2, looks_like_text, pua_text, text_3b2
+from paperloom.documents.glyphs import (
+    MAC_GLYPHS,
+    FontDifferences,
+    cmex_text,
+    glyph_id_name_agrees,
+    glyph_text,
+    kind_3b2,
+    looks_like_text,
+    pua_text,
+    standard_text,
+    text_3b2,
+)
 
 
 @pytest.mark.parametrize(
@@ -169,3 +180,68 @@ def test_only_text_that_reads_like_language_is_taken_from_the_glyph_order():
     assert not looks_like_text("+XPDQ ,VSLOOHG P\\FRNH")  # 밀린 채(모음 0.06)
     assert not looks_like_text("Bcd fgh jklm npqr")  # 자음뿐
     assert not looks_like_text("Done")  # 영문자가 너무 적다
+
+
+def test_glyph_id_names_vouch_for_the_character_code():
+    """2026-10-21 사용자 논문의 차트 Type3 글꼴: 글리프 이름이 글리프 번호(/uni00000024 = 36 = A)라 pdfium이 글자 코드를 그대로 주며
+    매핑 오류로 표시했다. 그 번호의 매킨토시 차례 글자가 글자 코드와 같을 때만 맞는 글자로 본다."""
+    assert glyph_id_name_agrees("uni00000024", ord("A")) and glyph_id_name_agrees("uni0000001a", ord("7"))
+    assert glyph_id_name_agrees("uni00000003", ord(" "))
+    assert not glyph_id_name_agrees("uni00000024", ord("B"))  # 번호와 코드가 다른 글자
+    assert not glyph_id_name_agrees("uni0041", ord("A"))  # 유니코드 이름(4자리)은 글리프 번호가 아니다
+    assert not glyph_id_name_agrees("g36", ord("A")) and not glyph_id_name_agrees(None, ord("A"))
+
+
+@pytest.mark.parametrize(
+    ("font", "code", "expected"),
+    [
+        ("IJNTRM+CMEX10", 0x58, "∑"),  # summationdisplay
+        ("CMEX10", 0x18, "⌈"),  # ceilingleftbigg
+        ("CMEX7", 0x6E, "{"),  # braceleftBig
+        ("cmex10", 0x21, ")"),  # parenrightBigg
+        ("CMEX10", 0x3F, " "),  # 늘이는 조각
+        ("CMEX10", 0xC4, None),  # 모르는 자리
+        ("CMMI10", 0x58, None),  # 큰 기호 글꼴이 아니다
+    ],
+)
+def test_tex_extension_font_codes_give_the_symbol_at_that_position(font, code, expected):
+    """CMEX10의 ToUnicode가 늘이는 괄호 조각만 주어 ∑·큰 괄호가 X·n·o로 나왔다(2026-10-21 사용자 논문). 자리는 TeX가 정해 두었다."""
+    assert cmex_text(font, code) == expected
+
+
+def test_tex_extension_positions_apply_only_to_fonts_with_their_built_in_encoding(monkeypatch):
+    """/Differences로 다시 인코딩한 CMEX는 자리가 다르다(실제 논문 PARDA: 코드 2가 큰 중괄호인데 TeX 자리로는 [). 그런 글꼴은 글리프
+    이름으로 되찾고(FontDifferences.text) TeX 자리표를 쓰지 않는다."""
+    differences = FontDifferences("unused.pdf")
+    monkeypatch.setattr(differences, "_names", lambda page_index, font: {} if font == "IJNTRM+CMEX10" else {2: "braceleftbigg"})
+    assert differences.cmex_text(0, "IJNTRM+CMEX10", 0x58) == "∑"
+    assert differences.cmex_text(0, "BDNPMO+CMEX10", 0x02) is None
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("zero", "0"), ("A", "A"), ("space", " "), ("quoteright", "’"), ("endash", "–"), ("fi", "ﬁ"), ("minus", "−"),
+        ("alpha", "α"), ("Omega", "Ω"), ("theta1", "ϑ"), ("uni2212", "−"), ("uni00410042", "AB"), ("u1D400", "𝐀"),
+        ("summationdisplay", "∑"),  # 수식 글꼴 이름(glyph_text)
+        ("uni00000024", None),  # 글리프 번호 이름: 제어 문자가 되는 uni 이름은 모른다
+        ("BP", None), ("CG", None), ("a0", None), ("g36", None),  # dvips·Word 수식 Type3의 뜻 없는 이름
+    ],
+)
+def test_standard_glyph_names_give_their_character(name, expected):
+    """2026-10-21 "Self-recovery 고도화": matplotlib 차트의 Type3 글꼴은 /zero·/A 같은 표준 이름을 쓰는데 pdfium이 글자 코드를
+    매핑 오류로 준다. 표준 이름(ASCII·매킨토시 표준 258개·그리스 문자·uni/u 이름·수식 이름)은 그 글자로 읽는다."""
+    assert standard_text(name) == expected
+
+
+def test_glyph_names_are_used_only_when_the_font_names_its_glyphs_in_the_standard_way(monkeypatch):
+    """dvips 비트맵 Type3 글꼴의 이름(/A1 /AB /AE /BP …)에는 표준 이름 /AE(Æ)가 우연히 섞인다. 이름 대부분이 표준 이름인 글꼴만
+    이름으로 읽는다(STANDARD_SHARE)."""
+    differences = FontDifferences("unused.pdf")
+    names = {
+        "DejaVuSans": {48: "zero", 65: "A", 82: "R", 32: "space"},
+        "": {1: "A1", 11: "AB", 12: "AC", 13: "AD", 14: "AE", 34: "AY"},
+    }
+    monkeypatch.setattr(differences, "_read_page", lambda page_index: ({}, {}, names))
+    assert [differences.name_text(0, "ABCDEF+DejaVuSans", code) for code in (48, 65, 32, 66)] == ["0", "A", " ", None]
+    assert differences.name_text(0, "", 14) is None  # /AE지만 이 글꼴의 이름은 표준 이름이 아니다

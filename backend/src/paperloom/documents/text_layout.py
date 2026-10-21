@@ -42,7 +42,9 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 # 15: Form 안에서 잘린 그림은 보이는 부분만 그림 후보다(reading.figures._visible_form_box, 2026-10-17 실제 논문 LLVM 4쪽)
 # 16: 유니코드 지도가 빈 글리프 번호 글꼴의 글자를 매킨토시 표준 글리프 차례로 읽는다(glyphs.MAC_GLYPHS, 2026-10-19 사용자 논문
 #     SayCan 그림의 "+XPDQ"가 Human)
-LAYOUT_VERSION = "16"
+# 17: pdfium이 매핑 오류로 준 글자를 글꼴의 글리프 이름(표준 이름, 글리프 번호 이름)·Symbol 인코딩·TeX 큰 기호 자리(CMEX)로 읽는다
+#     (documents.char_recovery, 2026-10-21 사용자 논문 Resource-Aware Task Scheduling의 차트와 ∑·큰 괄호, matplotlib 차트·Symbol)
+LAYOUT_VERSION = "17"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)
