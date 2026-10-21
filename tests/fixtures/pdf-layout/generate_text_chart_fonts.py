@@ -10,7 +10,7 @@
 Type3 글리프는 사각형 하나를 그린다(그리는 것이 없으면 글자 하나뿐인 글을 pdfium이 뺀다). 글자 코드는 ASCII만 쓴다(넣지 않은
 글꼴의 높은 코드는 Linux pdfium이 뺀다, generate_text_pua.py).
 
-text-chart-fonts.pdf : 두 쪽.
+text-chart-fonts.pdf : 세 쪽.
   1쪽: Helvetica 본문, 그림 두 개(같은 이름 BYJABP+TimesNewRomanPSMT의 부분 글꼴 둘: "Number of processors", "Schedulability (%)"),
        수식 줄 "I = ∑{} C"(CMEX10의 X·n·o).
   2쪽: Helvetica 본문과 글리프 이름이 글자와 맞지 않는 Type3 글꼴(/g36 꼴)의 "Response time" → 그대로 매핑 오류로 남는다.

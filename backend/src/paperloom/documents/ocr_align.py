@@ -24,10 +24,10 @@ MIN_KNOWN = 5
 MAX_PIECE = 4  # 못 읽은 글자 한 개에 붙일 OCR 글의 최대 길이(수식 조각·합자). 구간이 이보다 길면 글자 수에 비례해 늘린다
 # 한자·가나. 모델 글자 사전의 대부분(18,708자 가운데 15,884자)이라 한자·가나가 없는 글줄에서 선·상자·근호를 이것으로 지어낸다
 # (Liu & Layland 그림의 目·十·二, 식의 立). 그런 글줄에서는 OCR 글에서 뺀다
+_CJK = re.compile("[" + "".join(f"{chr(first)}-{chr(last)}" for first, last in ((0x3040, 0x30FF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF))) + "]")
 # 모델이 수식 글자를 닮은 다른 글자로 읽는 것. 못 읽은 글리프(글꼴이 글자를 알려 주지 않은 수식 글자)에만 채우므로 수식 글자로
 # 되돌린다(논문 40편: €는 모두 ε 자리였다 — "error estimate ε", "H − ε with ε ≥ 0", "T − T′ − ε")
 _LOOKALIKES = str.maketrans({"€": "ε"})
-_CJK = re.compile("[" + "".join(f"{chr(first)}-{chr(last)}" for first, last in ((0x3040, 0x30FF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF))) + "]")
 
 
 def fill(chars: list[tuple[str, bool]], read: str, score: float) -> dict[int, str]:
