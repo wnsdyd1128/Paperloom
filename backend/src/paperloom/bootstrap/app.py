@@ -20,7 +20,7 @@ from paperloom.api.idempotency import IdempotencyStore
 from paperloom.bootstrap.config import Settings
 from paperloom.context.routes import build_router as build_context_router
 from paperloom.context.service import ContextService
-from paperloom.documents.layout_model import MODEL_NAME, LayoutModel, model_file
+from paperloom.documents import layout_model, ocr_model
 from paperloom.documents.parsing import ParseService
 from paperloom.documents.routes import build_router as build_documents_router
 from paperloom.documents.service import DocumentService, UploadLimits
@@ -49,11 +49,15 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     if removed := store.discard_incomplete_uploads():
         log.warning("이전 실행에서 남은 임시 업로드 %d개를 지웠습니다.", removed)
 
-    model = model_file(settings)
-    layout = LayoutModel(model, settings.layout.device) if model.is_file() else None
+    model = layout_model.model_file(settings)
+    layout = layout_model.LayoutModel(model, settings.layout.device) if model.is_file() else None
     if layout is None:
         log.info("레이아웃 모델(%s)이 없어 규칙만으로 본문이 아닌 글을 가립니다.", model)
-    parsing = ParseService(db_path, store, layout=layout)
+    ocr = ocr_model.OcrModel(ocr_model.model_file(settings), settings.ocr.device)
+    if not ocr.available:
+        log.info("글줄 인식 모델(%s)이 없어 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둡니다.", ocr.path)
+        ocr = None
+    parsing = ParseService(db_path, store, layout=layout, ocr=ocr)
 
     # 본문 추출 worker는 서버와 함께 시작하고 멈춘다 (IMPL §5.2). 테스트는 app.state.parsing.run_next()로 직접 돌린다.
     @asynccontextmanager
@@ -78,8 +82,9 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
             "cost_policy": settings.cost_policy.mode,
             "data_dir_writable": writable,
             "claude_code_url": settings.app.claude_code_url,
-            # 문서 레이아웃 모델. device는 연 뒤의 실제 장치(cuda·cpu), 아직 열지 않았으면 None
-            "layout_model": {"name": MODEL_NAME, "device": layout.device_in_use} if layout else None,
+            # 문서 레이아웃·글줄 인식 모델. device는 연 뒤의 실제 장치(cuda·cpu), 아직 열지 않았으면 None
+            "layout_model": {"name": layout.name, "device": layout.device_in_use} if layout else None,
+            "ocr_model": {"name": ocr.name, "device": ocr.device_in_use} if ocr else None,
         }
         return JSONResponse(body, status_code=200 if writable else 503)
 

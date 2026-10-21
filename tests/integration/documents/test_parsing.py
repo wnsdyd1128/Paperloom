@@ -19,6 +19,7 @@ from paperloom.bootstrap.config import AppSettings, Settings
 from paperloom.documents import parsing as parsing_module
 from paperloom.documents.extract import ExtractFailed, extract_pages
 from paperloom.documents.layout_model import INPUT_SIZE, Region
+from paperloom.documents.ocr_model import OCR_HEIGHT
 from paperloom.documents.parsing import ParseService, ParseSettings
 from paperloom.infrastructure.files.source_store import SourceStore
 
@@ -409,11 +410,11 @@ def test_failed_chunk_is_retried_page_by_page(app, client, data_dir, monkeypatch
     bad_page = 2
     calls = []
 
-    def fails_on_bad_page(path, first, stop, timeout_seconds, plain=False, images=None):
+    def fails_on_bad_page(path, first, stop, timeout_seconds, plain=False, **options):
         calls.append((first, stop, timeout_seconds, plain))
         if first <= bad_page < stop:
             raise ExtractFailed("RESOURCE_LIMIT")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, **options)
 
     monkeypatch.setattr(parsing_module, "extract_pages", fails_on_bad_page)
     settings = ParseSettings(chunk_pages=3)
@@ -441,10 +442,10 @@ def test_a_page_that_ran_out_of_time_is_recovered_with_a_longer_limit(app, clien
     bad_page = 2
     settings = ParseSettings(chunk_pages=3)
 
-    def slow_bad_page(path, first, stop, timeout_seconds, plain=False, images=None):
+    def slow_bad_page(path, first, stop, timeout_seconds, plain=False, **options):
         if first <= bad_page < stop and timeout_seconds < settings.page_retry_timeout_seconds:
             raise ExtractFailed("RESOURCE_LIMIT")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, **options)
 
     monkeypatch.setattr(parsing_module, "extract_pages", slow_bad_page)
     drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), settings))
@@ -462,11 +463,11 @@ def test_a_page_whose_extractor_crashed_is_recovered_with_plain_extraction(app, 
     paper = upload(client, "figures.pdf")
     calls = []
 
-    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, images=None):
+    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, **options):
         calls.append(plain)
         if not plain:
             raise ExtractFailed("PARSER_ERROR")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, **options)
 
     monkeypatch.setattr(parsing_module, "extract_pages", crashes_unless_plain)
     service = app.state.parsing
@@ -574,11 +575,11 @@ def test_plain_recovery_draws_no_page_for_the_layout_model(app, client, data_dir
     upload(client, "figures.pdf")
     calls = []
 
-    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, images=None):
-        calls.append((plain, images is not None))
+    def crashes_unless_plain(path, first, stop, timeout_seconds, plain=False, **options):
+        calls.append((plain, options.get("images") is not None))
         if not plain:
             raise ExtractFailed("PARSER_ERROR")
-        return extract_pages(path, first, stop, timeout_seconds, plain=plain, images=images)
+        return extract_pages(path, first, stop, timeout_seconds, plain=plain, **options)
 
     monkeypatch.setattr(parsing_module, "extract_pages", crashes_unless_plain)
     layout = FakeLayout([Region("algorithm", 0.9, (0.0, 0.0, 1.0, 1.0))])
@@ -586,6 +587,75 @@ def test_plain_recovery_draws_no_page_for_the_layout_model(app, client, data_dir
 
     assert calls == [(False, True), (True, False)]
     assert layout.images == []
+
+
+class FakeOcr:
+    """글줄 인식 모델 대신 정해 둔 글(글, 글자 확률 평균)을 차례로 돌려준다(진짜 모델은 tests/real_papers). fail이면 모델이 실패한다."""
+
+    name = "가짜 글줄 인식 모델"
+
+    def __init__(self, reads: list[tuple[str, float]], fail: bool = False) -> None:
+        self.reads, self.fail = reads, fail
+        self.lines: list[int] = []  # 받은 글줄 그림의 바이트 수
+
+    def identity(self) -> str:
+        return "fake-0001"
+
+    def load(self) -> str:
+        return "cpu"
+
+    def read(self, lines: list[tuple[int, bytes]]) -> list[tuple[str, float]]:
+        self.lines += [len(image) for _, image in lines]
+        if self.fail:
+            raise RuntimeError("모델 실패")
+        return [self.reads.pop(0) for _ in lines]
+
+
+def test_extraction_draws_lines_with_unreadable_characters_and_takes_the_characters_to_fill(tmp_path):
+    """2026-10-21 "Self-recovery 고도화" ③: 하위 프로세스는 못 읽은 글자가 든 글줄만 글줄 인식 모델 입력으로 그린다. 다시 추출할
+    때는 글자 차례마다 채울 글을 받는다(""는 글자가 아니다)."""
+    folder = tmp_path / "lines"
+    folder.mkdir()
+    extract_pages(FIXTURE_DIR / "text-chart-fonts.pdf", 0, 3, 30, ocr=folder)
+    assert sorted(path.name for path in folder.iterdir()) == ["ocr-1-0.rgb", "ocr-1.json"]
+    [line] = json.loads((folder / "ocr-1.json").read_text(encoding="utf-8"))
+    assert "".join(line["texts"]) == "Response time" and all(line["unmapped"])
+    assert (folder / line["image"]).stat().st_size == line["width"] * OCR_HEIGHT * 3
+
+    word, rest = line["chars"][:8], line["chars"][8:]  # "Response", " time"
+    fills = {**{str(index): text for index, text in zip(word, ["L", "a", "t", "e", "n", "c", "y", ""])}, **{str(index): text for index, text in zip(rest, line["texts"][8:])}}
+    overrides = tmp_path / "fills.json"
+    overrides.write_text(json.dumps({"1": fills}), encoding="utf-8")
+    [page] = extract_pages(FIXTURE_DIR / "text-chart-fonts.pdf", 1, 2, 30, overrides=overrides)
+    assert page["blocks"][1]["text"] == "Latency time"
+    assert page["quality"]["unmapped_chars"] == 0
+
+
+def test_the_line_reader_fills_unreadable_characters_and_reextracts_the_page(app, client, data_dir):
+    """2026-10-21 사용자 요청("Self-recovery 좀 더 고도화는 못하나") ③: 글꼴 정보로 읽지 못한 글자가 든 글줄을 글줄 인식 모델(OCR)로
+    읽어, 맞는 줄의 못 읽은 글자를 채우고 그 쪽만 다시 추출한다. 모델을 켜면 추출기 버전이 바뀐다."""
+    paper = upload(client, "text-chart-fonts.pdf")
+    ocr = FakeOcr([("Response time", 0.97)])
+    service = ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), ocr=ocr)
+    assert service.parser_version == f"{app.state.parsing.parser_version}+ocr-fake-0001"
+    drain(service)
+
+    version_id = version_of(client, paper)["version_id"]
+    assert [page["text_status"] for page in client.get(f"/api/v1/versions/{version_id}/pages").json()["pages"]] == ["usable"] * 3
+    assert len(ocr.lines) == 1
+    block = client.get(f"/api/v1/versions/{version_id}/pages/1").json()["blocks"][1]
+    assert (block["text"], block["quality_flags"]) == ("Response time", [])
+
+
+def test_a_failing_line_reader_leaves_the_page_as_it_was(app, client, data_dir):
+    paper = upload(client, "text-chart-fonts.pdf")
+    ocr = FakeOcr([], fail=True)
+    drain(ParseService(data_dir / "paperloom.sqlite3", SourceStore(data_dir), ocr=ocr))
+
+    version = version_of(client, paper)
+    assert ocr.lines and version["status"] == "PARTIAL"
+    pages = client.get(f"/api/v1/versions/{version['version_id']}/pages").json()["pages"]
+    assert [page["text_status"] for page in pages] == ["usable", "partial", "usable"]
 
 
 def test_subprocess_timeout_marks_every_page_and_fails_the_document(app, client, data_dir):

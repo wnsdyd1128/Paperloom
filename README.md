@@ -65,7 +65,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
                      claude CLI (구독 로그인) ──► Anthropic
 ```
 
-- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다. 본문을 추출할 때 문서 레이아웃 모델(PP-DocLayout_plus-L)로 쪽의 표·알고리즘·수식·그림·머리글을 찾아 번역에서 뺍니다. 모델은 이 PC에서 돌고, NVIDIA GPU가 있으면 GPU로, 없으면 CPU로 돕니다.
+- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다. 본문을 추출할 때 문서 레이아웃 모델(PP-DocLayout_plus-L)로 쪽의 표·알고리즘·수식·그림·머리글을 찾아 번역에서 뺍니다. 글꼴 정보로 읽지 못한 글자가 든 글줄은 글줄 인식(OCR) 모델(PP-OCRv6_small_rec)로 읽어 채웁니다. 두 모델은 이 PC에서 돌고, NVIDIA GPU가 있으면 GPU로, 없으면 CPU로 돕니다.
 - 브리지는 이 PC에서 `claude` CLI를 실행합니다. Docker 안에서는 Claude Code 로그인을 쓸 수 없어서 따로 켭니다. 브리지가 꺼져 있어도 읽기·검색·하이라이트·주석은 그대로 됩니다.
 
 ## 요구 사항
@@ -120,7 +120,7 @@ backend\.venv\Scripts\python.exe -m paperloom.integrations.claude_code
 
 ### 논문 등록
 
-서재에서 `PDF 등록`을 누르거나 PDF를 화면에 끌어다 놓습니다. 제목은 PDF 정보에서 가져오고, 없으면 첫 쪽의 가장 큰 글(논문 제목)에서 찾습니다. 틀리면 리더의 `논문 정보`에서 고칩니다. 등록하면 본문을 추출하고 `검색 가능`이 되면 제목 검색·근거·번역을 쓸 수 있습니다. 스캔한 PDF처럼 글자 층이 없으면 `검색 불가`로 표시됩니다(OCR은 하지 않습니다).
+서재에서 `PDF 등록`을 누르거나 PDF를 화면에 끌어다 놓습니다. 제목은 PDF 정보에서 가져오고, 없으면 첫 쪽의 가장 큰 글(논문 제목)에서 찾습니다. 틀리면 리더의 `논문 정보`에서 고칩니다. 등록하면 본문을 추출하고 `검색 가능`이 되면 제목 검색·근거·번역을 쓸 수 있습니다. 스캔한 PDF처럼 글자 층이 없으면 `검색 불가`로 표시됩니다(스캔 쪽 전체를 OCR하지는 않습니다). 글자 층은 있는데 글꼴이 글자를 알려 주지 않아 못 읽은 글줄만 글줄 인식 모델로 읽어 채웁니다.
 
 줄 끝의 휴지통 단추로 논문을 지웁니다. 원본 PDF와 그 논문의 본문·주석·하이라이트·대화·쪽 번역·태그가 모두 지워지며 되돌릴 수 없습니다. 본문을 추출하는 중에는 끝난 뒤 지울 수 있습니다. 이 PC의 Claude Code에 남은 대화 기록은 Paperloom이 지우지 않습니다.
 
@@ -211,6 +211,7 @@ cd apps\web; npm ci
 |---|---|---|
 | 서버 | `backend\.venv\Scripts\python.exe -m paperloom --config ops\config\local.yaml` | 데이터는 `var/` |
 | 레이아웃 모델 받기 | `backend\.venv\Scripts\python.exe -m paperloom.documents.layout_model download --config ops\config\local.yaml` | `var/models`에 130MB. 없으면 규칙만으로 표·그림을 가림 |
+| 글줄 인식 모델 받기 | `backend\.venv\Scripts\python.exe -m paperloom.documents.ocr_model download --config ops\config\local.yaml` | `var/models`에 21MB(모델과 글자 사전). 없으면 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둠 |
 | 웹 개발 서버 | `apps\web`에서 `npm run dev` | <http://127.0.0.1:5173>, 서버는 따로 실행 |
 | 백엔드 시험 | `backend\.venv\Scripts\python.exe -m pytest -q` | |
 | 웹 시험 | `apps\web`에서 `npm run typecheck`, `npx vitest run` | |

@@ -37,6 +37,15 @@ class LayoutSettings(_Strict):
     device: Literal["auto", "cpu", "cuda"] = "auto"
 
 
+class OcrSettings(_Strict):
+    """글줄 인식 모델(documents.ocr_model). 모델 파일이 없으면 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둔다."""
+
+    # None이면 <data_dir>/models/pp-ocrv6-small-rec/inference.onnx(글자 사전은 같은 폴더의 inference.yml)
+    model_path: Path | None = None
+    # auto: CUDA를 쓸 수 있으면 GPU, 아니면 CPU
+    device: Literal["auto", "cpu", "cuda"] = "auto"
+
+
 class CostPolicy(_Strict):
     mode: Literal["plan_only"] = "plan_only"
     paid_model_calls_allowed: Literal[False] = False
@@ -47,6 +56,7 @@ class CostPolicy(_Strict):
 class Settings(_Strict):
     app: AppSettings
     layout: LayoutSettings = LayoutSettings()
+    ocr: OcrSettings = OcrSettings()
     cost_policy: CostPolicy = CostPolicy()
 
 
@@ -63,7 +73,9 @@ def load_settings(path: Path) -> Settings:
     )
     model_path = settings.layout.model_path
     layout = settings.layout.model_copy(update={"model_path": _resolve(base, model_path) if model_path else None})
-    return settings.model_copy(update={"app": app, "layout": layout})
+    ocr_path = settings.ocr.model_path
+    ocr = settings.ocr.model_copy(update={"model_path": _resolve(base, ocr_path) if ocr_path else None})
+    return settings.model_copy(update={"app": app, "layout": layout, "ocr": ocr})
 
 
 def _resolve(base: Path, path: Path) -> Path:

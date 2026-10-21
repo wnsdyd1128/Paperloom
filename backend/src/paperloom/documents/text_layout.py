@@ -80,6 +80,9 @@ HYPHENS = "-‐"
 SOFT_HYPHEN = "­"
 LINE_END_HYPHEN = "\x02"  # pdfium이 줄 끝에서 단어를 나눈 하이픈을 이 글자로 준다
 _DROPPED = ("Cc", "Co")  # 문단 글에서 빼는 글자: 제어 문자, 되찾지 못한 사용자 영역 글자(2026-10-14 실제 논문)
+# 위치만 있고 글은 없는 글자: OCR이 앞 글리프에 글을 다 준 글리프(documents.ocr_align). 위치가 있어야 글줄이 끊기지 않고, 제어
+# 문자라 문단 글에서 빠진다. 이것뿐인 줄(떨어져 있는 그림 선 글리프)은 버린다
+NO_TEXT = "\x00"
 
 
 def config_hash() -> str:
@@ -201,7 +204,8 @@ def build_lines(chars: list[Char]) -> list[Line]:
             space = space or bool(current)
             continue
         if current and not _same_line(tallest, current[-1].box, ch.box, base_left, extent, _smaller(ch, current, tallest)):
-            lines.append(_line(current))
+            if _has_text(current):
+                lines.append(_line(current))
             current, tallest, base_left, extent, space = [], None, None, None, False
         if current and not space and current[-1].box is not None and ch.box[0] - extent[2] > WORD_GAP * _em(current[-1], ch):
             # 공백 글자 없이 띄운 낱말 사이(3B2 장 제목 번호 뒤 1 em, 2026-10-16 사용자 논문 IEEE TC). 줄 오른쪽 끝에서 잰다(넓은 위첨자 아래 첨자)
@@ -215,9 +219,13 @@ def build_lines(chars: list[Char]) -> list[Line]:
             base_left = ch.box[0]
         extent = ch.box if extent is None else _union((extent, ch.box))
         space = False
-    if current:
+    if current and _has_text(current):
         lines.append(_line(current))
     return lines
+
+
+def _has_text(chars: list[Char]) -> bool:
+    return any(ch.text.strip() and ch.text != NO_TEXT for ch in chars)
 
 
 def _em(previous: Char, char: Char) -> float:

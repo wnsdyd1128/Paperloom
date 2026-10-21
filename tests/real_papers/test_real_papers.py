@@ -6,7 +6,7 @@ tests/e2e_papers/의 PDF는 저작권 때문에 저장소에 넣지 않는다(.g
 모든 논문을 서버 경로(업로드 → 첫 쪽 제목 → 본문 추출)로 한 번 처리한다. 모든 논문에 성립해야 할 성질과, 사용자가 알린 논문
 문제의 고침(그 파일이 있을 때만)을 본다. 첫 실행 결과는 docs/gates/evidence/ui/2026-10-14_real-papers.md.
 레이아웃 모델(documents.layout_model)이 var/models에 있으면 그것도 쓴다(로컬 서버 설정 ops/config/local.yaml의 자리). 모델에 기대는
-시험은 모델이 없으면 건너뛴다.
+시험은 모델이 없으면 건너뛴다. 글줄 인식 모델(documents.ocr_model)도 같다.
 """
 
 import re
@@ -19,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from paperloom.bootstrap.app import create_app
-from paperloom.bootstrap.config import AppSettings, LayoutSettings, Settings
+from paperloom.bootstrap.config import AppSettings, LayoutSettings, OcrSettings, Settings
 from paperloom.documents.headings import headings
 from paperloom.documents.titles import looks_like_filename
 
@@ -28,6 +28,9 @@ NAMES = sorted(path.name for path in PAPERS.glob("*.pdf")) if PAPERS.is_dir() el
 pytestmark = [pytest.mark.real_papers, pytest.mark.skipif(not NAMES, reason="tests/e2e_papers에 실제 논문이 없다")]
 MODEL = Path(__file__).resolve().parents[2] / "var" / "models" / "pp-doclayout-plus-l" / "inference.onnx"
 needs_model = pytest.mark.skipif(not MODEL.is_file(), reason="var/models에 레이아웃 모델이 없다(python -m paperloom.documents.layout_model download)")
+OCR_MODEL = MODEL.parents[1] / "pp-ocrv6-small-rec" / "inference.onnx"
+needs_ocr = pytest.mark.skipif(not OCR_MODEL.is_file(), reason="var/models에 글줄 인식 모델이 없다(python -m paperloom.documents.ocr_model download)")
+without_ocr = pytest.mark.skipif(OCR_MODEL.is_file(), reason="글줄 인식 모델이 이 논문의 못 읽은 글자를 읽는다(needs_ocr 시험)")
 
 SCHEDULABILITY = "Schedulability Analysis of Global Scheduling for Multicore Systems With Shared Caches.pdf"  # 3B2 수식 글꼴
 PREDICTING = "Predicting Inter-Thread Cache Contention on a Chip Multi-Processor Architecture.pdf"  # Word 수식(Type3)
@@ -47,7 +50,7 @@ FILE_NAME = re.compile(r"\.(?:pdf|docx?|hwpx?|tex|dvi|ps)$", re.IGNORECASE)
 def processed(tmp_path_factory) -> dict[str, dict]:
     """논문 이름 → {paper, pages, blocks(쪽 → 문단)}. 빈 데이터 폴더에 하나씩 올리고 본문 추출을 끝낸다."""
     data_dir = tmp_path_factory.mktemp("real-papers") / "data"
-    app = create_app(Settings(app=AppSettings(mode="test", data_dir=data_dir), layout=LayoutSettings(model_path=MODEL)))
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=data_dir), layout=LayoutSettings(model_path=MODEL), ocr=OcrSettings(model_path=OCR_MODEL)))
     client = TestClient(app)
     result = {}
     for name in NAMES:
@@ -130,6 +133,7 @@ def test_numbered_chapters_and_sections_of_a_3b2_paper_are_in_the_outline(proces
         assert expected in titles
 
 
+@without_ocr
 def test_paper_whose_equation_symbols_are_unreadable_says_so(processed):
     """2026-10-14 사용자 논문(Word 수식이 Type3 글꼴): 수식 기호만 못 읽은 4·5·6·10쪽 → "검색 가능 · 일부 기호를 읽지 못함"."""
     item = one(processed, PREDICTING)
@@ -138,12 +142,34 @@ def test_paper_whose_equation_symbols_are_unreadable_says_so(processed):
     assert [page["page_index"] for page in item["pages"] if page["text_status"] == "partial"] == [3, 4, 5, 9]
 
 
+@without_ocr
 def test_paper_whose_text_cannot_be_read_is_not_called_searchable(processed):
     """첫 실행에서 찾음: 1973년 논문은 글꼴에 유니코드가 없어 쪽마다 글자 96–100%를 못 읽는다(스캔과 같다). 기호 일부가 아니다."""
     item = one(processed, LIU_LAYLAND)
     version = item["paper"]["current_version"]
     assert (version["status"], version["status_reason"]) == ("FAILED", "UNREADABLE_TEXT")
     assert {page["text_status"] for page in item["pages"]} == {"unreadable"}
+
+
+@needs_ocr
+def test_the_line_reader_fills_the_equation_symbols_a_word_type3_font_garbles(processed):
+    """2026-10-21 "Self-recovery 고도화" ③: 글줄 인식 모델이 Word 수식(Type3)의 깨진 기호를 읽어 4·5·10쪽이 usable이 된다."""
+    item = one(processed, PREDICTING)
+    assert [page["page_index"] for page in item["pages"] if page["text_status"] == "partial"] == [5]
+    assert "If N(cseqx (dx , *)) denotes" in text_of(item)
+
+
+@needs_ocr
+def test_the_line_reader_reads_a_paper_whose_fonts_give_no_text(processed):
+    """같은 날: 1973년 논문의 옛 TeX 비트맵 글꼴은 글자를 알려 주지 않지만 글자 코드는 맞다. 글줄 인식 모델이 글줄을 읽어 그 글을
+    확인하고 합자(fi)·따옴표를 채운다. 그림 선·상자 글리프는 글자가 아니다(모델이 目·十으로 지어낸 한자는 쓰지 않는다)."""
+    item = one(processed, LIU_LAYLAND)
+    version = item["paper"]["current_version"]
+    assert (version["status"], version["status_reason"]) == ("PARTIAL", "UNMAPPED_CHARS")
+    assert [page["page_index"] for page in item["pages"] if page["text_status"] != "usable"] == [3, 6]
+    text = text_of(item)
+    assert "usually in a multiple processor configuration [3]-[8]" in text
+    assert not any(unicodedata.name(char, "").startswith("CJK") for char in text)
 
 
 def test_pseudocode_stays_out_of_translation(processed):

@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from paperloom.documents.text_layout import (
+    NO_TEXT,
     Char,
     block_text,
     build_blocks,
@@ -85,6 +86,14 @@ class TestLines:
 
     def test_line_end_hyphen_marker_becomes_a_hyphen(self):
         assert texts(build_lines(word("compo\x02", 0, 100))) == ["compo-"]
+
+    def test_glyphs_with_a_place_but_no_text_keep_the_line_together_and_never_make_a_line_alone(self):
+        """2026-10-21 "Self-recovery 고도화" ③: OCR 글자가 글리프보다 적으면 남는 글리프는 위치만 있다(NO_TEXT, documents.ocr_align).
+        위치를 빼면 줄 나누기 거리를 넘어 문장이 끊겼고(Liu & Layland 6쪽 f = 2^½ − 1), 이것뿐인 줄(그림 선 글리프)은 빈 문단이 되었다."""
+        bridge = [Char(NO_TEXT, (5 * W + index * 2 * H, 100, 5 * W + (index + 1) * 2 * H, 100 + H)) for index in range(2)]
+        chars = word("f = 2", 0, 100) + bridge + word("1, U", 5 * W + 4 * H, 100)
+        assert [block_text([item]) for item in build_lines(chars)] == ["f = 21, U"]
+        assert build_lines([Char(NO_TEXT, (0, 300, W, 300 + H)), Char(NO_TEXT, (W, 300, 2 * W, 300 + H))]) == []
 
 
 class TestBlocks:

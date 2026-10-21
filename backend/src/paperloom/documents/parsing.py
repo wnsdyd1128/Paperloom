@@ -4,7 +4,8 @@
 추출한다. 묶음이 시간 초과·비정상 종료로 실패하면 그 묶음을 한 쪽씩 다시 추출한다. 그래도 실패한 쪽은 까닭에 맞춰 되살려
 본다(_recover: 시간 초과면 더 긴 시간으로, 그래도 안 되거나 하위 프로세스가 죽었으면 간이 추출). 끝내 안 된 쪽만
 `extract_failed`로 남긴다. 레이아웃 모델(documents.layout_model)이 있으면 하위 프로세스가 그린 쪽 그림에서 영역을 찾아 문단의
-본문 아님 표시를 고친다(layout_regions). 모델이 없거나 실패한 쪽은 규칙 표시 그대로다.
+본문 아님 표시를 고친다(layout_regions). 모델이 없거나 실패한 쪽은 규칙 표시 그대로다. 글줄 인식 모델(documents.ocr_model)이
+있으면 글꼴 정보로 읽지 못한 글자가 든 글줄을 읽어 맞는 줄의 못 읽은 글자를 채우고(ocr_align) 그 쪽만 다시 추출한다(_with_ocr).
 
 - 버전 상태: READY_TO_READ(추출 전) → PARSING → INDEXED | PARTIAL | FAILED(+ status_reason, PARTIAL은 기호만 못 읽었을 때
   UNMAPPED_CHARS). 어느 상태든 원본은 읽을 수 있다.
@@ -35,6 +36,8 @@ from paperloom.documents.block_kinds import NO_BODY_TEXT, NOT_BODY, REFERENCE
 from paperloom.documents.inspect import clean_text
 from paperloom.documents.layout_model import LayoutModel
 from paperloom.documents.layout_regions import apply_layout
+from paperloom.documents.ocr_align import fill
+from paperloom.documents.ocr_model import OcrModel
 from paperloom.documents.references import REFERENCES_FLAG, REFERENCES_VERSION, reference_blocks, reference_pages
 from paperloom.documents.running import running_lines
 from paperloom.documents.text_layout import LAYOUT_VERSION, config_hash, document_status
@@ -86,12 +89,14 @@ class ParseService:
         settings: ParseSettings = ParseSettings(),
         clock: Callable[[], float] = time.time,
         layout: LayoutModel | None = None,
+        ocr: OcrModel | None = None,
     ) -> None:
         self._db_path = db_path
         self._store = store
         self._settings = settings
         self._clock = clock
         self._layout = layout
+        self._ocr = ocr
         self._worker_id = f"worker-{uuid.uuid4()}"
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -99,6 +104,8 @@ class ParseService:
         self.parser_version = f"{package_version('pypdfium2')}+layout{LAYOUT_VERSION}+refs{REFERENCES_VERSION}"
         if layout is not None:
             self.parser_version += f"+dla-{layout.identity()}"  # 모델을 켜거나 끄거나 바꾸면 다시 추출한다
+        if ocr is not None:
+            self.parser_version += f"+ocr-{ocr.identity()}"
         self.config_hash = config_hash()
 
     # 대기열 -----------------------------------------------------------------
@@ -160,11 +167,12 @@ class ParseService:
             self._thread.join(timeout_seconds)
 
     def _loop(self) -> None:
-        if self._layout is not None:
-            try:
-                self._layout.load()  # 첫 추출이 모델 열기를 기다리지 않게, health가 장치를 보이게
-            except Exception:  # noqa: BLE001 - 쪽마다 다시 해 보고, 안 되면 규칙 표시만 쓴다(_with_layout)
-                log.warning("레이아웃 모델을 열지 못했습니다.", exc_info=True)
+        for model in (self._layout, self._ocr):
+            if model is not None:
+                try:
+                    model.load()  # 첫 추출이 모델 열기를 기다리지 않게, health가 장치를 보이게
+                except Exception:  # noqa: BLE001 - 쪽마다 다시 해 보고, 안 되면 모델 없이 둔다(_with_layout·_with_ocr)
+                    log.warning("%s를 열지 못했습니다.", model.name, exc_info=True)
         while not self._stop.is_set():
             try:
                 worked = self.run_next()
@@ -205,10 +213,10 @@ class ParseService:
             if version is None or storage_ref is None or not (path := self._store.path_for(storage_ref)).is_file():
                 raise FileNotFoundError(run.version_id)
             pages: list[dict] = []
-            with tempfile.TemporaryDirectory(prefix="paperloom-layout-") as images:
+            with tempfile.TemporaryDirectory(prefix="paperloom-models-") as work:
                 for first in range(0, version.page_count, self._settings.chunk_pages):
                     stop = min(first + self._settings.chunk_pages, version.page_count)
-                    pages += self._extract_range(path, first, stop, run, Path(images) if self._layout else None)
+                    pages += self._extract_range(path, first, stop, run, Path(work) if self._layout or self._ocr else None)
                     if not self._extend_lease(run):
                         log.warning("본문 추출 %s의 lease를 잃어 결과를 버립니다.", run.parse_run_id)
                         return True
@@ -245,16 +253,55 @@ class ParseService:
         )
         return True
 
-    def _extract_range(self, path: Path, first: int, stop: int, run: runs.ParseRun, images: Path | None) -> list[dict]:
-        """images는 레이아웃 모델 입력 그림을 둘 폴더다(모델이 없으면 None)."""
+    def _extract_range(self, path: Path, first: int, stop: int, run: runs.ParseRun, work: Path | None) -> list[dict]:
+        """work는 모델 입력 그림(쪽 그림·글줄 그림)을 둘 폴더다(모델이 없으면 None)."""
+        images, ocr = self._folders(work)
         try:
-            return self._with_layout(extract_pages(path, first, stop, self._settings.chunk_timeout_seconds, images=images), images)
+            pages = extract_pages(path, first, stop, self._settings.chunk_timeout_seconds, images=images, ocr=ocr)
         except ExtractFailed as failed:
             if failed.code in _DOCUMENT_ERRORS:
                 return [_failed_page(index, failed.code) for index in range(first, stop)]
             if stop - first == 1:
-                return [self._recover(path, first, failed.code, run, images)]
-            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1, run, images)]
+                return [self._recover(path, first, failed.code, run, work)]
+            return [page for index in range(first, stop) for page in self._extract_range(path, index, index + 1, run, work)]
+        return self._with_layout(self._with_ocr(path, pages, ocr, run), images)
+
+    def _folders(self, work: Path | None) -> tuple[Path | None, Path | None]:
+        """(레이아웃 모델 쪽 그림 폴더, 글줄 인식 글줄 그림 폴더). 그 모델이 없으면 None."""
+        return (work if work is not None and self._layout is not None else None, work if work is not None and self._ocr is not None else None)
+
+    def _with_ocr(self, path: Path, pages: list[dict], ocr: Path | None, run: runs.ParseRun) -> list[dict]:
+        """하위 프로세스가 그린 못 읽은 글줄(ocr-<쪽>.json·그림)을 글줄 인식 모델로 읽어 채울 글자를 정하고(ocr_align.fill), 채울
+        글자가 있는 쪽만 그 글자를 넣어 다시 추출한다. 모델이 실패하거나 다시 추출하지 못한 쪽은 처음 추출 그대로다. 그림은 지운다."""
+        if ocr is None:
+            return pages
+        result = []
+        for page in pages:
+            listing = ocr / f"ocr-{page['page_index']}.json"
+            if not listing.is_file():
+                result.append(page)
+                continue
+            lines = json.loads(listing.read_text(encoding="utf-8"))
+            try:
+                reads = self._ocr.read([(line["width"], (ocr / line["image"]).read_bytes()) for line in lines])
+                fills = {}
+                for line, (read, score) in zip(lines, reads, strict=True):
+                    found = fill(list(zip(line["texts"], line["unmapped"], strict=True)), read, score)
+                    fills.update({str(line["chars"][position]): value for position, value in found.items()})
+                if fills:
+                    self._extend_lease(run)  # 다시 추출하는 동안 다른 worker가 run을 가져가지 않게
+                    overrides = ocr / f"ocr-{page['page_index']}-fills.json"
+                    overrides.write_text(json.dumps({str(page["page_index"]): fills}), encoding="utf-8")
+                    [page] = extract_pages(path, page["page_index"], page["page_index"] + 1, self._settings.page_retry_timeout_seconds, overrides=overrides)
+                    log.info("본문 추출 %s의 %d쪽에서 글자 %d개를 OCR로 채웠습니다.", run.parse_run_id, page["page_index"] + 1, len(fills))
+            except Exception:  # noqa: BLE001 - OCR·다시 추출이 실패하면 처음 추출을 쓴다
+                log.warning("%d쪽의 못 읽은 글줄을 OCR로 채우지 못했습니다.", page["page_index"] + 1, exc_info=True)
+            finally:
+                for line in lines:
+                    (ocr / line["image"]).unlink(missing_ok=True)
+                listing.unlink()
+            result.append(page)
+        return result
 
     def _with_layout(self, pages: list[dict], images: Path | None) -> list[dict]:
         """레이아웃 모델로 문단 표시를 고친다. 쪽 그림이 없거나(간이 추출, 그리지 못한 쪽) 모델이 실패한 쪽은 규칙 표시 그대로다."""
@@ -273,20 +320,24 @@ class ParseService:
             result.append(page)
         return result
 
-    def _recover(self, path: Path, index: int, code: str, run: runs.ParseRun, images: Path | None) -> dict:
+    def _recover(self, path: Path, index: int, code: str, run: runs.ParseRun, work: Path | None) -> dict:
         """한 쪽 추출이 실패하면 까닭에 맞춰 다시 해 본다(2026-10-17 사용자 요청: 쪽 번역이 읽지 못한 답을 고쳐 받는 것처럼).
         시간이 모자랐으면(RESOURCE_LIMIT) 더 긴 시간으로 한 번, 그래도 안 되거나 하위 프로세스가 죽었으면(PARSER_ERROR 등 — 같은
         추출을 다시 해도 같다) 글꼴 사전·그림 분석 없이 글자만 뽑는다(간이 추출, extract_simplified). 끝내 안 되면 extract_failed."""
         attempts = [False, True] if code == "RESOURCE_LIMIT" else [True]
+        images, ocr = self._folders(work)
         for plain in attempts:
             self._extend_lease(run)  # 한 쪽에 오래 걸려도 다른 worker가 run을 가져가지 않게
             try:
-                pages = extract_pages(path, index, index + 1, self._settings.page_retry_timeout_seconds, plain=plain, images=None if plain else images)
+                pages = extract_pages(
+                    path, index, index + 1, self._settings.page_retry_timeout_seconds, plain=plain,
+                    images=None if plain else images, ocr=None if plain else ocr,
+                )
             except ExtractFailed as failed:
                 code = failed.code
                 continue
             log.info("본문 추출 %s의 %d쪽을 %s 되살렸습니다.", run.parse_run_id, index + 1, "간이 추출로" if plain else "더 긴 시간으로")
-            [page] = self._with_layout(pages, images)
+            [page] = self._with_layout(self._with_ocr(path, pages, None if plain else ocr, run), images)
             return page
         log.warning("본문 추출 %s의 %d쪽을 되살리지 못했습니다(%s).", run.parse_run_id, index + 1, code)
         return _failed_page(index, code)

@@ -7,10 +7,11 @@ name = "paperloom"
 version = "0.2.0"
 description = "Paperloom Core: 논문 원문·앵커·문맥을 관리하는 로컬 백엔드"
 requires-python = ">=3.13"
-# 모델 API·임베딩·OCR SDK는 넣지 않는다 (PLAN §2.2, tests/contract/test_dependency_policy.py).
+# 모델 API·임베딩·OCR SDK는 넣지 않는다 (PLAN §2.2, tests/contract/test_dependency_policy.py). 이 PC에서 onnxruntime으로 돌리는
+# 모델 파일(레이아웃·글줄 인식, documents.layout_model·ocr_model)은 패키지가 아니라 따로 받는다.
 dependencies = [
     "fastapi>=0.141",
-    "pillow>=13",  # 레이아웃 모델 입력 그림(쪽을 그려 800×800으로 줄인다)
+    "pillow>=13",  # 모델 입력 그림(레이아웃: 쪽을 800×800으로 줄인다, 글줄 인식: 글줄을 높이 48로 자른다)
     "pydantic>=2.11",
     "pypdf>=6.19",  # 수식 글꼴의 /Differences 글리프 이름(유니코드가 없는 수식 기호 되찾기, documents.glyphs). 테스트의 합성 PDF 생성에도 쓴다
     "pypdfium2>=5.13",
