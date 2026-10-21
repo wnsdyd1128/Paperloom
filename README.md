@@ -88,7 +88,26 @@ powershell -ExecutionPolicy Bypass -File ops\start.ps1
 
 브라우저에서 <http://127.0.0.1:8000>을 엽니다. 서버는 재부팅 뒤 Docker가 시작되면 자동으로 다시 올라옵니다.
 
-`ops\start.ps1`은 NVIDIA GPU가 있으면 GPU 이미지(약 2GB 더 받음)로, 없거나 GPU로 띄우지 못하면 CPU 이미지로 서버를 띄웁니다. 직접 고르려면 `docker compose -f ops/compose/compose.yaml up -d --build`(CPU)에 GPU면 `-f ops/compose/compose.gpu.yaml`을 덧붙입니다. 어느 쪽인지는 <http://127.0.0.1:8000/api/v1/health>의 `layout_model.device`(`cuda`·`cpu`)로 봅니다.
+#### CPU·GPU 고르기
+
+`ops\start.ps1`은 NVIDIA GPU가 있으면 GPU 이미지로, 없거나 GPU로 띄우지 못하면 CPU 이미지로 서버를 띄웁니다(리눅스·macOS는 `sh ops/start.sh`). 본문 추출의 문서 레이아웃 모델과 글줄 인식 모델이 GPU를 씁니다. 직접 고르려면 저장소 폴더에서 둘 가운데 하나를 실행합니다.
+
+CPU:
+
+```powershell
+docker compose -f ops/compose/compose.yaml up -d --build
+```
+
+GPU:
+
+```powershell
+docker compose -f ops/compose/compose.yaml -f ops/compose/compose.gpu.yaml up -d --build
+```
+
+- GPU 이미지는 CUDA 라이브러리 때문에 약 2GB 더 받습니다. CUDA 13을 지원하는 NVIDIA 드라이버와 Docker Desktop의 WSL 2 백엔드가 필요합니다. GPU 이미지를 GPU 없이 띄우면 모델은 CPU로 돕니다.
+- 쪽마다 레이아웃 모델이 GPU로 약 20ms, CPU로 약 260ms 걸립니다. 논문을 올릴 때만 돌므로 CPU로도 쓸 수 있습니다.
+- 다른 쪽 명령으로 다시 띄우면 컨테이너만 바뀝니다. 데이터 볼륨(`paperloom_paperloom-data`)은 같아서 논문·주석·대화는 그대로입니다.
+- 어느 쪽으로 도는지는 <http://127.0.0.1:8000/api/v1/health>의 `layout_model.device`·`ocr_model.device`(`cuda`·`cpu`)로 봅니다.
 
 빌드하지 않고 [릴리스 이미지](https://github.com/wnsdyd1128/Paperloom/pkgs/container/paperloom)(CPU)를 받아 쓸 수도 있습니다. 위 Compose와 같은 데이터 볼륨을 쓰므로 둘 가운데 하나만 실행합니다.
 
