@@ -23,7 +23,7 @@ def test_health_reports_local_state_and_creates_data_dir(tmp_path):
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "version": "0.2.0",
+        "version": "0.3.1",
         "mode": "test",
         "cost_policy": "plan_only",
         "data_dir_writable": True,

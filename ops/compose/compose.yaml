@@ -8,7 +8,7 @@ services:
     build:
       context: ../..
       dockerfile: ops/compose/Dockerfile
-    image: paperloom-app:0.2.0
+    image: paperloom-app:0.3.1
     ports:
       - "127.0.0.1:8000:8000"  # 호스트에서는 loopback에만 공개
     volumes:
