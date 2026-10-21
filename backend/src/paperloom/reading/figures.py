@@ -26,6 +26,8 @@ MIN_SIDE = 36.0  # pt. 폭·높이가 이보다 작으면 선이나 장식(로�
 MIN_FORM_SIDE = 12.0
 MAX_PAGE_FRACTION = 0.8  # 쪽 넓이에서 이보다 크면 배경이다
 MIN_VISIBLE_FRACTION = 0.5  # 객체가 쪽 안에 이만큼은 있어야 한다
+FORM_BACKGROUND_SHARE = 0.9  # Form 상자에서 이보다 넓게 덮는 흰 채움 경로는 그림이 아니라 슬라이드·쪽 배경이다(_white_background)
+WHITE = 250  # 채움 색 RGB가 모두 이 이상이면 흰색
 
 
 @dataclass(frozen=True)
@@ -182,9 +184,12 @@ def _visible_form_box(raw, bounds: Box, pdfium_c) -> Box:
     덮는다(2026-10-17 실제 논문 LLVM Static Analysis 4쪽: 그림 5의 Form이 쪽 맨 위부터 가운데 아래까지 잡혀 그 아래 본문
     17줄이 그림 안 글자가 되어 번역에서 빠졌다). Form 안 객체마다 상자(Form 좌표)를 그 객체의 잘라내기 상자로 자르고(잘라내기가
     없는 객체는 그대로 — 그래프의 축 글자는 잘라내기 밖에 그린다) 합쳐, Form 행렬로 쪽 좌표로 옮긴 뒤 객체 상자와 겹친 부분만 남긴다.
-    안 객체를 읽지 못하면 객체 상자 그대로다."""
+    안 객체를 읽지 못하면 객체 상자 그대로다. Form 전체를 덮는 흰 배경(_white_background)은 넣지 않는다."""
     import ctypes
 
+    matrix = pdfium_c.FS_MATRIX()
+    if not pdfium_c.FPDFPageObj_GetMatrix(raw, ctypes.byref(matrix)):
+        return bounds
     visible = None
     left, bottom, right, top = ctypes.c_float(), ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
     for index in range(max(pdfium_c.FPDFFormObj_CountObjects(raw), 0)):
@@ -192,14 +197,35 @@ def _visible_form_box(raw, bounds: Box, pdfium_c) -> Box:
         if not child or not pdfium_c.FPDFPageObj_GetBounds(child, *(ctypes.byref(value) for value in (left, bottom, right, top))):
             continue
         box: Box | None = (left.value, bottom.value, right.value, top.value)
+        if _white_background(child, _transformed(box, matrix), bounds, pdfium_c):
+            continue
         if (clip := _clip_box(child, pdfium_c)) is not None:
             box = _intersect(box, clip)
         if box is not None:
             visible = box if visible is None else _union(visible, box)
-    matrix = pdfium_c.FS_MATRIX()
-    if visible is None or not pdfium_c.FPDFPageObj_GetMatrix(raw, ctypes.byref(matrix)):
+    if visible is None:
         return bounds
     return _intersect(_transformed(visible, matrix), bounds) or bounds
+
+
+def _white_background(obj, box: Box, form: Box, pdfium_c) -> bool:
+    """Form 안 객체(쪽 좌표 상자)가 Form 상자의 FORM_BACKGROUND_SHARE 이상을 덮는 흰 채움 경로(획 없음)인가. 슬라이드·쪽째로 넣은
+    그림은 첫 객체가 슬라이드·쪽 전체를 덮는 흰 사각형이라, 넣으면 그림 상자가 슬라이드·쪽 크기가 된다(2026-10-21 사용자 논문
+    Resource-Aware Task Scheduling 5쪽: A4 쪽째 넣은 그림이 오른쪽 단 본문 아래까지 덮었다)."""
+    import ctypes
+
+    if pdfium_c.FPDFPageObj_GetType(obj) != pdfium_c.FPDF_PAGEOBJ_PATH:
+        return False
+    fill, stroke = ctypes.c_int(0), ctypes.c_int(0)
+    if not pdfium_c.FPDFPath_GetDrawMode(obj, ctypes.byref(fill), ctypes.byref(stroke)) or not fill.value or stroke.value:
+        return False
+    red, green, blue, alpha = ctypes.c_uint(), ctypes.c_uint(), ctypes.c_uint(), ctypes.c_uint()
+    if not pdfium_c.FPDFPageObj_GetFillColor(obj, *(ctypes.byref(value) for value in (red, green, blue, alpha))):
+        return False
+    if min(red.value, green.value, blue.value) < WHITE:
+        return False
+    covered = _intersect(box, form)
+    return covered is not None and _area(covered) >= FORM_BACKGROUND_SHARE * _area(form)
 
 
 def form_text_clips(page, pdfium_c) -> dict[int, Box]:

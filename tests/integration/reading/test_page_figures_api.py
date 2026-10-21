@@ -84,6 +84,27 @@ def test_a_form_clipped_inside_is_only_its_visible_part_and_text_below_stays_bod
     assert not any("HIDDEN" in text for text in flags)  # 잘려 보이지 않는 Form 안 글자는 뽑지 않는다
 
 
+def test_a_white_background_covering_a_whole_form_is_not_part_of_the_figure(client):
+    """2026-10-21 사용자 알림(Resource-Aware Task Scheduling 5쪽 "그림 영역이 잘못 잡히는데?"): PowerPoint 슬라이드째·A4 쪽째로 넣은
+    그림 Form은 첫 객체가 Form 전체를 덮는 흰 사각형이라 객체 상자가 그림보다 훨씬 컸다. 두 상자가 닿아 쪽의 79%가 그림 하나로
+    잡혔고(배경 문턱 80% 아래) 오른쪽 단 본문이 그림 안 글자가 되었다. Form 전체를 덮는 흰 배경은 그림 상자에 넣지 않는다."""
+    generator = load_generator("generate_white_background_forms")
+    assert generator.build_pdf() == (FIXTURE_DIR / "white-background-forms.pdf").read_bytes()
+    version_id = upload(client, "white-background-forms.pdf")
+    figures = client.get(f"/api/v1/versions/{version_id}/pages/0/figures").json()["figures"]
+    width, height = generator.PAGE[2], generator.PAGE[3]
+    assert len(figures) == 2
+    for figure, (left, bottom, right, top) in zip(sorted(figures, key=lambda item: item["box"][0]), (generator.SLIDE_DRAWING, generator.PAGE_DRAWING)):
+        assert figure["source"] == "form"
+        assert figure["box"] == pytest.approx([left / width, 1 - top / height, right / width, 1 - bottom / height], abs=3 / width)
+    while client.app.state.parsing.run_next():
+        pass
+    flags = {block["text"]: block["quality_flags"] for block in client.get(f"/api/v1/versions/{version_id}/pages/0").json()["blocks"]}
+    assert flags[" ".join(generator.LEFT_BODY)] == flags[" ".join(generator.RIGHT_BODY)] == []
+    assert flags["Fig. 2: the overall mechanism."] == flags["Fig. 3: two priority elevation implementations."] == []
+    assert flags["Initial Setup"] == flags["1st adjust"] == ["in_figure"]
+
+
 @pytest.mark.parametrize("page", GEOMETRY["pages"], ids=lambda page: page["name"])
 def test_geometry_fixture_region_is_the_figure_on_every_page_geometry(client, page):
     # 두 색 사각형(채운 경로 둘)이 회전·CropBox·음수 원점·UserUnit 쪽 모두에서 정본 좌표 그대로 후보가 된다.

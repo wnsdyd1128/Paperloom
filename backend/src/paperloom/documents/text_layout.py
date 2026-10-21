@@ -44,7 +44,9 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 #     SayCan 그림의 "+XPDQ"가 Human)
 # 17: pdfium이 매핑 오류로 준 글자를 글꼴의 글리프 이름(표준 이름, 글리프 번호 이름)·Symbol 인코딩·TeX 큰 기호 자리(CMEX)로 읽는다
 #     (documents.char_recovery, 2026-10-21 사용자 논문 Resource-Aware Task Scheduling의 차트와 ∑·큰 괄호, matplotlib 차트·Symbol)
-LAYOUT_VERSION = "17"
+# 18: Form 전체를 덮는 흰 배경(슬라이드·쪽째로 넣은 그림)은 그림 후보에 넣지 않는다(reading.figures._white_background, 2026-10-21
+#     사용자 논문 Resource-Aware Task Scheduling 5쪽: 그림 둘이 쪽의 79%로 잡혀 오른쪽 단 본문이 그림 안 글자가 되었다)
+LAYOUT_VERSION = "18"
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)
