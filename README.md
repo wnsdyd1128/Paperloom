@@ -171,7 +171,7 @@ backend\.venv\Scripts\python.exe -m paperloom.integrations.claude_code
 
 - **저장 위치**: Docker 볼륨 `paperloom_paperloom-data`. `docker compose ... down -v`는 이 볼륨까지 지우므로 서재가 사라집니다.
 - **접속 범위**: 서버와 브리지는 `127.0.0.1`에만 열려 같은 PC에서만 접속할 수 있습니다.
-- **Anthropic으로 가는 것**: 질문과 그 근거(고른 글·앞뒤 문단, 범위에 따른 논문 본문, 고른 영역 이미지), 번역할 쪽의 문단. claude.ai 구독 사용량으로 처리되며 그 밖의 외부 서비스는 부르지 않습니다. 이미지를 빌드할 때만 문서 레이아웃 모델을 Hugging Face에서 한 번 받습니다(논문은 보내지 않습니다).
+- **Anthropic으로 가는 것**: 질문과 그 근거(고른 글·앞뒤 문단, 범위에 따른 논문 본문, 고른 영역 이미지), 번역할 쪽의 문단. claude.ai 구독 사용량으로 처리되며 그 밖의 외부 서비스는 부르지 않습니다. 이미지를 빌드할 때만 문서 레이아웃 모델과 글줄 인식 모델을 Hugging Face에서 한 번 받습니다(논문은 보내지 않습니다).
 - **API 키**: 쓰지 않습니다. 환경 변수에 API 키가 있어도 브리지가 Claude Code에 넘기지 않습니다.
 
 ## 업데이트
@@ -240,6 +240,7 @@ ops/                            Docker Compose와 실행 설정
 - [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`)
 - [PDF.js](https://mozilla.github.io/pdf.js/): Apache License 2.0
 - [PP-DocLayout_plus-L](https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지를 빌드할 때 받습니다
+- [PP-OCRv6_small_rec](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지를 빌드할 때 받습니다
 
 ## 라이선스
 

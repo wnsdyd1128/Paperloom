@@ -9,6 +9,9 @@ app:
 layout:
   model_path: /app/models/pp-doclayout-plus-l/inference.onnx  # 이미지에 넣은 모델(ops/compose/Dockerfile)
   device: auto  # GPU 이미지를 GPU와 함께 띄우면 CUDA, 아니면 CPU
+ocr:
+  model_path: /app/models/pp-ocrv6-small-rec/inference.onnx  # 이미지에 넣은 글줄 인식 모델과 글자 사전(inference.yml)
+  device: auto
 cost_policy:
   mode: plan_only
   paid_model_calls_allowed: false
