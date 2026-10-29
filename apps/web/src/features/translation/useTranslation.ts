@@ -110,12 +110,12 @@ export function useTranslation({ versionId, language, bridge, pages, current, ac
   }, [listed, current, pages.length, entries, load]);
 
   const run = useCallback(
-    async (page: number, force: boolean, split: boolean) => {
+    async (page: number, force: boolean) => {
       const runKey = keyRef.current;
       setRunning(page);
       setEntry(page, { status: "translating" });
       try {
-        const translation = await translatePage(await bridge.resolveUrl(), versionId, page, force, split);
+        const translation = await translatePage(await bridge.resolveUrl(), versionId, page, force);
         const blocks = await getPageBlocks(versionId, page);
         if (keyRef.current !== runKey) return;
         setEntry(page, { status: "ready", translation, blocks });
@@ -148,7 +148,7 @@ export function useTranslation({ versionId, language, bridge, pages, current, ac
   useEffect(() => {
     if (!active || !listed || running !== null || waiting || pages.length === 0) return;
     const next = nextPageToTranslate({ current, pages, done, skip, batch });
-    if (next !== null) void run(next, false, next === current); // 보는 쪽만 나눠 동시에
+    if (next !== null) void run(next, false);
     else if (batch && !pages.some((info) => info.hasText && !done.has(info.pageIndex) && !skip.has(info.pageIndex))) setBatch(false);
   }, [active, listed, running, waiting, current, pages, done, skip, batch, run]);
 
@@ -159,9 +159,9 @@ export function useTranslation({ versionId, language, bridge, pages, current, ac
     batch,
     progress: batchProgress(pages, done),
     /** 다시 번역(저장된 번역을 바꾼다) */
-    retranslate: (page: number) => running === null && void run(page, true, true),
+    retranslate: (page: number) => running === null && void run(page, true),
     /** 저절로 번역하지 않는 쪽(참고문헌·실패한 쪽)을 지금 번역한다 */
-    translateNow: (page: number) => running === null && void run(page, false, true),
+    translateNow: (page: number) => running === null && void run(page, false),
     startBatch: () => setBatch(true),
     stopBatch: () => setBatch(false),
     load,

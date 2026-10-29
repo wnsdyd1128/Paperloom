@@ -71,6 +71,51 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  bundle:
+    name: Windows bundle (build · smoke)
+    # 압축본에 넣는 MSVC 런타임을 Visual Studio의 재배포 폴더에서 가져오고, 압축본의 Python으로 시험하므로 Windows 러너에서 만든다
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash # 여러 줄 명령에서 앞 명령이 실패해도 멈추도록(pwsh는 마지막 명령의 결과만 본다)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Build web
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+      - name: Install build tools
+        run: |
+          python -m pip install --require-hashes -r backend/requirements-dev.lock
+          python -m pip install --no-deps -e backend
+      # Python(nuget.org)과 모델(Hugging Face)을 받아 둔다. 주소·sha256은 아래 파일에 있다
+      - uses: actions/cache@v4
+        with:
+          path: dist/cache
+          key: bundle-downloads-${{ hashFiles('ops/bundle/build.py', 'backend/src/paperloom/documents/layout_model.py', 'backend/src/paperloom/documents/ocr_model.py') }}
+      - name: Build
+        run: python ops/bundle/build.py
+      - name: Smoke test
+        run: ./dist/Paperloom/python/python.exe ops/bundle/smoke.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle
+          path: dist/Paperloom-windows-x64.zip
+          if-no-files-found: error
+          compression-level: 0 # 이미 zip이다
+
   e2e:
     name: E2E (Playwright · Edge)
     needs: [backend, web]

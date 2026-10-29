@@ -23,7 +23,8 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 
 - **근거가 보이는 답**: 답에 붙은 `근거 n`을 누르면 논문의 그 문단으로 바로 갑니다.
 - **원문 옆 쪽 번역**: 원문 레이아웃을 그대로 둔 채 번역하고 원문과 번역을 문장 단위로 짝지어 강조합니다.
-- **로컬 우선**: 서버는 `127.0.0.1`에서만 열리고 데이터는 Docker 볼륨에 남습니다.
+- **로컬 우선**: 서버는 `127.0.0.1`에서만 열리고 데이터는 이 PC에 남습니다.
+- **Claude Code만 준비**: Windows 압축본에 Python·모델이 모두 들어 있어 풀고 `Paperloom.cmd`를 누르면 됩니다.
 
 ## 목차
 
@@ -31,6 +32,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 - [동작 방식](#동작-방식)
 - [요구 사항](#요구-사항)
 - [빠른 시작](#빠른-시작)
+- [Docker로 실행](#docker로-실행)
 - [사용법](#사용법)
 - [데이터와 개인정보](#데이터와-개인정보)
 - [업데이트](#업데이트)
@@ -55,7 +57,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 ## 동작 방식
 
 ```text
-브라우저 ──────────► Paperloom 서버 (Docker, 127.0.0.1:8000)
+브라우저 ──────────► Paperloom 서버 (이 PC, 127.0.0.1:8000)
    │                  PDF 원본 · 추출한 본문 · 주석 · 대화 · 번역 (SQLite)
    │                        ▲
    │                        │ 근거 읽기 · 답 저장
@@ -65,23 +67,48 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
                      claude CLI (구독 로그인) ──► Anthropic
 ```
 
-- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다. 본문을 추출할 때 문서 레이아웃 모델(PP-DocLayout_plus-L)로 쪽의 표·알고리즘·수식·그림·머리글을 찾아 번역에서 뺍니다. 글꼴 정보로 읽지 못한 글자가 든 글줄은 글줄 인식(OCR) 모델(PP-OCRv6_small_rec)로 읽어 채웁니다. 두 모델은 이 PC에서 돌고, NVIDIA GPU가 있으면 GPU로, 없으면 CPU로 돕니다.
-- 브리지는 이 PC에서 `claude` CLI를 실행합니다. Docker 안에서는 Claude Code 로그인을 쓸 수 없어서 따로 켭니다. 브리지가 꺼져 있어도 읽기·검색·하이라이트·주석은 그대로 됩니다.
+- 서버는 PDF를 보관하고 글자 층이 있는 PDF는 본문을 추출해 검색·근거·번역에 씁니다. 본문을 추출할 때 문서 레이아웃 모델(PP-DocLayout_plus-L)로 쪽의 표·알고리즘·수식·그림·머리글을 찾아 번역에서 뺍니다. 글꼴 정보로 읽지 못한 글자가 든 글줄은 글줄 인식(OCR) 모델(PP-OCRv6_small_rec)로 읽어 채웁니다. 두 모델은 이 PC에서 돕니다. Windows 압축본은 CPU로, Docker의 GPU 이미지는 NVIDIA GPU로 돌립니다.
+- 브리지는 이 PC에서 `claude` CLI를 실행합니다. Windows 압축본의 `Paperloom.cmd`는 서버와 브리지를 한 번에 켭니다. 서버를 Docker로 띄우면 컨테이너 안에서는 Claude Code 로그인을 쓸 수 없어서 브리지를 따로 켭니다. 브리지가 꺼져 있어도 읽기·검색·하이라이트·주석은 그대로 됩니다.
 
 ## 요구 사항
 
-- Windows 10/11 (아래 명령은 PowerShell 기준)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- Python 3.13 (브리지용)
-- Claude Code CLI와 claude.ai 구독 계정 로그인 (API 키 로그인은 브리지가 거부합니다)
+- Windows 10/11 64비트
+- [Claude Code](https://code.claude.com/docs/ko/setup)와 claude.ai 구독 계정 로그인 (API 키 로그인은 브리지가 거부합니다)
 - 브라우저: Microsoft Edge 또는 Chrome (Edge에서 시험)
+
+Python·Docker는 깔지 않아도 됩니다. Windows 압축본에 Paperloom이 쓰는 Python·라이브러리·모델이 모두 들어 있습니다. 리눅스·macOS에서 쓰거나 NVIDIA GPU로 모델을 돌리려면 [Docker로 실행](#docker로-실행)합니다.
 
 ## 빠른 시작
 
-### 1. 서버 실행
+### 1. Claude Code 설치·로그인
+
+PowerShell에서 Claude Code를 설치하고([설치 안내](https://code.claude.com/docs/ko/setup)), 새 터미널에서 `claude`를 실행해 claude.ai 구독 계정으로 로그인합니다. 이미 쓰고 있으면 넘어갑니다.
 
 ```powershell
-git clone <저장소 주소> Paperloom
+irm https://claude.ai/install.ps1 | iex
+```
+
+### 2. Paperloom 받기
+
+[Paperloom-windows-x64.zip](https://github.com/wnsdyd1128/Paperloom/releases/latest/download/Paperloom-windows-x64.zip)을 받아 원하는 곳에 압축을 풉니다.
+
+### 3. 실행
+
+`Paperloom` 폴더의 `Paperloom.cmd`를 두 번 누릅니다. 서버와 Claude Code 브리지가 함께 켜지고 브라우저에서 <http://127.0.0.1:8000>이 열립니다.
+
+- 처음 실행할 때 Windows가 경고 창을 띄우면 `추가 정보` → `실행`을 누릅니다. 인터넷에서 받은 서명 없는 파일이라 뜹니다.
+- 켜진 창에 Claude Code가 준비됐는지 나옵니다. 화면 오른쪽 위 `Claude Code (이 PC)` 표시에 `꺼짐`이 없으면 AI 기능을 쓸 수 있습니다.
+- 창을 닫으면 Paperloom이 꺼집니다. 켜져 있을 때 `Paperloom.cmd`를 다시 누르면 브라우저만 엽니다.
+- 서재(논문·주석·대화)는 압축본 폴더가 아니라 `%USERPROFILE%\.paperloom\data`에 저장됩니다.
+
+## Docker로 실행
+
+리눅스·macOS에서 쓰거나 NVIDIA GPU로 모델을 돌리려면 서버를 Docker로 띄웁니다. [Docker Desktop](https://www.docker.com/products/docker-desktop/)과 Claude Code(구독 로그인)가 필요하고, 리눅스·macOS는 브리지용 Python 3.13도 필요합니다.
+
+### 서버
+
+```powershell
+git clone https://github.com/wnsdyd1128/Paperloom.git
 cd Paperloom
 powershell -ExecutionPolicy Bypass -File ops\start.ps1
 ```
@@ -115,22 +142,20 @@ docker compose -f ops/compose/compose.yaml -f ops/compose/compose.gpu.yaml up -d
 docker run -d --name paperloom --restart unless-stopped -p 127.0.0.1:8000:8000 -v paperloom_paperloom-data:/data ghcr.io/wnsdyd1128/paperloom:latest
 ```
 
-### 2. Claude Code 로그인
+### 브리지
 
-Claude Code를 설치한 뒤 터미널에서 `claude`를 실행해 claude.ai 구독 계정으로 로그인합니다. 환경 변수에 `claude` 경로가 등록되었는지 확인하세요.
+Windows는 압축본의 `Paperloom.cmd`를 누르면 됩니다. 떠 있는 Docker 서버를 그대로 쓰고 브리지만 켭니다.
 
-### 3. 브리지 설치 (처음 한 번)
+리눅스·macOS는 저장소 폴더에서 브리지를 설치하고(처음 한 번), AI 기능을 쓰는 동안 켜 둡니다.
 
-```powershell
-python -m venv backend\.venv
-backend\.venv\Scripts\python.exe -m pip install --require-hashes -r backend\requirements-dev.lock
-backend\.venv\Scripts\python.exe -m pip install --no-deps -e backend
+```bash
+python3.13 -m venv backend/.venv
+backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements.lock
+backend/.venv/bin/python -m pip install --no-deps -e backend
 ```
 
-### 4. 브리지 실행 (AI 기능을 쓰는 동안 켜 둡니다)
-
-```powershell
-backend\.venv\Scripts\python.exe -m paperloom.integrations.claude_code
+```bash
+backend/.venv/bin/python -m paperloom.integrations.claude_code
 ```
 
 화면 오른쪽 위 `Claude Code (이 PC)` 표시에서 `꺼짐`이 사라지면 준비가 끝났습니다.
@@ -188,12 +213,16 @@ backend\.venv\Scripts\python.exe -m paperloom.integrations.claude_code
 
 ## 데이터와 개인정보
 
-- **저장 위치**: Docker 볼륨 `paperloom_paperloom-data`. `docker compose ... down -v`는 이 볼륨까지 지우므로 서재가 사라집니다.
+- **저장 위치**: Windows 압축본은 `%USERPROFILE%\.paperloom\data`, Docker는 볼륨 `paperloom_paperloom-data`. `docker compose ... down -v`는 이 볼륨까지 지우므로 서재가 사라집니다. 대화의 Claude Code 세션은 `%USERPROFILE%\.paperloom\claude-chat`에 남습니다.
 - **접속 범위**: 서버와 브리지는 `127.0.0.1`에만 열려 같은 PC에서만 접속할 수 있습니다.
-- **Anthropic으로 가는 것**: 질문과 그 근거(고른 글·앞뒤 문단, 범위에 따른 논문 본문, 고른 영역 이미지), 번역할 쪽의 문단. claude.ai 구독 사용량으로 처리되며 그 밖의 외부 서비스는 부르지 않습니다. 이미지를 빌드할 때만 문서 레이아웃 모델과 글줄 인식 모델을 Hugging Face에서 한 번 받습니다(논문은 보내지 않습니다).
+- **Anthropic으로 가는 것**: 질문과 그 근거(고른 글·앞뒤 문단, 범위에 따른 논문 본문, 고른 영역 이미지), 번역할 쪽의 문단. claude.ai 구독 사용량으로 처리되며 그 밖의 외부 서비스는 부르지 않습니다. 문서 레이아웃 모델과 글줄 인식 모델은 압축본·이미지를 만들 때 Hugging Face에서 받아 넣습니다(논문은 보내지 않습니다).
 - **API 키**: 쓰지 않습니다. 환경 변수에 API 키가 있어도 브리지가 Claude Code에 넘기지 않습니다.
 
 ## 업데이트
+
+Windows 압축본은 Paperloom 창을 닫고, 새 [Paperloom-windows-x64.zip](https://github.com/wnsdyd1128/Paperloom/releases/latest/download/Paperloom-windows-x64.zip)을 풀어 예전 `Paperloom` 폴더와 바꿉니다. 서재는 폴더 밖에 있어 그대로 남습니다.
+
+Docker는 저장소 폴더에서 다시 띄웁니다.
 
 ```powershell
 git pull
@@ -201,16 +230,35 @@ powershell -ExecutionPolicy Bypass -File ops\start.ps1
 ```
 
 - 릴리스 이미지로 실행했다면 `docker pull ghcr.io/wnsdyd1128/paperloom:latest` 뒤 `docker rm -f paperloom`으로 컨테이너를 지우고 위 `docker run`을 다시 실행합니다. 데이터는 볼륨에 남습니다.
-- 열려 있던 탭에 `새로고침` 띠가 뜨면 눌러 새 화면을 받습니다.
 - 브리지도 껐다가 다시 켭니다.
+
+두 방법 모두:
+
+- 열려 있던 탭에 `새로고침` 띠가 뜨면 눌러 새 화면을 받습니다.
 - 본문 추출 방식이 바뀐 버전이면 서버가 시작할 때 등록한 논문을 한 번 다시 추출합니다. 그동안 쪽 번역은 잠시 기다리고 문단이 바뀐 쪽은 열 때 다시 번역합니다.
+
+### Docker에서 압축본으로 옮기기
+
+Docker로 쓰던 서재는 압축본을 처음 켜기 전에 옮깁니다. Docker 서버를 끄고(`-v`는 붙이지 않습니다. 볼륨이 지워집니다) 볼륨을 `%USERPROFILE%\.paperloom\data`로 복사합니다.
+
+```powershell
+docker compose -f ops/compose/compose.yaml down
+docker run --rm -v paperloom_paperloom-data:/from -v "${HOME}\.paperloom:/to" alpine sh -c 'test -e /to/data && echo .paperloom/data already exists && exit 1; cp -R /from /to/data'
+```
+
+- 릴리스 이미지로 띄웠다면 첫 줄 대신 `docker rm -f paperloom`으로 끕니다.
+- 압축본을 이미 켜서 `%USERPROFILE%\.paperloom\data`가 있으면 복사하지 않습니다. 그 서재에 넣은 논문이 없다면 압축본을 끄고 그 폴더를 지운 뒤 다시 복사합니다.
+- 옮긴 뒤 Docker 볼륨은 그대로 남습니다. 압축본에서 서재를 확인한 다음 필요 없으면 `docker volume rm paperloom_paperloom-data`로 지웁니다.
 
 ## 문제 해결
 
 | 증상 | 해결 |
 |---|---|
-| `Claude Code 브리지가 꺼져 있습니다` | [브리지를 실행](#빠른-시작)한 뒤 `다시 확인` |
-| `Claude Code에 로그인하지 않았습니다` | 터미널에서 `claude`를 실행해 구독 계정으로 로그인 |
+| `Claude Code 브리지가 꺼져 있습니다` | `Paperloom.cmd`를 다시 누르거나(Docker는 [브리지를 실행](#브리지)) `다시 확인` |
+| `Claude Code CLI(claude)를 찾지 못했습니다` | [Claude Code를 설치](#1-claude-code-설치로그인)한 뒤 Paperloom 창을 닫고 다시 켭니다 |
+| `Claude Code에 로그인하지 않았습니다` | 터미널에서 `claude`를 실행해 구독 계정으로 로그인. 1분 안에 Paperloom이 알아챕니다 |
+| `Paperloom.cmd` 창에 `8000번 포트를 열지 못했습니다` | 다른 프로그램이 그 포트를 씁니다. 그 프로그램을 끄거나 압축본의 `config\paperloom.yaml`에서 `port`를 바꿉니다(Docker로 띄운 Paperloom 서버는 끄지 않아도 그대로 씁니다) |
+| 압축을 풀 때 경로가 너무 길다는 오류 | `C:\Paperloom`처럼 짧은 경로에 풉니다 |
 | 본문 추출이 `검색 불가 · 글자 층 없음(스캔·이미지)` | 스캔 PDF는 글자를 읽지 못해 검색·근거·번역을 쓸 수 없습니다 |
 | 화면이 예전 모습 그대로 | 다시 빌드하기 전에 열어 둔 탭을 새로고침 |
 | 8000번 포트를 이미 쓰는 중 | `ops/compose/compose.yaml`의 포트를 바꾸고 브리지에는 `PAPERLOOM_URL` 환경 변수로 새 주소를 알려 줍니다 |
@@ -229,26 +277,28 @@ cd apps\web; npm ci
 | 할 일 | 명령 | 비고 |
 |---|---|---|
 | 서버 | `backend\.venv\Scripts\python.exe -m paperloom --config ops\config\local.yaml` | 데이터는 `var/` |
+| 서버와 브리지 함께 | `backend\.venv\Scripts\python.exe -m paperloom.launcher --config ops\config\local.yaml` | 압축본의 `Paperloom.cmd`가 부르는 실행기. 떠 있는 쪽은 다시 띄우지 않음 |
 | 레이아웃 모델 받기 | `backend\.venv\Scripts\python.exe -m paperloom.documents.layout_model download --config ops\config\local.yaml` | `var/models`에 130MB. 없으면 규칙만으로 표·그림을 가림 |
 | 글줄 인식 모델 받기 | `backend\.venv\Scripts\python.exe -m paperloom.documents.ocr_model download --config ops\config\local.yaml` | `var/models`에 21MB(모델과 글자 사전). 없으면 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둠 |
 | 웹 개발 서버 | `apps\web`에서 `npm run dev` | <http://127.0.0.1:5173>, 서버는 따로 실행 |
 | 백엔드 시험 | `backend\.venv\Scripts\python.exe -m pytest -q` | |
 | 웹 시험 | `apps\web`에서 `npm run typecheck`, `npx vitest run` | |
 | 브라우저 시험 | `apps\web`에서 `npx playwright test` | 8791·8794 포트에 서버와 가짜 Claude CLI를 띄움(구독 사용량 없음) |
+| Windows 압축본 만들기 | `apps\web`에서 `npm run build` 뒤 `backend\.venv\Scripts\python.exe ops\bundle\build.py` | `dist\Paperloom-windows-x64.zip`. Visual Studio(MSVC 런타임을 넣는다)가 있어야 함. 시험은 `dist\Paperloom\python\python.exe ops\bundle\smoke.py` |
 
 ```text
 backend/src/paperloom/          서버: 문서·본문 추출, 원문 위치, 주석, 문맥, 답변, 대화, 번역, 설정
 backend/src/paperloom/integrations/claude_code/   Claude Code 브리지
 apps/web/                       웹앱 (React, PDF.js)
 tests/                          단위·통합·계약 시험, 합성 PDF fixture, 가짜 Claude CLI
-ops/                            Docker Compose와 실행 설정
+ops/                            Docker Compose, Windows 압축본(ops/bundle), 실행 설정
 ```
 
 직접 띄운 서버도 GPU를 쓰려면 CUDA 13과 그 판의 cuDNN 9를 설치하고 `onnxruntime` 대신 `onnxruntime-gpu`를 깝니다(`backend\.venv\Scripts\python.exe -m pip uninstall -y onnxruntime` 뒤 `requirements-gpu.lock`의 `onnxruntime-gpu` 판). `requirements-gpu.lock`은 리눅스 GPU 이미지용입니다(만든 방법은 파일 머리에 있습니다).
 
 유료 모델 API·SDK는 의존성에 넣지 않습니다. `tests/contract/test_dependency_policy.py`가 잠금 파일과 소스를 검사합니다.
 
-푸시와 PR마다 [GitHub Actions](https://github.com/wnsdyd1128/Paperloom/actions)가 백엔드·웹 시험, Docker 이미지 빌드, Windows에서 Edge로 브라우저 시험을 돌립니다. `v*` 태그를 올리면 같은 검사를 거쳐 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고 GitHub Release를 만듭니다.
+푸시와 PR마다 [GitHub Actions](https://github.com/wnsdyd1128/Paperloom/actions)가 백엔드·웹 시험, Docker 이미지 빌드, Windows 압축본 빌드와 시험, Windows에서 Edge로 브라우저 시험을 돌립니다. `v*` 태그를 올리면 같은 검사를 거쳐 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고 Windows 압축본을 붙인 GitHub Release를 만듭니다.
 
 ## 기여
 
@@ -258,8 +308,9 @@ ops/                            Docker Compose와 실행 설정
 
 - [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`)
 - [PDF.js](https://mozilla.github.io/pdf.js/): Apache License 2.0
-- [PP-DocLayout_plus-L](https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지를 빌드할 때 받습니다
-- [PP-OCRv6_small_rec](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지를 빌드할 때 받습니다
+- [PP-DocLayout_plus-L](https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지·압축본을 만들 때 받습니다
+- [PP-OCRv6_small_rec](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지·압축본을 만들 때 받습니다
+- Windows 압축본에 함께 넣는 Python(Python Software Foundation License)·Microsoft Visual C++ 런타임과 그 밖의 라이선스는 압축본의 `THIRD-PARTY.txt`에 적었습니다
 
 ## 라이선스
 

@@ -387,7 +387,7 @@ test("모든 쪽 번역: 사용자가 시작하면 남은 쪽을 한 쪽씩, 본
   const uploaded = await prepare(page);
   await openReader(page, uploaded);
   const before = translationRuns().length;
-  // 보는 쪽만 문단 묶음으로 나눠 동시에 번역하게 하고(split), 모든 쪽 번역의 다른 쪽은 통째로 (2026-10-03 사용자 결정)
+  // 모든 쪽 번역의 쪽도 보는 쪽처럼 문단 묶음으로 나눠 동시에 번역하게 한다(split, 2026-10-22 사용자 결정: 실측 약 2.4배 빠르다)
   const requests: { page: number; split: boolean }[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().endsWith("/translate-page")) {
@@ -406,8 +406,8 @@ test("모든 쪽 번역: 사용자가 시작하면 남은 쪽을 한 쪽씩, 본
   expect(translationRuns().length).toBe(before + 3); // 합성 쪽은 짧아 보는 쪽도 한 묶음이다
   expect(requests).toEqual([
     { page: 0, split: true },
-    { page: 1, split: false },
-    { page: 2, split: false },
+    { page: 1, split: true },
+    { page: 2, split: true },
   ]);
 
   await goToPage(page, 4);
