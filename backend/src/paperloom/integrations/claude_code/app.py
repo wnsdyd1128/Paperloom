@@ -94,7 +94,8 @@ class TranslatePageIn(BaseModel):
     version_id: str = Field(min_length=1, max_length=100)
     page_index: int = Field(ge=0, le=100_000)
     force: bool = False  # 저장된 번역이 있어도 다시 번역한다(다시 번역 단추)
-    split: bool = False  # 보는 쪽: 문단 묶음으로 나눠 동시에 번역한다(2026-10-03 사용자 결정). 모든 쪽 번역의 다른 쪽은 통째로
+    # 문단 묶음으로 나눠 동시에 번역한다(2026-10-03 사용자 결정: 보는 쪽, 2026-10-22: 모든 쪽 번역의 쪽도 — 웹은 늘 나눈다). 아니면 통째로
+    split: bool = False
 
 
 class CancelIn(BaseModel):
