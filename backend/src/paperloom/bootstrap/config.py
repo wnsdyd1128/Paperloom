@@ -61,7 +61,7 @@ class Settings(_Strict):
 
 
 def load_settings(path: Path) -> Settings:
-    """설정 파일을 읽는다. 파일 안의 상대 경로는 실행 위치가 아니라 설정 파일 위치 기준이다."""
+    """설정 파일을 읽는다. 파일 안의 상대 경로는 실행 위치가 아니라 설정 파일 위치 기준이고, ~로 시작하면 사용자 폴더 기준이다."""
     settings = Settings.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
     base = path.resolve().parent
     web_dist_dir = settings.app.web_dist_dir
@@ -79,4 +79,5 @@ def load_settings(path: Path) -> Settings:
 
 
 def _resolve(base: Path, path: Path) -> Path:
+    path = path.expanduser()  # Windows 압축본의 데이터 폴더(~/.paperloom/data, ops/config/bundle.yaml)
     return path if path.is_absolute() else (base / path).resolve()

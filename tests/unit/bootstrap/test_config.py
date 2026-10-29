@@ -34,6 +34,21 @@ def test_relative_paths_resolve_against_config_file(tmp_path, monkeypatch):
     assert settings.app.web_dist_dir == (tmp_path / "config" / "web").resolve()
 
 
+def home(tmp_path: Path, monkeypatch) -> Path:
+    """~가 가리킬 사용자 폴더 (Path.expanduser: Windows는 USERPROFILE, 그 밖은 HOME)"""
+    folder = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(folder))
+    monkeypatch.setenv("USERPROFILE", str(folder))
+    return folder
+
+
+def test_tilde_paths_resolve_against_the_user_folder(tmp_path, monkeypatch):
+    user = home(tmp_path, monkeypatch)
+    path = write_config(tmp_path, "app:\n  data_dir: ~/.paperloom/data\n")
+
+    assert load_settings(path).app.data_dir == user / ".paperloom" / "data"
+
+
 @pytest.mark.parametrize(
     "flag", ["paid_model_calls_allowed", "paid_fallback_allowed", "automatic_credit_purchase_allowed"]
 )
