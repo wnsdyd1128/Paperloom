@@ -19,3 +19,4 @@ system-prompt-extraction
 *.pfx
 credentials.json
 secrets.*
+dist
