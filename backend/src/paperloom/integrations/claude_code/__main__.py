@@ -14,9 +14,11 @@ import logging
 import os
 import sys
 import urllib.parse
+from collections.abc import Iterable
 from pathlib import Path
 
 import uvicorn
+from fastapi import FastAPI
 
 from paperloom.integrations.claude_code.app import build_app
 from paperloom.integrations.claude_code.cli import ClaudeCli, locate
@@ -41,16 +43,25 @@ def main() -> None:
     args = parser.parse_args()
     sys.stderr.reconfigure(encoding="utf-8")
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    app = build(claude_cli(), args.port, args.paperloom_url, args.allow_origin)
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
 
+
+def claude_cli() -> ClaudeCli:
+    """환경변수(PAPERLOOM_CLAUDE_CLI·PAPERLOOM_CLAUDE_WORK_DIR)를 따른 이 PC의 Claude Code CLI."""
     work_dir = Path(os.environ.get("PAPERLOOM_CLAUDE_WORK_DIR") or Path.home() / ".paperloom" / "claude-chat")
-    cli = ClaudeCli(locate(os.environ.get("PAPERLOOM_CLAUDE_CLI")), work_dir)
-    origins = web_origins(args.paperloom_url) | set(args.allow_origin)
+    return ClaudeCli(locate(os.environ.get("PAPERLOOM_CLAUDE_CLI")), work_dir)
+
+
+def build(cli: ClaudeCli, port: int, paperloom_url: str, allow_origins: Iterable[str] = ()) -> FastAPI:
+    """브리지 앱. 시작 기록(claude 판·로그인 방식)을 남긴다. 서버와 함께 켜는 paperloom.launcher도 쓴다."""
+    origins = web_origins(paperloom_url) | set(allow_origins)
     status = cli.status()
     logging.getLogger("paperloom.claude_code").info(
         "브리지 시작 127.0.0.1:%d (Paperloom %s, claude %s, 로그인 %s, 웹 %s)",
-        args.port, args.paperloom_url, status.get("version", "없음"), status.get("auth_method"), ", ".join(sorted(origins)),
+        port, paperloom_url, status.get("version", "없음"), status.get("auth_method"), ", ".join(sorted(origins)),
     )
-    uvicorn.run(build_app(cli, CoreClient(args.paperloom_url), origins, args.port), host="127.0.0.1", port=args.port, log_level="warning")
+    return build_app(cli, CoreClient(paperloom_url), origins, port)
 
 
 if __name__ == "__main__":
