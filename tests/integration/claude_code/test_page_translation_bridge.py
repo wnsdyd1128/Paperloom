@@ -6,7 +6,9 @@ JSON으로 받아 검사한 뒤 Core에 저장한다. 저장된 쪽은 다시 �
 """
 
 import json
+import logging
 import os
+import re
 import socket
 import sqlite3
 import sys
@@ -195,6 +197,31 @@ def test_the_viewed_page_is_translated_in_parallel_groups_and_saved_as_one_page(
     translation = response.json()["translation"]
     assert [block["block_id"] for block in translation["blocks"]] == [block["block_id"] for block in blocks]
     assert [item["text"] for block in translation["blocks"] for item in block["sentences"]] == [f"[번역] {text}" for text in expected]
+
+
+def test_every_translation_run_logs_its_size_time_and_tokens(core, bridge, fake_log, monkeypatch, caplog):
+    """2026-10-22 사용자 요청("시간 측정부터"): 번역 속도를 높이기 전에 시간이 어디 드는지 본다. 쪽마다 나눔·글자·문장 수를,
+    실행마다 묶음의 글자·문장 수와 실행 시작·첫 답 글자·끝까지의 시간, Claude Code가 잰 모델 호출 시간, 토큰을 남긴다.
+    글과 답은 남기지 않는다."""
+    monkeypatch.setattr(page_translation, "GROUP_CHARS", 40)
+    with caplog.at_level(logging.INFO, logger="paperloom.claude_code"):
+        response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 0, "split": True})
+    assert response.status_code == 200, response.text
+    messages = [record.getMessage() for record in caplog.records]
+    units = page_translation.translation_units(page_blocks(core, core["navigation"], 0))
+    groups = page_translation.split_units(units)
+    runs_logged = sorted(message for message in messages if message.startswith("쪽 번역 묶음 "))
+    assert [message.split(" 시작=")[0] for message in runs_logged] == [
+        f"쪽 번역 묶음 {index + 1}/{len(groups)} 글자={sum(len(text) for _, texts in group for text in texts)} 문장={sum(len(texts) for _, texts in group)}"
+        for index, group in enumerate(groups)
+    ]
+    timing = r" 시작=\d+\.\d초 첫글자=\d+\.\d초 끝=\d+\.\d초 API=1\.2초 토큰 입력=3 캐시읽기=800 캐시만들기=1200 출력=50$"
+    assert all(re.search(timing, message) for message in runs_logged)
+    [page] = [message for message in messages if message.startswith("쪽 번역 version=")]
+    chars = sum(len(text) for _, texts in units for text in texts)
+    sentences = sum(len(texts) for _, texts in units)
+    assert f"나눔=True 묶음={len(groups)} 글자={chars} 문장={sentences} 결과=ok" in page
+    assert not any(text in message for message in messages for _, texts in units for text in texts)  # 원문은 남기지 않는다
 
 
 def test_each_group_of_the_viewed_page_is_fixed_in_its_own_conversation(core, bridge, fake_log, monkeypatch):
