@@ -54,7 +54,9 @@ type(scope): subject
 
 ## 릴리스 (관리자)
 
-`v`로 시작하는 태그를 올리면 CI를 거친 뒤 Docker 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고 GitHub Release를 만듭니다(`.github/workflows/release.yml`).
+`v`로 시작하는 태그를 올리면 CI를 거친 뒤 Docker 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고, CI가 만들고 시험한 Windows 압축본(`Paperloom-windows-x64.zip`)을 붙여 GitHub Release를 만듭니다(`.github/workflows/release.yml`).
+
+압축본의 Python 판(`ops/bundle/build.py`의 `PYTHON_VERSION`)은 잠금 파일을 만든 Python과 같은 3.13이어야 합니다(`tests/contract/test_bundle.py`). 판을 올리면 nuget.org의 `python` 패키지를 받아 sha256을 바꿉니다.
 
 ```powershell
 git tag v0.1.0

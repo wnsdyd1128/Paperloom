@@ -12,7 +12,7 @@
   번역을 JSON으로 받아 검사한 뒤 Core에 저장한다(읽지 못한 답은 같은 대화에 한 번 고쳐 달라고 한다). 저장된 쪽은 다시
   실행하지 않는다(다시 번역은 force). 대화와 같은
   자물쇠로 한 번에 한 차례다(UI_PLAN D3·D10, ADR 0003).
-- 로그에는 packet ID·결과·시간만 남기고 질문·답은 남기지 않는다(IMPL §15).
+- 로그에는 packet ID·결과·시간(쪽 번역은 실행마다 걸린 시간·글자 수·토큰 수)만 남기고 질문·답은 남기지 않는다(IMPL §15).
 """
 
 import base64
@@ -94,7 +94,8 @@ class TranslatePageIn(BaseModel):
     version_id: str = Field(min_length=1, max_length=100)
     page_index: int = Field(ge=0, le=100_000)
     force: bool = False  # 저장된 번역이 있어도 다시 번역한다(다시 번역 단추)
-    split: bool = False  # 보는 쪽: 문단 묶음으로 나눠 동시에 번역한다(2026-10-03 사용자 결정). 모든 쪽 번역의 다른 쪽은 통째로
+    # 문단 묶음으로 나눠 동시에 번역한다(2026-10-03 사용자 결정: 보는 쪽, 2026-10-22: 모든 쪽 번역의 쪽도 — 웹은 늘 나눈다). 아니면 통째로
+    split: bool = False
 
 
 class CancelIn(BaseModel):
@@ -181,9 +182,10 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         if not translating.acquire(blocking=False):
             return _error(409, "BUSY", "다른 쪽을 번역하는 중입니다. 끝난 뒤 다시 번역합니다.")
         run_id, cancel = running.begin()
-        started, outcome, groups = time.monotonic(), "error", 0
+        started, outcome, groups, chars, sentences = time.monotonic(), "error", 0, 0, 0
         try:
             units = translation_units(core.page_text(body.version_id, body.page_index)["blocks"])
+            chars, sentences = _size(units)
             if not units:
                 outcome = "no_text"
                 return _error(422, "NO_TEXT", "이 쪽에는 번역할 글이 없습니다(그림·이미지뿐인 쪽).")
@@ -207,8 +209,8 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
             running.end(run_id)
             translating.release()
             log.info(
-                "쪽 번역 version=%s page=%d 다시=%s 묶음=%d 결과=%s %.1f초",
-                body.version_id, body.page_index, body.force, groups, outcome, time.monotonic() - started,
+                "쪽 번역 version=%s page=%d 다시=%s 나눔=%s 묶음=%d 글자=%d 문장=%d 결과=%s %.1f초",
+                body.version_id, body.page_index, body.force, body.split, groups, chars, sentences, outcome, time.monotonic() - started,
             )
 
     @app.post("/cancel")
@@ -231,9 +233,10 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
     """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을
     참고로 붙인다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이 틀렸는지 알려 한 번만 다시 받는다
     (2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
-    묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다)."""
+    묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다). 실행마다 걸린 시간·토큰을 남긴다
+    (_log_run)."""
 
-    def ask(text: str, resume: str | None) -> dict:
+    def ask(text: str, resume: str | None, label: str) -> dict:
         content = [{"type": "text", "text": text}]
         for attempt in range(REFRESH_RETRIES + 1):
             run = cli.run(
@@ -241,6 +244,7 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
                 effort=TRANSLATION_EFFORT,
             )
             result = [event for event in run if event["type"] == "result"][-1]
+            _log_run(f"{label} 토큰 갱신 겹침 {attempt}" if attempt else label, result)
             if not _refresh_race(result):
                 break
             if attempt == REFRESH_RETRIES:
@@ -254,14 +258,16 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
 
     def translate(index: int) -> list[dict]:
         context = group_context(groups[index - 1][-1]) if index else None
-        result = ask(translation_request(groups[index], context), None)
+        chars, sentences = _size(groups[index])
+        label = f"{index + 1}/{len(groups)} 글자={chars} 문장={sentences}"
+        result = ask(translation_request(groups[index], context), None, label)
         try:
             return parse_translation(result["text"], groups[index])
         except BadTranslation as bad:
             if not result["session_id"]:
                 raise
             log.info("쪽 번역 묶음 %d/%d의 답을 읽지 못해 같은 대화에 다시 묻는다", index + 1, len(groups))
-            again = ask(repair_request(str(bad)), result["session_id"])
+            again = ask(repair_request(str(bad)), result["session_id"], f"{label} 다시 묻기")
             return parse_translation(again["text"], groups[index])
 
     with ThreadPoolExecutor(max_workers=len(groups)) as pool:
@@ -272,6 +278,32 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
             cancel.set()  # 아직 도는 묶음을 멈춘다
             raise failed
         return [block for future in futures for block in future.result()]
+
+
+def _size(units: list) -> tuple[int, int]:
+    """번역 단위(문단, 문장들)의 글자 수(굵게 등 표시 포함)와 문장 수"""
+    sentences = [sentence for _, items in units for sentence in items]
+    return sum(map(len, sentences)), len(sentences)
+
+
+def _log_run(label: str, result: dict) -> None:
+    """쪽 번역 실행 하나의 시간·토큰(cli._measure) (2026-10-22 사용자 요청: 시간이 어디 드는지 잰다). 글·답은 남기지 않는다."""
+    measure = result.get("measure")
+    if measure is None:
+        log.info("쪽 번역 묶음 %s 답 없음", label)
+        return
+
+    def seconds(key: str) -> str:
+        return "-" if measure[key] is None else f"{measure[key]:.1f}초"
+
+    def tokens(key: str) -> str:
+        return "-" if measure[key] is None else str(measure[key])
+
+    log.info(
+        "쪽 번역 묶음 %s 시작=%s 첫글자=%s 끝=%s API=%s 토큰 입력=%s 캐시읽기=%s 캐시만들기=%s 출력=%s",
+        label, seconds("ready"), seconds("first_text"), seconds("total"), seconds("api"),
+        tokens("input_tokens"), tokens("cache_read_input_tokens"), tokens("cache_creation_input_tokens"), tokens("output_tokens"),
+    )
 
 
 def _refresh_race(result: dict) -> bool:

@@ -16,3 +16,5 @@ experiments/
 docs/
 # 실제 논문(저작권): 로컬 전용 시험(-m real_papers, PAPERLOOM_REAL_PAPERS=1)만 쓴다. 저장소에는 합성 PDF만 둔다
 tests/e2e_papers/
+# Windows 압축본 빌드 결과 (ops/bundle/build.py)
+dist/

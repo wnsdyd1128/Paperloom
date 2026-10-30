@@ -76,8 +76,11 @@ class ClaudeCli:
         if self._command is None:
             status = {"installed": False}
         else:
+            started = time.monotonic()
             version = self._call(["--version"]).stdout.strip()
             auth = self._call(["auth", "status"])
+            # 요청 경로에서 실행 둘을 띄운다(AUTH_CACHE_SECONDS마다). 번역·대화가 기다린 시간을 보도록 남긴다(2026-10-22)
+            log.info("Claude Code 상태 확인 %.1f초", time.monotonic() - started)
             try:
                 info = json.loads(auth.stdout)
             except ValueError:
@@ -127,7 +130,8 @@ class ClaudeCli:
         system_prompt: 기본 규칙. 대화는 읽기 조수 규칙(SYSTEM_PROMPT), 쪽 번역은 번역 규칙(page_translation)이다.
         effort: --effort(low·medium·high·xhigh·max). None이면 넘기지 않아 Claude Code 기본(--safe-mode라 사용자 설정은 읽지 않는다).
         result: session_id, text(답 전체), is_error, error(실패 이유), cancelled(중단했는지), message_id(차례 끝 메시지 ID),
-        context_tokens(차례 끝의 컨텍스트 길이: 입력·캐시·출력 토큰), context_window(모델의 창 크기). 모르면 None."""
+        context_tokens(차례 끝의 컨텍스트 길이: 입력·캐시·출력 토큰), context_window(모델의 창 크기), measure(걸린 시간과
+        토큰, _measure. 답을 끝내지 못한 차례는 None). 모르면 None."""
         if cancel is not None and cancel.is_set():  # 실행 ID를 받자마자 중단했다
             yield _failed(resume, "", "중단했습니다.", cancelled=True)
             return
@@ -155,6 +159,7 @@ class ClaudeCli:
             arguments += ["--model", model]
         if effort:
             arguments += ["--effort", effort]
+        launched = time.monotonic()
         process = subprocess.Popen(
             [*self._command, *arguments], cwd=self._work_dir, env=self._env(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
@@ -183,6 +188,7 @@ class ClaudeCli:
         reader.start()
         session_id, parts, result = None if fork else resume, [], None  # 갈래는 새 대화 ID를 init 사건으로 받는다
         message_id = None
+        ready_at = first_text_at = None  # init 사건(실행이 준비됨)과 첫 답 글자를 받은 때
         try:
             message = {"type": "user", "message": {"role": "user", "content": content}}
             try:
@@ -197,7 +203,9 @@ class ClaudeCli:
                     continue
                 if event.get("type") == "system" and event.get("subtype") == "init":
                     session_id = event.get("session_id") or session_id
+                    ready_at = ready_at or time.monotonic()
                 elif event.get("type") == "stream_event" and event.get("event", {}).get("delta", {}).get("type") == "text_delta":
+                    first_text_at = first_text_at or time.monotonic()
                     text = event["event"]["delta"]["text"]
                     parts.append(text)
                     yield {"type": "delta", "text": text}
@@ -230,6 +238,7 @@ class ClaudeCli:
             "context_tokens": tokens,
             "context_window": window,
             "message_id": message_id,
+            "measure": _measure(result, launched, ready_at, first_text_at),
         }
 
     def _env(self) -> dict[str, str]:
@@ -249,7 +258,25 @@ def _failed(session_id: str | None, text: str, error: str, *, cancelled: bool) -
     """답을 끝내지 못한 차례의 result."""
     return {
         "type": "result", "session_id": session_id, "text": text, "is_error": True, "error": error,
-        "cancelled": cancelled, "context_tokens": None, "context_window": None, "message_id": None,
+        "cancelled": cancelled, "context_tokens": None, "context_window": None, "message_id": None, "measure": None,
+    }
+
+
+MEASURED_TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
+
+
+def _measure(result: dict, launched: float, ready_at: float | None, first_text_at: float | None) -> dict:
+    """차례가 걸린 시간(초, 실행을 띄운 때부터)과 토큰 (2026-10-22 사용자 요청: 번역 속도를 높이기 전에 시간이 어디 드는지 잰다).
+    ready: init 사건까지(실행 시작 비용), first_text: 첫 답 글자까지, total: 실행이 끝날 때까지, api: Claude Code가 잰 모델 호출
+    시간(result의 duration_api_ms). 토큰은 result의 usage(MEASURED_TOKENS). 모르면 None."""
+    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    api = result.get("duration_api_ms")
+    return {
+        "ready": ready_at - launched if ready_at is not None else None,
+        "first_text": first_text_at - launched if first_text_at is not None else None,
+        "total": time.monotonic() - launched,
+        "api": api / 1000 if isinstance(api, (int, float)) else None,
+        **{key: usage[key] if isinstance(usage.get(key), int) else None for key in MEASURED_TOKENS},
     }
 
 

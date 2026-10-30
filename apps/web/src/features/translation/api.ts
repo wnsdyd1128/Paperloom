@@ -45,16 +45,16 @@ export async function getTranslatedPages(versionId: string, language: Language):
  * 실패하면 ApiError(code: BUSY·NO_TEXT·BAD_TRANSLATION·CLAUDE_FAILED·BRIDGE_OFFLINE 등).
  */
 /**
- * 쪽 하나를 번역한다(브리지). split: 보는 쪽이면 문단 묶음으로 나눠 동시에 번역한다(2026-10-03 사용자 결정). 모든 쪽 번역의
- * 다른 쪽은 통째로 한 차례다.
+ * 쪽 하나를 번역한다(브리지). 쪽을 문단 묶음으로 나눠 동시에 번역하게 한다(split, 2026-10-03 사용자 결정: 보는 쪽.
+ * 2026-10-22 사용자 결정: 모든 쪽 번역의 쪽도 — 실측 통째 1,000자당 3.8초, 나눔 1.6초).
  */
-export async function translatePage(bridgeUrl: string, versionId: string, pageIndex: number, force = false, split = false): Promise<PageTranslation> {
+export async function translatePage(bridgeUrl: string, versionId: string, pageIndex: number, force = false): Promise<PageTranslation> {
   let response: Response;
   try {
     response = await fetch(`${bridgeUrl}/translate-page`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version_id: versionId, page_index: pageIndex, force, split }),
+      body: JSON.stringify({ version_id: versionId, page_index: pageIndex, force, split: true }),
     });
   } catch {
     throw new ApiError(0, { code: "BRIDGE_OFFLINE", message: "Claude Code 브리지에 연결할 수 없습니다. 브리지를 켜 주세요.", request_id: "", retryable: true });

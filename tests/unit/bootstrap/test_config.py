@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,38 @@ def test_relative_paths_resolve_against_config_file(tmp_path, monkeypatch):
 
     assert settings.app.data_dir == (tmp_path / "data").resolve()
     assert settings.app.web_dist_dir == (tmp_path / "config" / "web").resolve()
+
+
+def home(tmp_path: Path, monkeypatch) -> Path:
+    """~가 가리킬 사용자 폴더 (Path.expanduser: Windows는 USERPROFILE, 그 밖은 HOME)"""
+    folder = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(folder))
+    monkeypatch.setenv("USERPROFILE", str(folder))
+    return folder
+
+
+def test_tilde_paths_resolve_against_the_user_folder(tmp_path, monkeypatch):
+    user = home(tmp_path, monkeypatch)
+    path = write_config(tmp_path, "app:\n  data_dir: ~/.paperloom/data\n")
+
+    assert load_settings(path).app.data_dir == user / ".paperloom" / "data"
+
+
+def test_bundle_config_keeps_web_and_models_inside_the_bundle_and_the_library_outside(tmp_path, monkeypatch):
+    """Windows 압축본(ops/bundle/build.py)은 bundle.yaml을 config/paperloom.yaml로 넣는다. 새 판으로 폴더를 바꿔도 서재가 남는다."""
+    user = home(tmp_path, monkeypatch)
+    bundle = tmp_path / "Paperloom"
+    config = bundle / "config" / "paperloom.yaml"
+    config.parent.mkdir(parents=True)
+    shutil.copy(REPO_ROOT / "ops" / "config" / "bundle.yaml", config)
+
+    settings = load_settings(config)
+
+    assert (settings.app.mode, settings.app.bind_host) == ("local", "127.0.0.1")
+    assert settings.app.data_dir == user / ".paperloom" / "data"
+    assert settings.app.web_dist_dir == (bundle / "web").resolve()
+    assert settings.layout.model_path.is_relative_to(bundle.resolve())
+    assert settings.ocr.model_path.is_relative_to(bundle.resolve())
 
 
 @pytest.mark.parametrize(

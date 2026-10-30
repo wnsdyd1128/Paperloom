@@ -166,7 +166,9 @@ def translate(text: str, session: str, repair: bool = False) -> int:
         result = f"```json\n{result}\n```"
     emit({"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": result}}})
     emit({"type": "assistant", "uuid": str(uuid.uuid4()), "session_id": session, "message": {"role": "assistant", "content": [{"type": "text", "text": result}]}})
-    emit({"type": "result", "subtype": "success", "is_error": False, "result": result, "session_id": session})
+    # 실제 CLI의 result처럼 모델 호출 시간과 토큰 사용량을 준다(값은 고정)
+    usage = {"input_tokens": 3, "cache_creation_input_tokens": 1200, "cache_read_input_tokens": 800, "output_tokens": 50}
+    emit({"type": "result", "subtype": "success", "is_error": False, "result": result, "session_id": session, "duration_api_ms": 1234, "usage": usage})
     return 0
 
 
