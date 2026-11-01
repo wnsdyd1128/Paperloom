@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Response
 
+from paperloom.api.docs import IDEMPOTENCY_KEY, IDEMPOTENT, errors, file_response
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.reading.figures import FiguresFailed
@@ -13,12 +14,14 @@ from paperloom.reading.models import AnchorIn, AnchorKindPatch, AnchorList, Anch
 from paperloom.reading.region_image import RenderFailed
 from paperloom.reading.service import AnchorService, InvalidAnchor, VersionNotFound
 
+_IMAGE_DOCS = file_response("image/png", "영역 PNG", "NOT_FOUND", "RENDER_FAILED", "RESOURCE_LIMIT")
+
 
 def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["위치"])
 
-    @router.post("/anchors", status_code=201, response_model=AnchorOut)
-    def create_anchor(request: AnchorIn, idempotency_key: Annotated[str | None, Header()] = None) -> Response:
+    @router.post("/anchors", status_code=201, response_model=AnchorOut, summary="위치 만들기", responses=errors("NOT_FOUND", "INVALID_ANCHOR", *IDEMPOTENT))
+    def create_anchor(request: AnchorIn, idempotency_key: Annotated[str | None, Header(description=IDEMPOTENCY_KEY)] = None) -> Response:
         def create() -> AnchorOut:
             try:
                 return service.create(request)
@@ -29,14 +32,14 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
 
         return keys.respond("POST /api/v1/anchors", idempotency_key, request, create)
 
-    @router.get("/anchors/{anchor_id}")
+    @router.get("/anchors/{anchor_id}", summary="위치 조회", responses=errors("NOT_FOUND"))
     def get_anchor(anchor_id: str) -> AnchorOut:
         anchor = service.get(anchor_id)
         if anchor is None:
             raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
         return anchor
 
-    @router.get("/versions/{version_id}/anchors")
+    @router.get("/versions/{version_id}/anchors", summary="판본의 위치 목록", responses=errors("NOT_FOUND"))
     def list_anchors(version_id: str) -> AnchorList:
         """버전의 모든 위치, 읽는 순서로 (Wiki로 내보내기에서 고른다). 주석은 /versions/{id}/annotations에 있다."""
         anchors = service.list_for_version(version_id)
@@ -44,7 +47,7 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
             raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
         return AnchorList(anchors=anchors)
 
-    @router.patch("/anchors/{anchor_id}")
+    @router.patch("/anchors/{anchor_id}", summary="영역 종류 바꾸기", responses=errors("NOT_FOUND", "INVALID_ANCHOR"))
     def change_kind(anchor_id: str, patch: AnchorKindPatch) -> AnchorOut:
         try:
             anchor = service.change_kind(anchor_id, patch.kind)
@@ -54,11 +57,11 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
             raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
         return anchor
 
-    @router.get("/anchors/{anchor_id}/image")
+    @router.get("/anchors/{anchor_id}/image", summary="위치의 영역 이미지", response_class=Response, responses=_IMAGE_DOCS)
     def region_image(anchor_id: str, scale: Annotated[float, Query(ge=0.5, le=4)] = 2) -> Response:
         return _png_response(lambda: service.image(anchor_id, scale))
 
-    @router.get("/versions/{version_id}/pages/{page_index}/image")
+    @router.get("/versions/{version_id}/pages/{page_index}/image", summary="쪽의 영역 이미지", response_class=Response, responses=_IMAGE_DOCS)
     def page_region_image(
         version_id: str,
         page_index: int,
@@ -68,7 +71,7 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
         region = _parse_box(box)
         return _png_response(lambda: service.page_image(version_id, page_index, region, scale))
 
-    @router.get("/versions/{version_id}/pages/{page_index}/figures")
+    @router.get("/versions/{version_id}/pages/{page_index}/figures", summary="쪽의 그림 후보", responses=errors("NOT_FOUND", "RESOURCE_LIMIT"))
     def page_figures(version_id: str, page_index: int) -> FigureList:
         try:
             figures = service.figures(version_id, page_index)

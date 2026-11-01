@@ -6,6 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Header, Request, Response
 
+from paperloom.api.docs import IDEMPOTENCY_KEY, IDEMPOTENT, errors, file_response
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.context.models import ContextPacketIn, ContextPacketOut, PacketStatusPatch
@@ -14,10 +15,10 @@ from paperloom.reading.region_image import RenderFailed
 
 
 def build_router(service: ContextService, keys: IdempotencyStore) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["문맥"])
 
-    @router.post("/context-packets", status_code=201, response_model=ContextPacketOut)
-    def create_packet(request: ContextPacketIn, idempotency_key: Annotated[str | None, Header()] = None) -> Response:
+    @router.post("/context-packets", status_code=201, response_model=ContextPacketOut, summary="문맥 만들기", responses=errors("INVALID_PACKET", *IDEMPOTENT))
+    def create_packet(request: ContextPacketIn, idempotency_key: Annotated[str | None, Header(description=IDEMPOTENCY_KEY)] = None) -> Response:
         def create() -> ContextPacketOut:
             try:
                 return service.create(request)
@@ -26,14 +27,14 @@ def build_router(service: ContextService, keys: IdempotencyStore) -> APIRouter:
 
         return keys.respond("POST /api/v1/context-packets", idempotency_key, request, create)
 
-    @router.get("/context-packets/{packet_id}")
+    @router.get("/context-packets/{packet_id}", summary="문맥 조회", responses=errors("NOT_FOUND"))
     def get_packet(packet_id: str) -> ContextPacketOut:
         packet = service.get(packet_id)
         if packet is None:
             raise _not_found()
         return packet
 
-    @router.patch("/context-packets/{packet_id}")
+    @router.patch("/context-packets/{packet_id}", summary="문맥 전달 상태 바꾸기", responses=errors("NOT_FOUND", "INVALID_TRANSITION"))
     def update_status(packet_id: str, patch: PacketStatusPatch) -> ContextPacketOut:
         try:
             packet = service.update_status(packet_id, patch)
@@ -43,7 +44,12 @@ def build_router(service: ContextService, keys: IdempotencyStore) -> APIRouter:
             raise _not_found()
         return packet
 
-    @router.get("/context-packets/{packet_id}/export.md")
+    @router.get(
+        "/context-packets/{packet_id}/export.md",
+        summary="문맥을 Markdown으로 내보내기",
+        response_class=Response,
+        responses=file_response("text/markdown", "문맥 Markdown 파일", "NOT_FOUND", "INVALID_TRANSITION"),
+    )
     def export_markdown(packet_id: str, request: Request, images: Literal["paste", "attached"] = "paste") -> Response:
         """images=attached: 이미지를 메시지에 함께 붙이는 Claude Code 대화 브리지용 안내 (ADR 0003)."""
         try:
@@ -54,7 +60,12 @@ def build_router(service: ContextService, keys: IdempotencyStore) -> APIRouter:
             raise _not_found()
         return Response(text, media_type="text/markdown; charset=utf-8", headers=_attachment(packet_id, "md"))
 
-    @router.get("/context-packets/{packet_id}/export.zip")
+    @router.get(
+        "/context-packets/{packet_id}/export.zip",
+        summary="문맥을 zip으로 내보내기",
+        response_class=Response,
+        responses=file_response("application/zip", "문맥과 영역 이미지 zip 파일", "NOT_FOUND", "INVALID_TRANSITION", "RESOURCE_LIMIT"),
+    )
     def export_zip(packet_id: str, request: Request) -> Response:
         try:
             data = service.export_zip(packet_id, str(request.base_url))

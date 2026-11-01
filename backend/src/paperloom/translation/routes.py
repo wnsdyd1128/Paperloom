@@ -2,30 +2,31 @@
 
 from fastapi import APIRouter, Response
 
+from paperloom.api.docs import errors
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.translation.models import Language, PageTranslationIn, PageTranslationOut, TranslatedPages
 from paperloom.translation.service import InvalidTranslation, PageNotFound, TextNotReady, TranslationService
 
 
 def build_router(service: TranslationService) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["번역"])
 
-    @router.get("/versions/{version_id}/pages/{page_index}/translations/{language}")
+    @router.get("/versions/{version_id}/pages/{page_index}/translations/{language}", summary="쪽 번역 조회", responses=errors("NOT_FOUND", "NOT_TRANSLATED", "TEXT_NOT_READY"))
     def get_translation(version_id: str, page_index: int, language: Language) -> PageTranslationOut:
         found = _call(lambda: service.get(version_id, page_index, language))
         if found is None:
             raise ApiError(404, "NOT_TRANSLATED", "이 쪽은 아직 번역하지 않았습니다.")
         return found
 
-    @router.put("/versions/{version_id}/pages/{page_index}/translations/{language}")
+    @router.put("/versions/{version_id}/pages/{page_index}/translations/{language}", summary="쪽 번역 저장", responses=errors("NOT_FOUND", "TEXT_NOT_READY", "INVALID_TRANSLATION"))
     def put_translation(version_id: str, page_index: int, language: Language, body: PageTranslationIn) -> PageTranslationOut:
         return _call(lambda: service.put(version_id, page_index, language, body))
 
-    @router.get("/versions/{version_id}/translations/{language}")
+    @router.get("/versions/{version_id}/translations/{language}", summary="번역한 쪽 목록", responses=errors("NOT_FOUND"))
     def translated_pages(version_id: str, language: Language) -> TranslatedPages:
         return _call(lambda: service.pages(version_id, language))
 
-    @router.delete("/versions/{version_id}/translations/{language}", status_code=204)
+    @router.delete("/versions/{version_id}/translations/{language}", status_code=204, summary="번역 모두 지우기", responses=errors("NOT_FOUND"))
     def delete_translations(version_id: str, language: Language) -> Response:
         _call(lambda: service.delete(version_id, language))
         return Response(status_code=204)

@@ -4,15 +4,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from paperloom.api.docs import errors
 from paperloom.api.errors import ApiError
 from paperloom.retrieval.models import SearchResult
 from paperloom.retrieval.service import SearchService
 
 
 def build_router(service: SearchService) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["검색"])
 
-    @router.get("/search")
+    @router.get("/search", summary="논문 제목 검색", responses=errors("INVALID_QUERY"))
     def search(
         q: Annotated[str, Query(max_length=1000, description="제목의 낱말(앞부분만 써도 됨) 또는 큰따옴표로 묶은 구절. 모두 들어 있는 제목을 찾는다")],
         limit: Annotated[int, Query(ge=1, le=50)] = 20,

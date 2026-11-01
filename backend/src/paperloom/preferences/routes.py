@@ -7,13 +7,13 @@ from paperloom.preferences.service import PreferenceService
 
 
 def build_router(service: PreferenceService) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["설정"])
 
-    @router.get("/settings")
+    @router.get("/settings", summary="설정 조회")
     def get_settings() -> Preferences:
         return service.get()
 
-    @router.put("/settings")
+    @router.put("/settings", summary="설정 저장")
     def put_settings(preferences: Preferences) -> Preferences:
         return service.put(preferences)
 

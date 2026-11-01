@@ -15,6 +15,7 @@ from paperloom.annotations.routes import build_router as build_annotations_route
 from paperloom.answers.routes import build_router as build_answers_router
 from paperloom.answers.service import AnswerService
 from paperloom.annotations.service import AnnotationService
+from paperloom.api.docs import DESCRIPTION, TAGS, Health, install_openapi
 from paperloom.api.errors import install_error_handler
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.bootstrap.config import Settings
@@ -74,11 +75,18 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
         finally:
             parsing.stop()
 
-    app = FastAPI(title="Paperloom", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="Paperloom", version=__version__, description=DESCRIPTION, openapi_tags=TAGS, lifespan=lifespan)
     app.state.parsing = parsing
     install_error_handler(app)
+    install_openapi(app)
 
-    @app.get("/api/v1/health")
+    @app.get(
+        "/api/v1/health",
+        response_model=Health,
+        tags=["상태"],
+        summary="서버 상태",
+        responses={503: {"model": Health, "description": "데이터 폴더에 쓸 수 없다(`status`가 `degraded`)"}},
+    )
     def health() -> JSONResponse:
         writable = _can_write(data_dir)
         body = {

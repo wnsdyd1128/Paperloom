@@ -10,13 +10,14 @@ from fastapi import APIRouter, Query, Response
 
 from paperloom.answers.models import AnswerList, AnswerOut, ChatAnswerIn, Origin
 from paperloom.answers.service import MAX_LIST, AnswerService
+from paperloom.api.docs import errors
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 
 
 def build_router(service: AnswerService) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["답변"])
 
-    @router.get("/answers")
+    @router.get("/answers", summary="답변 목록")
     def list_answers(
         packet_id: str | None = None,
         paper_id: str | None = None,
@@ -27,7 +28,7 @@ def build_router(service: AnswerService) -> APIRouter:
         """paper_id: 그 논문을 출처로 둔 packet의 답변(Reader 대화 탭의 대화 목록). session_id: 한 대화."""
         return AnswerList(answers=service.list(packet_id, limit, paper_id=paper_id, session_id=session_id, origin=origin))
 
-    @router.post("/context-packets/{packet_id}/answers", status_code=201)
+    @router.post("/context-packets/{packet_id}/answers", status_code=201, summary="대화 답변 저장", responses=errors("NOT_FOUND", "INVALID_TRANSITION"))
     def save_chat_answer(packet_id: str, body: ChatAnswerIn, response: Response) -> AnswerOut:
         """같은 질문·같은 내용을 다시 보내면 앞의 답변을 200으로 준다."""
         status = service.packet_status(packet_id)
@@ -43,7 +44,7 @@ def build_router(service: AnswerService) -> APIRouter:
         response.status_code = 201 if created else 200
         return answer
 
-    @router.delete("/answers/{answer_id}")
+    @router.delete("/answers/{answer_id}", summary="답변 버리기", responses=errors("NOT_FOUND"))
     def discard_answer(answer_id: str) -> AnswerOut:
         answer = service.discard(answer_id)
         if answer is None:

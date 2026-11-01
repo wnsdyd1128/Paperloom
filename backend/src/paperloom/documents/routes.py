@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
 
+from paperloom.api.docs import errors, file_response
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.documents.models import (
     HeadingList,
@@ -31,11 +32,26 @@ _REJECTION_MESSAGES = {
     "PARSER_ERROR": "PDF 검사 중 오류가 발생했습니다.",
 }
 
+# 본문을 직접 읽는 라우트라 FastAPI가 요청 형식을 알 수 없다
+_UPLOAD_DOCS = {
+    "parameters": [
+        {"name": "X-Paperloom-Filename", "in": "header", "schema": {"type": "string"}, "description": "원래 파일 이름(percent-encoding). 제목 후보로만 쓴다"}
+    ],
+    "requestBody": {"required": True, "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}},
+}
+
 
 def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
-    @router.post("/papers", status_code=201)
+    @router.post(
+        "/papers",
+        status_code=201,
+        tags=["서재"],
+        summary="PDF 논문 등록",
+        responses=errors("TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "DUPLICATE_SOURCE", "NOT_PDF", "MALFORMED_PDF", "PASSWORD_REQUIRED", "RESOURCE_LIMIT@upload", "PARSER_ERROR"),
+        openapi_extra=_UPLOAD_DOCS,
+    )
     async def upload_paper(request: Request) -> PaperOut:
         media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
         if media_type != "application/pdf":
@@ -62,18 +78,18 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
                 details={"paper_id": duplicate.paper_id},
             ) from None
 
-    @router.get("/papers")
+    @router.get("/papers", tags=["서재"], summary="논문 목록")
     def list_papers() -> PaperList:
         return PaperList(papers=service.list_papers())
 
-    @router.get("/papers/{paper_id}")
+    @router.get("/papers/{paper_id}", tags=["서재"], summary="논문 조회", responses=errors("NOT_FOUND"))
     def get_paper(paper_id: str) -> PaperOut:
         paper = service.get_paper(paper_id)
         if paper is None:
             raise _not_found()
         return paper
 
-    @router.delete("/papers/{paper_id}", status_code=204)
+    @router.delete("/papers/{paper_id}", status_code=204, tags=["서재"], summary="논문 지우기", responses=errors("NOT_FOUND", "TEXT_EXTRACTION_RUNNING"))
     def delete_paper(paper_id: str) -> Response:
         """논문과 그 논문의 모든 기록·원본 PDF를 지운다(되돌릴 수 없다, 2026-10-05 서재 지우기)."""
         try:
@@ -84,7 +100,7 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
             raise _not_found()
         return Response(status_code=204)
 
-    @router.put("/papers/{paper_id}/metadata")
+    @router.put("/papers/{paper_id}/metadata", tags=["서재"], summary="논문 정보 바꾸기", responses=errors("NOT_FOUND"))
     def update_metadata(paper_id: str, metadata: PaperMetadataIn) -> PaperOut:
         """논문 정보 창에서 고친 제목·저자·연도·DOI (U4, 사용자 결정 D5). 네 값을 모두 받아 바꾼다."""
         paper = service.update_metadata(paper_id, metadata)
@@ -92,7 +108,7 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
             raise _not_found()
         return paper
 
-    @router.put("/papers/{paper_id}/tags")
+    @router.put("/papers/{paper_id}/tags", tags=["서재"], summary="논문의 태그 바꾸기", responses=errors("NOT_FOUND"))
     def set_tags(paper_id: str, request: PaperTagsIn) -> PaperOut:
         """서재 표의 태그 (U6). 이 목록으로 바꾼다."""
         paper = service.set_tags(paper_id, request)
@@ -101,35 +117,41 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
         return paper
 
     # 태그 이름은 /를 담을 수 있다(path). 대소문자는 가리지 않는다
-    @router.patch("/tags/{name:path}", status_code=204)
+    @router.patch("/tags/{name:path}", status_code=204, tags=["서재"], summary="태그 이름 바꾸기", responses=errors("NOT_FOUND"))
     def rename_tag(name: str, request: TagRenameIn) -> Response:
         """서재 태그 메뉴의 이름 바꾸기 (2026-10-04 사용자 요청). 그 태그가 붙은 모든 논문에서 바뀐다."""
         if not service.rename_tag(name, request):
             raise _not_found()
         return Response(status_code=204)
 
-    @router.delete("/tags/{name:path}", status_code=204)
+    @router.delete("/tags/{name:path}", status_code=204, tags=["서재"], summary="태그 지우기", responses=errors("NOT_FOUND"))
     def delete_tag(name: str) -> Response:
         """서재 태그 메뉴의 지우기 (2026-10-04 사용자 요청). 모든 논문에서 뗀다(논문은 그대로)."""
         if not service.delete_tag(name):
             raise _not_found()
         return Response(status_code=204)
 
-    @router.post("/papers/{paper_id}/opened", status_code=204)
+    @router.post("/papers/{paper_id}/opened", status_code=204, tags=["서재"], summary="열람 기록", responses=errors("NOT_FOUND"))
     def mark_opened(paper_id: str) -> Response:
         """Reader로 열었다 (U6 서재의 마지막 열람·차례)."""
         if not service.mark_opened(paper_id):
             raise _not_found()
         return Response(status_code=204)
 
-    @router.get("/versions/{version_id}")
+    @router.get("/versions/{version_id}", tags=["판본"], summary="판본 조회", responses=errors("NOT_FOUND"))
     def get_version(version_id: str) -> VersionOut:
         version = service.get_version(version_id)
         if version is None:
             raise _not_found()
         return version
 
-    @router.get("/versions/{version_id}/pdf")
+    @router.get(
+        "/versions/{version_id}/pdf",
+        tags=["판본"],
+        summary="원본 PDF",
+        response_class=Response,
+        responses=file_response("application/pdf", "원본 PDF. Range 요청을 받는다", "NOT_FOUND"),
+    )
     def get_source_pdf(version_id: str) -> FileResponse:
         # 경로는 DB의 storage_ref로만 만든다. 요청 값은 조회 키로만 쓴다.
         path = service.source_path(version_id)
@@ -137,14 +159,14 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
             raise _not_found()
         return FileResponse(path, media_type="application/pdf")  # Range 요청 지원
 
-    @router.get("/versions/{version_id}/pages")
+    @router.get("/versions/{version_id}/pages", tags=["판본"], summary="쪽 목록", responses=errors("NOT_FOUND"))
     def list_pages(version_id: str) -> PageList:
         pages = service.pages(version_id)
         if pages is None:
             raise _not_found()
         return pages
 
-    @router.get("/versions/{version_id}/pages/{page_index}")
+    @router.get("/versions/{version_id}/pages/{page_index}", tags=["판본"], summary="쪽 본문", responses=errors("NOT_FOUND", "TEXT_NOT_READY"))
     def get_page(version_id: str, page_index: int) -> PageTextOut:
         version = service.get_version(version_id)
         if version is None or not 0 <= page_index < version.page_count:
@@ -154,7 +176,7 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
             raise ApiError(409, "TEXT_NOT_READY", "이 버전의 본문 추출이 아직 끝나지 않았습니다.", retryable=True)
         return page
 
-    @router.get("/versions/{version_id}/headings")
+    @router.get("/versions/{version_id}/headings", tags=["판본"], summary="본문 제목 목차", responses=errors("NOT_FOUND", "TEXT_NOT_READY"))
     def get_headings(version_id: str) -> HeadingList:
         """본문 제목으로 만든 목차 (U4, 사용자 결정 D6). PDF 목차(outline)가 없을 때 목차 패널이 쓴다."""
         try:
@@ -165,7 +187,7 @@ def build_router(service: DocumentService, parsing: ParseService) -> APIRouter:
             raise _not_found()
         return found
 
-    @router.post("/versions/{version_id}/parse-runs", status_code=202)
+    @router.post("/versions/{version_id}/parse-runs", status_code=202, tags=["판본"], summary="본문 다시 추출", responses=errors("NOT_FOUND", "PARSE_IN_PROGRESS"))
     def request_parse(version_id: str) -> ParseRunOut:
         """본문을 다시 추출한다(실패·일부 추출 뒤 사용자 재시도). 결과는 버전 상태로 확인한다."""
         try:

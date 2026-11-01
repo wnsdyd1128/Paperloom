@@ -36,7 +36,7 @@ class PageRange(_Strict):
 
 class TextChoice(_Strict):
     # 수신기가 texts/를 받기 전까지 기본은 싣지 않음이다 (03-api-spec §7)
-    mode: TextMode = "none"
+    mode: TextMode = Field(default="none", description="none: 싣지 않음, anchor_pages: 고른 위치가 있는 쪽, all: 모든 쪽, ranges: ranges의 쪽")
     ranges: Annotated[list[PageRange], Field(max_length=MAX_RANGES)] = []
 
     @model_validator(mode="after")
@@ -77,6 +77,18 @@ class ProposalIn(_Strict):
 
 class BundleRequest(_Strict):
     """내보낼 논문·답변·제안. `/preview`와 만들기가 같은 본문을 받는다."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "papers": [{"version_id": "판본 ID", "anchor_ids": ["위치 ID"], "text": {"mode": "ranges", "ranges": [{"from": 0, "to": 2}]}}],
+                    "proposals": [{"version_id": "판본 ID", "title": "노트 제목", "content_markdown": "# 노트 본문", "anchor_ids": ["위치 ID"]}],
+                }
+            ]
+        },
+    )
 
     papers: Annotated[list[PaperChoice], Field(min_length=1, max_length=MAX_PAPERS)]
     answer_ids: Annotated[list[Id], Field(max_length=MAX_ANSWERS)] = []

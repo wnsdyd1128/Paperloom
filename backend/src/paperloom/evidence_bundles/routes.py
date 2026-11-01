@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request, Response
 
+from paperloom.api.docs import IDEMPOTENCY_KEY, IDEMPOTENT, errors
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.evidence_bundles.models import DEFAULT_LIST, MAX_LIST, BundleDetail, BundleList, BundleOut, BundlePreview, BundleRequest
@@ -25,17 +26,26 @@ _REFUSALS = {
 
 
 def build_router(service: EvidenceBundleService, keys: IdempotencyStore) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
+    router = APIRouter(prefix="/api/v1", tags=["Wiki로 내보내기"])
 
-    @router.post("/evidence-bundles/preview")
+    @router.post("/evidence-bundles/preview", summary="내보내기 미리보기", responses=errors("NOT_FOUND", "INVALID_BUNDLE", "OUTBOX_UNAVAILABLE"))
     def preview_bundle(body: BundleRequest, request: Request) -> BundlePreview:
         try:
             return service.preview(body, str(request.base_url))
         except BundleRefused as refused:
             raise _api_error(refused) from None
 
-    @router.post("/evidence-bundles", status_code=201, response_model=BundleOut)
-    def create_bundle(body: BundleRequest, request: Request, idempotency_key: Annotated[str, Header()]) -> Response:
+    @router.post(
+        "/evidence-bundles",
+        status_code=201,
+        response_model=BundleOut,
+        summary="bundle 만들기",
+        responses={
+            200: {"model": BundleOut, "description": "같은 키·같은 본문의 재전송"},
+            **errors("NOT_FOUND", "TEXT_NOT_READY", "BUNDLE_TOO_LARGE", "INVALID_BUNDLE", "BUNDLE_WRITE_FAILED", "OUTBOX_UNAVAILABLE", *IDEMPOTENT),
+        },
+    )
+    def create_bundle(body: BundleRequest, request: Request, idempotency_key: Annotated[str, Header(description=IDEMPOTENCY_KEY)]) -> Response:
         """새로 쓰면 201, 같은 키·같은 본문을 다시 보내면 처음 응답을 200으로 준다."""
 
         def create() -> BundleOut:
@@ -46,11 +56,11 @@ def build_router(service: EvidenceBundleService, keys: IdempotencyStore) -> APIR
 
         return keys.respond("POST /api/v1/evidence-bundles", idempotency_key, body, create, replay_status=200)
 
-    @router.get("/evidence-bundles")
+    @router.get("/evidence-bundles", summary="내보낸 기록")
     def list_bundles(limit: Annotated[int, Query(ge=1, le=MAX_LIST)] = DEFAULT_LIST) -> BundleList:
         return BundleList(bundles=service.list(limit))
 
-    @router.get("/evidence-bundles/{bundle_id}")
+    @router.get("/evidence-bundles/{bundle_id}", summary="내보낸 기록 상세", responses=errors("NOT_FOUND"))
     def get_bundle(bundle_id: str) -> BundleDetail:
         bundle = service.get(bundle_id)
         if bundle is None:
