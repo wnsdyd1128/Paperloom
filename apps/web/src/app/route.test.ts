@@ -18,6 +18,12 @@ describe("Reader 주소 (IMPL §4.3)", () => {
     expect(formatRoute(route)).toBe(url);
   });
 
+  it("내보낸 bundle 기록", () => {
+    expect(parseRoute("/bundles", "")).toEqual({ kind: "bundles" });
+    expect(parseRoute("/bundles/", "")).toEqual({ kind: "bundles" });
+    expect(formatRoute({ kind: "bundles" })).toBe("/bundles");
+  });
+
   it("버전·위치가 없는 주소", () => {
     const route: Route = readerRoute("p", null);
     expect(parseRoute("/reader/p/", "")).toEqual(route);

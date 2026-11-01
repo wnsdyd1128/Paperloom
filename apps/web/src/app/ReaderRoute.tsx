@@ -88,6 +88,7 @@ export function ReaderRoute({ route, navigate }: { route: ReaderRouteValue; navi
         }
         onPaperChange={(next) => setLoaded({ kind: "ready", paper: next, version })}
         onClose={toLibrary}
+        onShowBundles={() => navigate({ kind: "bundles" })}
       />
     </Suspense>
   );

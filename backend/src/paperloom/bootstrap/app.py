@@ -123,6 +123,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
 
         app.get("/", include_in_schema=False)(index_page)
         app.get("/answers", include_in_schema=False)(index_page)
+        app.get("/bundles", include_in_schema=False)(index_page)
 
         @app.get("/reader/{path:path}", include_in_schema=False)
         def reader_page(path: str) -> FileResponse:

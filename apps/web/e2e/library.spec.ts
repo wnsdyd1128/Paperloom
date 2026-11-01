@@ -212,13 +212,13 @@ test("논문을 열면 마지막 열람이 오늘이 되고 맨 위로 온다. �
   await expect(first).toHaveAttribute("data-paper-id", uploaded["text-references.pdf"].paperId);
   await expect(page.locator(".shelf-table tbody tr").nth(1)).toHaveAttribute("data-paper-id", uploaded["text-mixed.pdf"].paperId);
   const today = await page.evaluate(() => new Date().toLocaleDateString("ko-KR"));
-  await expect(first.locator("td").nth(5)).toHaveText(today);
+  await expect(first.locator("td").nth(6)).toHaveText(today);
 
   for (const name of FILES) {
     const paper = await (await page.request.get(`/api/v1/papers/${uploaded[name].paperId}`)).json();
     const cells = row(page, uploaded[name].paperId).locator("td");
-    await expect(cells.nth(2)).toHaveText(paper.annotation_count ? String(paper.annotation_count) : "—");
-    await expect(cells.nth(3)).toHaveText(paper.conversation_count ? String(paper.conversation_count) : "—");
+    await expect(cells.nth(3)).toHaveText(paper.annotation_count ? String(paper.annotation_count) : "—");
+    await expect(cells.nth(4)).toHaveText(paper.conversation_count ? String(paper.conversation_count) : "—");
   }
 });
 

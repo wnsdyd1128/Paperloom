@@ -64,6 +64,11 @@ export function anchorImageUrl(anchorId: string, scale = 2): string {
   return `/api/v1/anchors/${encodeURIComponent(anchorId)}/image?scale=${scale}`;
 }
 
+/** 버전의 모든 위치(주석이 없는 것도), 읽는 순서로 */
+export async function listVersionAnchors(versionId: string): Promise<Anchor[]> {
+  return (await parseJson<{ anchors: Anchor[] }>(await fetch(`/api/v1/versions/${encodeURIComponent(versionId)}/anchors`))).anchors;
+}
+
 export async function listAnnotations(versionId: string): Promise<Annotation[]> {
   const url = `/api/v1/versions/${encodeURIComponent(versionId)}/annotations`;
   return (await parseJson<{ annotations: Annotation[] }>(await fetch(url))).annotations;

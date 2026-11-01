@@ -11,6 +11,9 @@ import { Icon } from "../../shared/Icon";
 import type { Citation } from "../answers/api";
 import { ConversationsPage } from "../answers/ConversationsPage";
 import { bridgeState, useBridge } from "../chat/BridgeStatus";
+import { BundlesPage } from "../export/BundlesPage";
+import { ExportDialog } from "../export/ExportDialog";
+import { useOutbox } from "../export/useOutbox";
 import { search, type SnippetPart } from "../search/api";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import type { Conversation } from "../threads/api";
@@ -24,9 +27,11 @@ type Search =
   | Readonly<{ kind: "ready"; hits: ReadonlyMap<string, readonly SnippetPart[]> }>
   | Readonly<{ kind: "failed"; message: string }>;
 
+type View = "library" | "answers" | "bundles";
+
 type Props = Readonly<{
-  view: "library" | "answers";
-  onView: (view: "library" | "answers") => void;
+  view: View;
+  onView: (view: View) => void;
   onOpenPaper: (paper: Paper) => void;
   onOpenConversation: (conversation: Conversation) => void;
   onOpenCitation: (citation: Citation) => void;
@@ -35,7 +40,9 @@ type Props = Readonly<{
 export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, onOpenCitation }: Props) {
   const library = useLibrary();
   const bridge = useBridge();
+  const outbox = useOutbox();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exporting, setExporting] = useState<readonly Paper[] | null>(null);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Search>({ kind: "idle" });
   const dragging = useFileDrop((files) => void library.upload(files));
@@ -78,6 +85,9 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
           </button>
           <button type="button" aria-current={view === "answers" ? "page" : undefined} onClick={() => onView("answers")}>
             답변
+          </button>
+          <button type="button" aria-current={view === "bundles" ? "page" : undefined} onClick={() => onView("bundles")}>
+            내보낸 bundle
           </button>
           <button type="button" aria-haspopup="dialog" onClick={() => setSettingsOpen(true)}>
             설정
@@ -137,11 +147,11 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         )}
       </div>
       <main className="library-main">
-        {view === "library" ? (
-          <LibraryPage library={library} hits={found.kind === "ready" ? found.hits : null} onOpen={onOpenPaper} />
-        ) : (
-          <ConversationsPage onOpen={onOpenConversation} onOpenCitation={onOpenCitation} />
+        {view === "library" && (
+          <LibraryPage library={library} hits={found.kind === "ready" ? found.hits : null} exportProblem={outbox.problem} onOpen={onOpenPaper} onExport={setExporting} />
         )}
+        {view === "answers" && <ConversationsPage onOpen={onOpenConversation} onOpenCitation={onOpenCitation} />}
+        {view === "bundles" && <BundlesPage />}
       </main>
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
@@ -149,6 +159,16 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         </div>
       )}
       {settingsOpen && <SettingsDialog bridge={bridge} onClose={() => setSettingsOpen(false)} />}
+      {exporting && (
+        <ExportDialog
+          papers={exporting}
+          onClose={() => setExporting(null)}
+          onShowHistory={() => {
+            setExporting(null);
+            onView("bundles");
+          }}
+        />
+      )}
     </div>
   );
 }

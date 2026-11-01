@@ -145,6 +145,21 @@
   color: var(--color-neutral-700);
 }
 
+.shelf-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.shelf-table .col-choose {
+  width: 36px;
+}
+
+.shelf-choose input {
+  display: block;
+  accent-color: var(--color-accent);
+}
+
 .drop-hint {
   display: flex;
   align-items: center;

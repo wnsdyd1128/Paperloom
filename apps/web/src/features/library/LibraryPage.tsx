@@ -1,5 +1,6 @@
 /**
- * 서재 표 (U6, 시안 Library): 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람 · 삭제. 최근에 연 논문이 먼저다(서버 차례).
+ * 서재 표 (U6, 시안 Library): 고르기 · 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람 · 삭제. 최근에 연 논문이 먼저다(서버 차례).
+ * 고른 논문은 머리의 "Wiki로 내보내기"로 한 번에 내보낸다(20편까지, 각 논문의 지금 판본).
  * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
@@ -7,6 +8,7 @@
 import { useState } from "react";
 
 import { Icon } from "../../shared/Icon";
+import { MAX_PAPERS } from "../export/draft";
 import type { SnippetPart } from "../search/api";
 import type { Paper, SourceVersion } from "./api";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
@@ -48,12 +50,24 @@ type Props = Readonly<{
   library: Library;
   /** 머리의 제목 검색 결과(논문 → 찾은 낱말을 표시한 제목). 검색하지 않았으면 null */
   hits: ReadonlyMap<string, readonly SnippetPart[]> | null;
+  /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
+  exportProblem: string | null;
   onOpen: (paper: Paper) => void;
+  onExport: (papers: readonly Paper[]) => void;
 }>;
 
-export function LibraryPage({ library, hits, onOpen }: Props) {
+export function LibraryPage({ library, hits, exportProblem, onOpen, onExport }: Props) {
   const [filter, setFilter] = useState<TagFilter>(NO_TAG_FILTER);
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const { list, papers } = library;
+  const chosenPapers = papers.filter((paper) => chosen.has(paper.paper_id)); // 지운 논문은 저절로 빠진다
+  const toggleChosen = (paper: Paper) => {
+    const next = new Set(chosen);
+    if (!next.delete(paper.paper_id)) next.add(paper.paper_id);
+    setChosen(next);
+  };
+  const exportBlocked =
+    exportProblem ?? (chosenPapers.length === 0 ? "내보낼 논문을 고르세요." : chosenPapers.length > MAX_PAPERS ? `한 번에 ${MAX_PAPERS}편까지 내보낼 수 있습니다. 지금 ${chosenPapers.length}편을 골랐습니다.` : null);
   const counts = tagCounts(papers);
   const searched = hits ? papers.filter((paper) => hits.has(paper.paper_id)) : papers;
   const shown = searched.filter((paper) => matchesTags(paper, filter));
@@ -84,11 +98,22 @@ export function LibraryPage({ library, hits, onOpen }: Props) {
             {filtering || hits ? `${shown.length} / ${papers.length}편` : `${papers.length}편`}
           </span>
         </div>
-        {/* 끌어 놓기는 화면 어디에나 된다(LibraryShell). 한도는 서버 UploadLimits (IMPL §5.1) */}
-        <div className="drop-hint" aria-hidden="true">
-          PDF를 끌어다 놓기 <span className="muted">100 MiB · 300쪽</span>
+        <div className="shelf-tools">
+          <button type="button" className="btn btn-secondary" disabled={exportBlocked !== null} title={exportBlocked ?? undefined} onClick={() => onExport(chosenPapers)}>
+            <Icon name="send" size={15} />
+            Wiki로 내보내기{chosenPapers.length > 0 && ` (${chosenPapers.length}편)`}
+          </button>
+          {/* 끌어 놓기는 화면 어디에나 된다(LibraryShell). 한도는 서버 UploadLimits (IMPL §5.1) */}
+          <div className="drop-hint" aria-hidden="true">
+            PDF를 끌어다 놓기 <span className="muted">100 MiB · 300쪽</span>
+          </div>
         </div>
       </div>
+      {chosenPapers.length > MAX_PAPERS && (
+        <p className="status error" role="status">
+          {exportBlocked}
+        </p>
+      )}
       {filtering && (
         <div className="filter-chips" role="group" aria-label="태그 거르기">
           <span className="muted">필터 · {filter.untagged ? "태그 없음" : filter.mode === "all" ? "모두 포함" : "하나라도"}</span>
@@ -115,6 +140,9 @@ export function LibraryPage({ library, hits, onOpen }: Props) {
         <table className="table shelf-table">
           <thead>
             <tr>
+              <th scope="col" className="col-choose">
+                <span className="sr-only">내보낼 논문 고르기</span>
+              </th>
               <th scope="col">제목</th>
               <th scope="col" className="col-status">
                 본문 추출
@@ -151,6 +179,8 @@ export function LibraryPage({ library, hits, onOpen }: Props) {
                 title={hits?.get(paper.paper_id) ?? null}
                 filter={filter}
                 known={counts.map((item) => item.name)}
+                chosen={chosen.has(paper.paper_id)}
+                onChoose={toggleChosen}
                 onOpen={onOpen}
                 onRetry={(item) => void library.retry(item)}
                 onToggleTag={toggleTag}
@@ -180,6 +210,9 @@ type RowProps = Readonly<{
   title: readonly SnippetPart[] | null;
   filter: TagFilter;
   known: readonly string[];
+  /** 내보내려고 골랐는지 */
+  chosen: boolean;
+  onChoose: (paper: Paper) => void;
   onOpen: (paper: Paper) => void;
   onRetry: (paper: Paper) => void;
   onToggleTag: (name: string) => void;
@@ -194,11 +227,14 @@ function deleteQuestion(paper: Paper): string {
   return `"${paper.title}" 논문을 지울까요?\n\n${records}이 모두 지워지며 되돌릴 수 없습니다.`;
 }
 
-function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
+function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
   const version = paper.current_version;
-  const chosen = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
+  const filtered = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
   return (
     <tr data-paper-id={paper.paper_id}>
+      <td className="shelf-choose">
+        <input type="checkbox" aria-label={`${paper.title} 내보내기로 고르기`} checked={chosen} onChange={() => onChoose(paper)} />
+      </td>
       <td className="shelf-title-cell">
         <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
           {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
@@ -220,7 +256,7 @@ function PaperRow({ paper, title, filter, known, onOpen, onRetry, onToggleTag, o
       <td>
         <div className="tag-cell">
           {paper.tags.map((tag) => (
-            <button key={tag} type="button" className={chosen(tag) ? "tag-chip is-on" : "tag-chip"} aria-pressed={chosen(tag)} title={`${tag}로 거르기`} onClick={() => onToggleTag(tag)}>
+            <button key={tag} type="button" className={filtered(tag) ? "tag-chip is-on" : "tag-chip"} aria-pressed={filtered(tag)} title={`${tag}로 거르기`} onClick={() => onToggleTag(tag)}>
               {tag}
             </button>
           ))}

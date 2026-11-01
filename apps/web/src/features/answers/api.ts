@@ -48,6 +48,8 @@ export type Answer = Readonly<{
   discarded_at: string | null;
   question: string;
   paper_titles: readonly string[];
+  /** packet이 출처로 둔 판본 */
+  source_versions: readonly string[];
   context: readonly AnswerContext[];
   /** packet의 대화 범위와 그 쪽 (U3 전 packet은 null) */
   scope: Scope | null;

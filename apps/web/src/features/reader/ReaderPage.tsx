@@ -14,6 +14,8 @@ import { NotesPanel } from "../annotations/NotesPanel";
 import { useAnnotations } from "../annotations/useAnnotations";
 import { useBridge } from "../chat/BridgeStatus";
 import { usePreferences } from "../settings/PreferencesProvider";
+import { ExportDialog } from "../export/ExportDialog";
+import { useOutbox } from "../export/useOutbox";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import { openTranslationChannel, pageInfos, scrollDelta, type TranslationChannel, viewPosition } from "../translation/channel";
 import { ReflowPanel, TRANSLATION_GAP, TranslationBar, TranslationLayer, useTranslationView } from "../translation/ReaderTranslation";
@@ -119,9 +121,11 @@ type Props = Readonly<{
   /** 논문 정보 창에서 고친 논문 (머리의 제목 등이 바뀐다) */
   onPaperChange: (paper: Paper) => void;
   onClose: () => void;
+  /** 내보낸 bundle 기록 화면으로 */
+  onShowBundles: () => void;
 }>;
 
-export function ReaderPage({ paper, version, anchorId, openSession, textFocus, anchorHref, pageHref, onNavigate, onFocusText, onPaperChange, onClose }: Props) {
+export function ReaderPage({ paper, version, anchorId, openSession, textFocus, anchorHref, pageHref, onNavigate, onFocusText, onPaperChange, onClose, onShowBundles }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<PDFViewer | null>(null);
   // PDF.js 이벤트 핸들러가 최신 선택·주석 표시를 읽도록 state와 함께 ref에도 둔다.
@@ -141,6 +145,8 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   const [{ panel, open: panelOpen }, setPanelState] = useState(storedPanel);
   const [chatRequest, setChatRequest] = useState<ChatRequest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const outbox = useOutbox();
   // 고른 것 곁의 메뉴. 끌어서 고르는 중에는 띄우지 않고 손을 뗀 뒤 띄운다.
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -1040,6 +1046,8 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           openPanel("chat");
         }}
         onCopyLink={() => void copyLink()}
+        exportProblem={outbox.problem}
+        onExport={() => setExportOpen(true)}
         tocOpen={toc.open}
         findOpen={find.open}
         info={<PaperInfoMenu paper={paper} version={version} texts={pageTexts} onSaved={onPaperChange} />}
@@ -1281,6 +1289,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         </nav>
       </div>
       {settingsOpen && <SettingsDialog bridge={bridge} onClose={() => setSettingsOpen(false)} />}
+      {exportOpen && <ExportDialog papers={[{ ...paper, current_version: version }]} onClose={() => setExportOpen(false)} onShowHistory={onShowBundles} />}
     </div>
   );
 }

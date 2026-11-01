@@ -4,6 +4,7 @@
  *
  *   /                                             Library (서재)
  *   /answers                                      답변 화면: 모든 논문의 대화 (U6, 사용자 결정 D8)
+ *   /bundles                                      내보낸 bundle 기록 (W09)
  *   /reader/{paper_id}/translation?version=&page= 별도 탭의 쪽 번역 (U7). 원문 탭과 쪽 이동을 맞춘다
  *   /reader/{paper_id}?version={version_id}&anchor={anchor_id}
  *   /reader/{paper_id}?version={version_id}&page={쪽 번호}&block={block_id}   검색 결과에서 연 문단 (W05)
@@ -15,6 +16,7 @@
 export type Route =
   | Readonly<{ kind: "library" }>
   | Readonly<{ kind: "answers" }>
+  | Readonly<{ kind: "bundles" }>
   | Readonly<{
       kind: "reader";
       paperId: string;
@@ -28,6 +30,7 @@ export type Route =
 
 export function parseRoute(pathname: string, search: string): Route {
   if (/^\/answers\/?$/.test(pathname)) return { kind: "answers" };
+  if (/^\/bundles\/?$/.test(pathname)) return { kind: "bundles" };
   const params = new URLSearchParams(search);
   const page = Number(params.get("page"));
   const translation = /^\/reader\/([^/]+)\/translation\/?$/.exec(pathname);
@@ -50,6 +53,7 @@ export function parseRoute(pathname: string, search: string): Route {
 export function formatRoute(route: Route): string {
   if (route.kind === "library") return "/";
   if (route.kind === "answers") return "/answers";
+  if (route.kind === "bundles") return "/bundles";
   const params = new URLSearchParams();
   if (route.kind === "translation") {
     if (route.versionId) params.set("version", route.versionId);
