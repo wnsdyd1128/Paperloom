@@ -1,8 +1,14 @@
-"""API 문서 (/openapi.json): 태그, 오류 응답."""
+"""API 문서 (/docs, /openapi.json): 태그, 오류 응답, Swagger 화면.
+
+FastAPI 기본 화면은 CDN에서 파일을 받아, 문서를 열 때마다 외부로 요청이 나가고 오프라인에서는 빈 화면이 된다.
+그래서 웹 빌드에 넣은 파일을 쓰고(apps/web/vite.config.ts), 같은 이유로 /redoc은 끈다.
+"""
 
 from typing import Any, Literal
 
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 DESCRIPTION = """\
@@ -149,3 +155,17 @@ def _match_real_responses(schema: dict[str, Any]) -> dict[str, Any]:
     schema["components"]["schemas"].pop("HTTPValidationError", None)
     schema["components"]["schemas"].pop("ValidationError", None)
     return schema
+
+
+def install_swagger_ui(app: FastAPI) -> None:
+    """/docs. 화면 파일이 웹 빌드에 있으므로 웹 빌드가 있을 때만, 정적 파일 mount보다 먼저 부른다."""
+
+    @app.get("/docs", include_in_schema=False)
+    def swagger_ui() -> HTMLResponse:
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title="Paperloom API",
+            swagger_js_url="/swagger/swagger-ui-bundle.js",
+            swagger_css_url="/swagger/swagger-ui.css",
+            swagger_favicon_url="/favicon.svg",
+        )

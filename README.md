@@ -319,6 +319,7 @@ cd apps\web; npm ci
 | 백엔드 시험 | `backend\.venv\Scripts\python.exe -m pytest -q` | |
 | 웹 시험 | `apps\web`에서 `npm run typecheck`, `npx vitest run` | |
 | 브라우저 시험 | `apps\web`에서 `npx playwright test` | 8791·8794 포트에 서버와 가짜 Claude CLI를 띄움(구독 사용량 없음) |
+| API 문서 | 서버를 켜고 <http://127.0.0.1:8000/docs> | Swagger 화면, 명세는 `/openapi.json`. 화면 파일이 웹 빌드에 있어 `npm run build` 뒤 서버에서 열림. **Try it out은 실제 서재를 바꿈** |
 | Windows 압축본 만들기 | `apps\web`에서 `npm run build` 뒤 `backend\.venv\Scripts\python.exe ops\bundle\build.py` | `dist\Paperloom-windows-x64.zip`. Visual Studio(MSVC 런타임을 넣는다)가 있어야 함. 시험은 `dist\Paperloom\python\python.exe ops\bundle\smoke.py` |
 
 ```text
@@ -333,6 +334,8 @@ ops/                            Docker Compose, Windows 압축본(ops/bundle), �
 
 유료 모델 API·SDK는 의존성에 넣지 않습니다. `tests/contract/test_dependency_policy.py`가 잠금 파일과 소스를 검사합니다.
 
+`swagger-ui-dist`에 딸려 오는 `@scarf/scarf`는 `npm` 설치 때 통계를 보내는 패키지입니다. `apps/web/package.json`의 `scarfSettings`로 꺼 두었습니다.
+
 푸시와 PR마다 [GitHub Actions](https://github.com/wnsdyd1128/Paperloom/actions)가 백엔드·웹 시험, Docker 이미지 빌드, Windows 압축본 빌드와 시험, Windows에서 Edge로 브라우저 시험을 돌립니다. `v*` 태그를 올리면 같은 검사를 거쳐 이미지를 `ghcr.io/wnsdyd1128/paperloom`에 올리고 Windows 압축본을 붙인 GitHub Release를 만듭니다.
 
 ## 기여
@@ -343,6 +346,7 @@ ops/                            Docker Compose, Windows 압축본(ops/bundle), �
 
 - [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`)
 - [PDF.js](https://mozilla.github.io/pdf.js/): Apache License 2.0
+- [Swagger UI](https://github.com/swagger-api/swagger-ui): Apache License 2.0 (웹 빌드의 `swagger/LICENSE`, `swagger/NOTICE`)
 - [PP-DocLayout_plus-L](https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지·압축본을 만들 때 받습니다
 - [PP-OCRv6_small_rec](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지·압축본을 만들 때 받습니다
 - Windows 압축본에 함께 넣는 Python(Python Software Foundation License)·Microsoft Visual C++ 런타임과 그 밖의 라이선스는 압축본의 `THIRD-PARTY.txt`에 적었습니다

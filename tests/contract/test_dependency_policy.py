@@ -51,3 +51,10 @@ def test_sources_do_not_reference_paid_model_api_keys_or_hosts():
     assert sources
     offenders = [str(path) for path in sources if PAID_API_MARKERS.search(path.read_text(encoding="utf-8"))]
     assert offenders == []
+
+
+def test_npm_install_statistics_stay_off():
+    """swagger-ui-dist가 데려오는 @scarf/scarf는 끄지 않으면 npm 설치 때 scarf.sh로 통계를 보낸다."""
+    web = REPO_ROOT / "apps" / "web"
+    assert "@scarf/scarf" in npm_lock_packages(web / "package-lock.json")  # 없어지면 이 시험과 설정을 함께 지운다
+    assert json.loads((web / "package.json").read_text(encoding="utf-8"))["scarfSettings"]["enabled"] is False

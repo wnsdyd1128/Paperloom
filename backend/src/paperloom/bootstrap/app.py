@@ -15,7 +15,7 @@ from paperloom.annotations.routes import build_router as build_annotations_route
 from paperloom.answers.routes import build_router as build_answers_router
 from paperloom.answers.service import AnswerService
 from paperloom.annotations.service import AnnotationService
-from paperloom.api.docs import DESCRIPTION, TAGS, Health, install_openapi
+from paperloom.api.docs import DESCRIPTION, TAGS, Health, install_openapi, install_swagger_ui
 from paperloom.api.errors import install_error_handler
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.bootstrap.config import Settings
@@ -75,7 +75,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
         finally:
             parsing.stop()
 
-    app = FastAPI(title="Paperloom", version=__version__, description=DESCRIPTION, openapi_tags=TAGS, lifespan=lifespan)
+    app = FastAPI(title="Paperloom", version=__version__, description=DESCRIPTION, openapi_tags=TAGS, docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.parsing = parsing
     install_error_handler(app)
     install_openapi(app)
@@ -136,6 +136,8 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
         @app.get("/reader/{path:path}", include_in_schema=False)
         def reader_page(path: str) -> FileResponse:
             return index_page()
+
+        install_swagger_ui(app)
 
         # StaticFiles는 mimetypes로 형식을 정하는데, Windows에서는 레지스트리 값이 기본값을 덮어쓴다. 스크립트가 JS가 아니면
         # 브라우저가 module(웹앱, PDF.js worker .mjs)을 거부해 PDF가 열리지 않는다(2026-10-05 GitHub Actions Windows E2E).

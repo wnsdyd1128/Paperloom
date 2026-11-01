@@ -1,4 +1,4 @@
-"""API 문서 (/openapi.json): 모든 API가 설명되고, 문서가 실제 응답과 맞는다."""
+"""API 문서 (/docs, /openapi.json): 모든 API가 설명되고, 문서가 실제 응답과 맞고, 화면이 외부로 나가지 않는다."""
 
 import json
 import re
@@ -15,8 +15,8 @@ from paperloom.bootstrap.config import AppSettings, Settings
 SOURCE = Path(paperloom.__file__).parent
 
 
-def _client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"))))
+def _client(tmp_path: Path, web_dist_dir: Path | None = None) -> TestClient:
+    return TestClient(create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data", web_dist_dir=web_dist_dir))))
 
 
 @pytest.fixture
@@ -128,3 +128,33 @@ def test_the_health_model_matches_the_real_response(tmp_path):
     body = _client(tmp_path).get("/api/v1/health").json()
     docs.Health.model_validate(body)
     assert set(body) == set(docs.Health.model_fields)
+
+
+@pytest.fixture
+def web_dist(tmp_path: Path) -> Path:
+    directory = tmp_path / "dist"
+    directory.mkdir()
+    (directory / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    return directory
+
+
+def test_docs_page_loads_only_local_files(tmp_path, web_dist):
+    client = _client(tmp_path, web_dist)
+    response = client.get("/docs")
+    assert response.status_code == 200
+    assert 'src="/swagger/swagger-ui-bundle.js"' in response.text
+    assert 'href="/swagger/swagger-ui.css"' in response.text
+    assert 'href="/favicon.svg"' in response.text
+    assert "http://" not in response.text and "https://" not in response.text
+
+
+def test_the_page_that_would_call_a_cdn_is_closed(tmp_path, web_dist):
+    client = _client(tmp_path, web_dist)
+    assert client.get("/redoc").status_code == 404
+
+
+def test_without_a_web_build_there_is_no_docs_page_but_the_schema_stays(tmp_path):
+    client = _client(tmp_path)
+    assert client.get("/docs").status_code == 404
+    assert client.get("/redoc").status_code == 404
+    assert client.get("/openapi.json").status_code == 200
