@@ -49,6 +49,12 @@ def get_anchor(connection: sqlite3.Connection, anchor_id: str) -> AnchorOut | No
     return anchor_from_row(row) if row else None
 
 
+def list_for_version(connection: sqlite3.Connection, version_id: str) -> list[AnchorOut]:
+    rows = connection.execute(f"SELECT {_COLUMN_LIST} FROM anchors WHERE version_id = ?", (version_id,)).fetchall()
+    # 읽는 순서: 쪽, 첫 줄의 위(v), 왼쪽(u)
+    return sorted(map(anchor_from_row, rows), key=lambda anchor: (anchor.page_index, anchor.quads[0][1], anchor.quads[0][0]))
+
+
 def anchor_from_row(row: sqlite3.Row) -> AnchorOut:
     """anchors 열을 담은 행(다른 표와 JOIN한 행 포함)을 응답 모델로 바꾼다."""
     return AnchorOut(

@@ -96,7 +96,7 @@ class ContextService:
                 anchor_pages = [c.anchor.page_index for c in choices if c.anchor.version_id == version_id]
                 whole = version_id == scoped and scope in ("paper", "until_page", "around_page")  # 참고문헌 쪽도 읽는다
                 pages = None if whole else anchor_pages + ([request.page_index] if version_id == scoped else [])
-                texts[version_id] = _version_text(connection, version_id, pages)
+                texts[version_id] = version_text(connection, version_id, pages)
         evidence, limits = build(choices, texts, source_refs) if choices else ([], None)
         if scoped:
             budget = PAGE_TEXT_CHARS if scope == "page" else (request.paper_text_chars or self._paper_text_chars())
@@ -205,7 +205,7 @@ def content_sha256(content: PacketContent) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-def _version_text(connection, version_id: str, anchor_pages: list[int] | None) -> VersionText:
+def version_text(connection, version_id: str, anchor_pages: list[int] | None) -> VersionText:
     """고른 쪽과 앞뒤 PAGE_REACH쪽의 문단. anchor_pages가 None이면 모든 쪽. 절(본문 제목 경로)은 모든 쪽에서 찾는다."""
     rows = text_repository.list_pages(connection, version_id)
     pages = {row["page_index"]: (row["text_status"], tuple(json.loads(row["flags_json"]))) for row in rows}

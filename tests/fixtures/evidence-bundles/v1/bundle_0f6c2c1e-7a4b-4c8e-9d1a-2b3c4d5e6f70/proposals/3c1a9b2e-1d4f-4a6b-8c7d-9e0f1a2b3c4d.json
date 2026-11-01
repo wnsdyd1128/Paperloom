@@ -1,0 +1,17 @@
+{
+  "schema_version": "wiki-proposal.v1",
+  "proposal_id": "3c1a9b2e-1d4f-4a6b-8c7d-9e0f1a2b3c4d",
+  "bundle_id": "0f6c2c1e-7a4b-4c8e-9d1a-2b3c4d5e6f70",
+  "operation": "propose_note",
+  "target_note_id": null,
+  "base_content_sha256": null,
+  "title": "SCP의 WCRT 개선 조건",
+  "content_file": "artifacts/proposal-3c1a9b2e-1d4f-4a6b-8c7d-9e0f1a2b3c4d.md",
+  "source_refs": [
+    "src_1"
+  ],
+  "anchor_refs": [
+    "anc_1"
+  ],
+  "requires_user_approval": true
+}

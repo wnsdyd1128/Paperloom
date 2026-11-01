@@ -1,0 +1,16 @@
+[
+  {
+    "source_ref": "src_1",
+    "paper_id": "11111111-1111-4111-8111-111111111111",
+    "version_id": "22222222-2222-4222-8222-222222222222",
+    "sha256": "abababababababababababababababababababababababababababababababab",
+    "page_count": 13,
+    "title": "Synthetic cache paper",
+    "authors": [
+      "A. Author"
+    ],
+    "year": 2025,
+    "doi": null,
+    "reader_url": "http://127.0.0.1:8000/reader/11111111-1111-4111-8111-111111111111?version=22222222-2222-4222-8222-222222222222"
+  }
+]

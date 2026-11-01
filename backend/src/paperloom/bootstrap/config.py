@@ -46,6 +46,12 @@ class OcrSettings(_Strict):
     device: Literal["auto", "cpu", "cuda"] = "auto"
 
 
+class WikiSettings(_Strict):
+    """LLM Wiki로 넘기는 Evidence Bundle을 쓰는 outbox 폴더. 없거나 폴더가 없으면 내보내기만 막는다."""
+
+    outbox_path: Path | None = None
+
+
 class CostPolicy(_Strict):
     mode: Literal["plan_only"] = "plan_only"
     paid_model_calls_allowed: Literal[False] = False
@@ -57,6 +63,7 @@ class Settings(_Strict):
     app: AppSettings
     layout: LayoutSettings = LayoutSettings()
     ocr: OcrSettings = OcrSettings()
+    wiki: WikiSettings = WikiSettings()
     cost_policy: CostPolicy = CostPolicy()
 
 
@@ -75,7 +82,9 @@ def load_settings(path: Path) -> Settings:
     layout = settings.layout.model_copy(update={"model_path": _resolve(base, model_path) if model_path else None})
     ocr_path = settings.ocr.model_path
     ocr = settings.ocr.model_copy(update={"model_path": _resolve(base, ocr_path) if ocr_path else None})
-    return settings.model_copy(update={"app": app, "layout": layout, "ocr": ocr})
+    outbox_path = settings.wiki.outbox_path
+    wiki = settings.wiki.model_copy(update={"outbox_path": _resolve(base, outbox_path) if outbox_path else None})
+    return settings.model_copy(update={"app": app, "layout": layout, "ocr": ocr, "wiki": wiki})
 
 
 def _resolve(base: Path, path: Path) -> Path:

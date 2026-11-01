@@ -9,7 +9,7 @@ from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.reading.figures import FiguresFailed
 from paperloom.reading.geometry import quad_shape_problem
-from paperloom.reading.models import AnchorIn, AnchorKindPatch, AnchorOut, FigureList, FigureOut
+from paperloom.reading.models import AnchorIn, AnchorKindPatch, AnchorList, AnchorOut, FigureList, FigureOut
 from paperloom.reading.region_image import RenderFailed
 from paperloom.reading.service import AnchorService, InvalidAnchor, VersionNotFound
 
@@ -35,6 +35,14 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
         if anchor is None:
             raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
         return anchor
+
+    @router.get("/versions/{version_id}/anchors")
+    def list_anchors(version_id: str) -> AnchorList:
+        """버전의 모든 위치, 읽는 순서로 (Wiki로 내보내기에서 고른다). 주석은 /versions/{id}/annotations에 있다."""
+        anchors = service.list_for_version(version_id)
+        if anchors is None:
+            raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
+        return AnchorList(anchors=anchors)
 
     @router.patch("/anchors/{anchor_id}")
     def change_kind(anchor_id: str, patch: AnchorKindPatch) -> AnchorOut:

@@ -88,6 +88,7 @@ class AnswerOut(BaseModel):
     discarded_at: str | None
     question: str  # packet의 질문
     paper_titles: list[str]
+    source_versions: list[str]  # packet이 출처로 둔 판본
     context: list[AnswerContext]  # packet에서 고른 위치들
     # packet의 대화 범위와 그 쪽 (U3 전 packet은 None). 대화 패널이 본문을 다시 보낼지 정한다
     scope: Scope | None = None

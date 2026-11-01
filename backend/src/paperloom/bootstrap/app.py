@@ -24,6 +24,9 @@ from paperloom.documents import layout_model, ocr_model
 from paperloom.documents.parsing import ParseService
 from paperloom.documents.routes import build_router as build_documents_router
 from paperloom.documents.service import DocumentService, UploadLimits
+from paperloom.evidence_bundles.outbox import Outbox
+from paperloom.evidence_bundles.routes import build_router as build_evidence_bundles_router
+from paperloom.evidence_bundles.service import EvidenceBundleService
 from paperloom.infrastructure.database.sqlite import migrate
 from paperloom.infrastructure.files.source_store import SourceStore
 from paperloom.reading.routes import build_router as build_reading_router
@@ -48,6 +51,9 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     store = SourceStore(data_dir)
     if removed := store.discard_incomplete_uploads():
         log.warning("이전 실행에서 남은 임시 업로드 %d개를 지웠습니다.", removed)
+    outbox = Outbox(settings.wiki.outbox_path)
+    if removed := outbox.discard_incomplete():
+        log.warning("이전 실행이 쓰다 끊긴 bundle 임시 폴더 %d개를 지웠습니다.", removed)
 
     model = layout_model.model_file(settings)
     layout = layout_model.LayoutModel(model, settings.layout.device) if model.is_file() else None
@@ -85,6 +91,8 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
             # 문서 레이아웃·글줄 인식 모델. device는 연 뒤의 실제 장치(cuda·cpu), 아직 열지 않았으면 None
             "layout_model": {"name": layout.name, "device": layout.device_in_use} if layout else None,
             "ocr_model": {"name": ocr.name, "device": ocr.device_in_use} if ocr else None,
+            # Wiki로 내보낼 폴더. 준비되지 않아도 서버 상태와는 상관없다(내보내기만 막는다)
+            "wiki_outbox": {"status": outbox.status(), "path": outbox.shown_path()},
         }
         return JSONResponse(body, status_code=200 if writable else 503)
 
@@ -100,6 +108,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     app.include_router(build_context_router(contexts, keys))
     answers = AnswerService(db_path)
     app.include_router(build_answers_router(answers))
+    app.include_router(build_evidence_bundles_router(EvidenceBundleService(db_path, anchors, answers, outbox), keys))
     app.include_router(build_threads_router(ThreadService(db_path)))
     app.include_router(build_translation_router(TranslationService(db_path)))
 

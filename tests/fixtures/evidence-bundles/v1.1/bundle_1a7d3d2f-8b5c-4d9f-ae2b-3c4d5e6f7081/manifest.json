@@ -1,0 +1,49 @@
+{
+  "schema_version": "paperloom-bundle.v1.1",
+  "bundle_id": "1a7d3d2f-8b5c-4d9f-ae2b-3c4d5e6f7081",
+  "created_at": "2026-10-30T00:00:00Z",
+  "producer": {
+    "name": "paperloom",
+    "version": "fixture"
+  },
+  "features": [
+    "texts"
+  ],
+  "files": [
+    {
+      "path": "sources.json",
+      "sha256": "aa808d8e0456edfe2a1670be7698030de4b51c6af2ae252a89de57f97be55eeb",
+      "size_bytes": 502
+    },
+    {
+      "path": "anchors.json",
+      "sha256": "2ed03b3ab22112eaffb2c206a5c803d7302cb48056d37b2635bd38ebfb1acdf5",
+      "size_bytes": 1398
+    },
+    {
+      "path": "proposals/3c1a9b2e-1d4f-4a6b-8c7d-9e0f1a2b3c4d.json",
+      "sha256": "8b01742b609a93776e07666c8640391f1b86b4ba9a1422d73f50a4153e9aabf7",
+      "size_bytes": 468
+    },
+    {
+      "path": "artifacts/proposal-3c1a9b2e-1d4f-4a6b-8c7d-9e0f1a2b3c4d.md",
+      "sha256": "179fc96bac88668844a10eaa8caa4862c5679ffa9b57539a5be337a558102073",
+      "size_bytes": 63
+    },
+    {
+      "path": "artifacts/answer-44444444-4444-4444-8444-444444444444.md",
+      "sha256": "cdf8ab4db473f4575992b48be4c1c3ae29cad72ba70f8ac570783e77f8b3525d",
+      "size_bytes": 313
+    },
+    {
+      "path": "assets/33333333-3333-4333-8333-333333333332.png",
+      "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+      "size_bytes": 69
+    },
+    {
+      "path": "texts/22222222-2222-4222-8222-222222222222.json",
+      "sha256": "6d9d75b237a721e8e7aeeb03ab26439fe56d97500c75ec3aa0a452d5c344a817",
+      "size_bytes": 1054
+    }
+  ]
+}

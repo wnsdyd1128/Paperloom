@@ -30,6 +30,7 @@ def test_health_reports_local_state_and_creates_data_dir(tmp_path):
         "claude_code_url": "http://127.0.0.1:8001",  # Reader 대화 탭의 브리지 주소 (ADR 0003)
         "layout_model": None,  # 데이터 폴더에 모델 파일이 없으면 규칙만 쓴다(documents.layout_model)
         "ocr_model": None,  # 글줄 인식 모델도 없으면 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둔다(documents.ocr_model)
+        "wiki_outbox": {"status": "not_configured", "path": None},  # 설정이 없으면 Wiki로 내보내기만 막는다
     }
     assert (tmp_path / "data").is_dir()
 

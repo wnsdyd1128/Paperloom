@@ -78,3 +78,7 @@ class AnchorOut(BaseModel):
     prefix: str
     suffix: str
     created_at: str
+
+
+class AnchorList(BaseModel):
+    anchors: list[AnchorOut]

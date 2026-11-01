@@ -320,9 +320,28 @@ _SCHEMA_V17 = """
 CREATE INDEX answers_by_session ON answers (chat_session, created_at);
 """
 
+# Wiki로 내보낸 Evidence Bundle 기록 (W09). 파일은 outbox에 있고 여기에는 목록과 크기·해시만 둔다. 논문을 지워도 기록은 남는다.
+_SCHEMA_V18 = """
+CREATE TABLE evidence_bundles (
+    bundle_id       TEXT PRIMARY KEY,
+    owner_id        TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    error_code      TEXT,
+    schema_version  TEXT,
+    manifest_sha256 TEXT,
+    file_count      INTEGER NOT NULL,
+    size_bytes      INTEGER NOT NULL,
+    papers_json     TEXT NOT NULL,
+    counts_json     TEXT NOT NULL,
+    files_json      TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+CREATE INDEX evidence_bundles_by_time ON evidence_bundles (owner_id, created_at);
+"""
+
 MIGRATIONS = [
     _SCHEMA_V1, _SCHEMA_V2, _SCHEMA_V3, _SCHEMA_V4, _SCHEMA_V5, _SCHEMA_V6, _SCHEMA_V7, _SCHEMA_V8, _SCHEMA_V9, _SCHEMA_V10, _SCHEMA_V11,
-    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17,
+    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17, _SCHEMA_V18,
 ]
 
 

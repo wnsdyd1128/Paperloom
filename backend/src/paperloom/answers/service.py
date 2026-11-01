@@ -164,6 +164,7 @@ def _answer_out(row) -> AnswerOut:
         discarded_at=row["discarded_at"],
         question=content["question"],
         paper_titles=[source["title"] for source in content["sources"]],
+        source_versions=[source["version_id"] for source in content["sources"]],
         context=[
             AnswerContext(
                 kind="text" if item["role"] == "selected_text" else item["kind"] or "generic",

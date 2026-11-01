@@ -346,6 +346,15 @@ def _overlapping_block(anchor: AnchorOut, blocks: list[Block]) -> Block | None:
     return next((block for block in blocks if block.page_index == anchor.page_index and _overlaps(anchor.quads, block.regions)), None)
 
 
+def anchor_section(anchor: AnchorOut, text: VersionText) -> str | None:
+    """고른 위치가 든 절. 글 선택은 겹친 문단, 영역은 캡션이나 영역 안 문단의 절이다. 어느 문단에도 닿지 않으면 없다."""
+    if anchor.kind == "text":
+        owner = _overlapping_block(anchor, text.blocks)
+    else:
+        owner = next((blocks[0] for _, blocks in _region_context(anchor, text.blocks)), None)
+    return text.sections.get(owner.block_id) if owner else None
+
+
 def _overlaps(quads, regions: tuple[Box, ...]) -> bool:
     for quad in quads:
         u0, u1, v0, v1 = min(quad[0::2]), max(quad[0::2]), min(quad[1::2]), max(quad[1::2])

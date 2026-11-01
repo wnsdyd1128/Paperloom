@@ -36,6 +36,12 @@ def insert_run(
     return run_id
 
 
+def get_run_details(connection: sqlite3.Connection, parse_run_id: str) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT parse_run_id, parser_name, parser_version, finished_at FROM parse_runs WHERE parse_run_id = ?", (parse_run_id,)
+    ).fetchone()
+
+
 def active_run(connection: sqlite3.Connection, version_id: str) -> ParseRun | None:
     row = connection.execute(
         f"SELECT {_RUN_COLUMNS} FROM parse_runs WHERE version_id = ? AND status IN ('QUEUED', 'RUNNING')", (version_id,)

@@ -67,6 +67,13 @@ class AnchorService:
                 return None
             return anchor
 
+    def list_for_version(self, version_id: str) -> list[AnchorOut] | None:
+        """버전의 모든 Anchor(주석이 없는 것도), 읽는 순서로. 버전이 없으면 None."""
+        with closing(connect(self._db_path)) as connection:
+            if documents.get_version(connection, version_id) is None:
+                return None
+            return repository.list_for_version(connection, version_id)
+
     def change_kind(self, anchor_id: str, kind: str) -> AnchorOut | None:
         """영역의 종류를 바꾼다. 없으면 None, 텍스트 위치면 InvalidAnchor."""
         anchor = self.get(anchor_id)

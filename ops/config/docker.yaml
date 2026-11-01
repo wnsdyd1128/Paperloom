@@ -12,6 +12,8 @@ layout:
 ocr:
   model_path: /app/models/pp-ocrv6-small-rec/inference.onnx  # 이미지에 넣은 글줄 인식 모델과 글자 사전(inference.yml)
   device: auto
+wiki:
+  outbox_path: /data/outbox  # compose가 호스트 폴더를 붙인다. 없으면 Wiki로 내보내기만 막힌다
 cost_policy:
   mode: plan_only
   paid_model_calls_allowed: false

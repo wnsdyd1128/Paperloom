@@ -35,9 +35,15 @@ class IdempotencyStore:
         self._clock = clock
 
     def respond(
-        self, scope: str, key: str | None, request: BaseModel, create: Callable[[], BaseModel], status_code: int = 201
+        self,
+        scope: str,
+        key: str | None,
+        request: BaseModel,
+        create: Callable[[], BaseModel],
+        status_code: int = 201,
+        replay_status: int | None = None,
     ) -> JSONResponse:
-        """create()의 결과를 status_code로 돌려준다. 키가 있으면 한 번만 만든다."""
+        """create()의 결과를 status_code로 돌려준다. 키가 있으면 한 번만 만든다. 재전송의 상태 코드는 replay_status가 있으면 그 값이다."""
         if key is None:
             return JSONResponse(jsonable_encoder(create()), status_code)
         if not _KEY.fullmatch(key):
@@ -45,7 +51,7 @@ class IdempotencyStore:
         digest = hashlib.sha256(json.dumps(request.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()
         stored = self._reserve(scope, key, digest)
         if stored is not None:
-            return JSONResponse(json.loads(stored[1]), stored[0])
+            return JSONResponse(json.loads(stored[1]), replay_status or stored[0])
         try:
             body = jsonable_encoder(create())
         except BaseException:

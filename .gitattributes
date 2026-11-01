@@ -1,3 +1,5 @@
 # PDF는 바이너리로 다룬다. Git for Windows의 core.autocrlf(체크아웃 때 줄 끝 바꿈)와 diff=astextplain(글로 바꾼 diff)이
 # 합성 fixture PDF를 깨뜨리지 않게 한다.
 *.pdf binary
+# 계약 fixture의 manifest는 파일 바이트의 해시를 적으므로 체크아웃 때 줄 끝이 바뀌면 안 된다.
+tests/fixtures/evidence-bundles/** -text

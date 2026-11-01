@@ -35,7 +35,7 @@ def test_migrate_v6_adds_answers_and_chat_columns_and_keeps_shared_packets(tmp_p
     migrate(db_path)
 
     with closing(connect(db_path)) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 17
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 18
         assert connection.execute("SELECT status FROM context_packets").fetchone()[0] == "HANDED_OFF"
         assert connection.execute("SELECT resource_id FROM share_grants").fetchone()[0] == "k1"
         assert connection.execute("SELECT COUNT(*) FROM answers").fetchone()[0] == 0

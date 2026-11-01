@@ -35,6 +35,20 @@ def test_relative_paths_resolve_against_config_file(tmp_path, monkeypatch):
     assert settings.app.web_dist_dir == (tmp_path / "config" / "web").resolve()
 
 
+def test_outbox_is_optional_and_resolves_like_other_paths(tmp_path):
+    path = write_config(tmp_path, "app:\n  data_dir: data\n")
+    assert load_settings(path).wiki.outbox_path is None
+
+    path.write_text("app:\n  data_dir: data\nwiki:\n  outbox_path: ../outbox\n", encoding="utf-8")
+
+    assert load_settings(path).wiki.outbox_path == (tmp_path / "outbox").resolve()
+
+
+def test_shipped_configs_name_the_outbox():
+    assert load_settings(REPO_ROOT / "ops" / "config" / "local.yaml").wiki.outbox_path == REPO_ROOT / "var" / "outbox"
+    assert load_settings(REPO_ROOT / "ops" / "config" / "docker.yaml").wiki.outbox_path.as_posix().endswith("/data/outbox")
+
+
 def home(tmp_path: Path, monkeypatch) -> Path:
     """~가 가리킬 사용자 폴더 (Path.expanduser: Windows는 USERPROFILE, 그 밖은 HOME)"""
     folder = tmp_path / "home"
@@ -63,6 +77,7 @@ def test_bundle_config_keeps_web_and_models_inside_the_bundle_and_the_library_ou
     assert (settings.app.mode, settings.app.bind_host) == ("local", "127.0.0.1")
     assert settings.app.data_dir == user / ".paperloom" / "data"
     assert settings.app.web_dist_dir == (bundle / "web").resolve()
+    assert settings.wiki.outbox_path == user / ".paperloom" / "outbox"
     assert settings.layout.model_path.is_relative_to(bundle.resolve())
     assert settings.ocr.model_path.is_relative_to(bundle.resolve())
 
