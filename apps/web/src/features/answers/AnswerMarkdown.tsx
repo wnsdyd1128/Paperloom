@@ -5,6 +5,8 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
+import { type Artifact, ARTIFACT_LANGUAGE, fencedArtifact, parseArtifact } from "../artifacts/artifact";
+import { ArtifactCard } from "../artifacts/ArtifactCard";
 import { citeTarget, isLegacyAnswer, OLD_CITE_PREFIX, PAGE_PREFIX, remarkCitations, remarkInlineMathTags, remarkOutsideEvidence } from "./citations";
 
 type Props = Readonly<{
@@ -14,6 +16,10 @@ type Props = Readonly<{
   onCite: (number: number, paragraph: number | null) => void;
   /** 쪽 표기(p.19·19쪽)를 눌렀을 때. 없으면 쪽 표기는 글자로만 보인다. pageNumber는 1부터다. */
   onPage?: (pageNumber: number) => void;
+  /** 아티팩트 자리를 눌렀을 때(본문 위 창에서 연다). 없으면 아티팩트는 보통 코드 블록으로 보인다. */
+  onOpenArtifact?: (artifact: Artifact) => void;
+  /** 답을 만드는 중: 아티팩트는 자리만 보이고 열지 않는다 */
+  streaming?: boolean;
 }>;
 
 /**
@@ -21,9 +27,27 @@ type Props = Readonly<{
  * HTML은 해석하지 않고 글자로 보이며(react-markdown 기본), javascript: 같은 링크는 지워지고(기본 urlTransform),
  * 이미지는 외부 주소를 불러오지 않도록 대체 글로만 보인다. 근거 표기 [근거 n]·쪽 표기는 원문 위치로 가는 단추가 되고,
  * "> [근거 밖]" 인용문은 "근거 밖 · 일반 지식" 칸으로 따로 보인다. 논문의 참고문헌 번호 [12]는 글자 그대로다.
+ * ```artifact 블록과 그대로 열 수 있는 html·svg·mermaid 블록(features/artifacts, fencedArtifact)은 아티팩트 자리가 된다.
+ * 그 안의 HTML·스크립트는 여기서 실행하지 않는다.
  */
-export function AnswerMarkdown({ markdown, canCite, onCite, onPage }: Props) {
+export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifact, streaming = false }: Props) {
   const components: Components = {
+    pre: ({ node, ...props }) => {
+      const code = node?.children[0];
+      if ((onOpenArtifact || streaming) && code?.type === "element" && code.tagName === "code") {
+        const classes = Array.isArray(code.properties.className) ? code.properties.className : [];
+        const language = classes.map(String).find((name) => name.startsWith("language-"))?.slice("language-".length);
+        const text = code.children.map((child) => (child.type === "text" ? child.value : "")).join("");
+        const artifact =
+          language === ARTIFACT_LANGUAGE
+            ? parseArtifact((code.data as { meta?: string | null } | undefined)?.meta, text)
+            : language
+              ? fencedArtifact(language, text)
+              : null;
+        if (artifact) return <ArtifactCard artifact={artifact} onOpen={streaming ? null : (onOpenArtifact ?? null)} />;
+      }
+      return <pre {...props} />;
+    },
     a: ({ href, children }) => {
       // 근거 표기 전에 저장한 답의 [n]: 저장할 때 근거로 읽은 번호만 단추로, 나머지는 글자 그대로 둔다.
       if (href?.startsWith(OLD_CITE_PREFIX)) {

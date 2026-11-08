@@ -12,6 +12,8 @@ import { rememberHighlightColor, storedHighlightColor } from "../annotations/hig
 import { HighlightsPanel } from "../annotations/HighlightsPanel";
 import { NotesPanel } from "../annotations/NotesPanel";
 import { useAnnotations } from "../annotations/useAnnotations";
+import type { Artifact } from "../artifacts/artifact";
+import { ArtifactWindow } from "../artifacts/ArtifactWindow";
 import { useBridge } from "../chat/BridgeStatus";
 import { usePreferences } from "../settings/PreferencesProvider";
 import { ExportDialog } from "../export/ExportDialog";
@@ -144,6 +146,9 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   const [regionMode, setRegionMode] = useState(false);
   const [{ panel, open: panelOpen }, setPanelState] = useState(storedPanel);
   const [chatRequest, setChatRequest] = useState<ChatRequest | null>(null);
+  // 본문 위에 연 아티팩트. 다시 열면 nonce가 바뀌어 창을 새로 만든다
+  const [openArtifact, setOpenArtifact] = useState<Readonly<{ artifact: Artifact; nonce: number }> | null>(null);
+  const showArtifact = (artifact: Artifact) => setOpenArtifact({ artifact, nonce: Date.now() });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const outbox = useOutbox();
@@ -1180,6 +1185,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
                 onShowAnchor={showAnchor}
                 onShowBlock={onFocusText}
                 onShowPage={goToPage}
+                onOpenArtifact={showArtifact}
               />
             </div>
             {translationView.on && translationView.mode === "layout" && pdfDocument && (
@@ -1210,6 +1216,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           )}
           <ReturnBar spots={returns.spots} onBack={goBack} onClose={returns.clear} />
           {find.open && <FindBar focusKey={find.focusKey} matches={findMatches} pending={findPending} onFind={findText} onClose={closeFind} />}
+          {openArtifact && <ArtifactWindow key={openArtifact.nonce} artifact={openArtifact.artifact} onClose={() => setOpenArtifact(null)} />}
         </main>
         {/* 사이드바를 바꾸거나 닫아도 대화·입력이 남도록 패널을 숨기기만 한다. */}
         <aside className="reader-side" hidden={!panelOpen} aria-label="사이드바" style={{ width: side.width }}>
@@ -1226,6 +1233,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
               onShowCitation={showCitation}
               onShowAnchor={showAnchor}
               onShowPage={goToPage}
+              onOpenArtifact={showArtifact}
               onDiscarded={inline.answerDiscarded}
               onSessionRenamed={inline.sessionRenamed}
               onSessionDeleted={inline.sessionDeleted}

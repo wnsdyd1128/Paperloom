@@ -6,6 +6,7 @@ import type { Quad } from "../reader/geometry";
 import { AnswerMarkdown } from "../answers/AnswerMarkdown";
 import { findCitation } from "../answers/citations";
 import type { Citation } from "../answers/api";
+import type { Artifact } from "../artifacts/artifact";
 import { usePreferences } from "../settings/PreferencesProvider";
 import type { ThreadKind } from "./api";
 import { dragOffset, type Offset } from "./drag";
@@ -56,6 +57,8 @@ type Props = Readonly<{
   onShowAnchor: (anchorId: string) => void;
   onShowBlock: (pageIndex: number, blockId: string) => void;
   onShowPage: (pageNumber: number) => void;
+  /** 답 안의 아티팩트를 열 때 (Reader 본문 위 창) */
+  onOpenArtifact: (artifact: Artifact) => void;
 }>;
 
 /**
@@ -195,6 +198,7 @@ function ThreadWindow({
   onShowAnchor,
   onShowBlock,
   onShowPage,
+  onOpenArtifact,
 }: { item: InlineThread; threads: InlineThreads; onGrab: (event: PointerEvent<HTMLElement>) => void } & WindowHandlers) {
   const [question, setQuestion] = useState("");
   const [showOriginal, setShowOriginal] = useState(true);
@@ -305,6 +309,7 @@ function ThreadWindow({
                   canCite={(number, paragraph) => cite(number, paragraph) !== undefined}
                   onCite={(number, paragraph) => onShowCitation(cite(number, paragraph)!)}
                   onPage={onShowPage}
+                  onOpenArtifact={onOpenArtifact}
                 />
               </div>
             </div>
@@ -315,7 +320,7 @@ function ThreadWindow({
             {(item.kind === "ask" || answers.length > 0) && <p className="inline-question">{item.pending.prompt}</p>}
             <div className="chat-answer">
               {item.pending.text ? (
-                <AnswerMarkdown markdown={item.pending.text} canCite={() => false} onCite={() => undefined} />
+                <AnswerMarkdown markdown={item.pending.text} canCite={() => false} onCite={() => undefined} streaming />
               ) : (
                 <p className="chat-thinking muted">답을 만드는 중…</p>
               )}

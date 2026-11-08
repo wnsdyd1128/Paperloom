@@ -1,0 +1,134 @@
+/* ── 답 안의 아티팩트 자리 ── */
+.artifact-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: var(--space-2) 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+}
+
+button.artifact-card {
+  cursor: pointer;
+}
+
+button.artifact-card:hover {
+  border-color: var(--color-text);
+}
+
+.artifact-card > svg {
+  flex: none;
+}
+
+.artifact-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.artifact-card-text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-card-text small,
+.artifact-card-open {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}
+
+/* ── 본문 위 창 ── */
+.artifact-window {
+  position: absolute;
+  inset: var(--space-3);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.artifact-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.artifact-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-views {
+  display: inline-flex;
+}
+
+.artifact-views .btn {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.artifact-copied {
+  min-width: 5em;
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  text-align: right;
+}
+
+.artifact-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 아티팩트는 흰 바탕의 밝은 판으로 그린다(시스템 프롬프트가 모델에게도 그렇게 알린다) */
+.artifact-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+  color-scheme: light;
+}
+
+.artifact-code {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font: 13px/1.55 var(--font-mono);
+  tab-size: 2;
+  white-space: pre;
+}
+
+.artifact-doc {
+  max-width: 860px;
+  padding: var(--space-4) var(--space-6);
+}
+
+.artifact-status {
+  margin: 0;
+  padding: var(--space-4);
+}
+
+/* 좁은 창에서는 사이드바가 본문 위로 겹친다(reader.css, z-index 40). 창 머리의 단추가 그 밑에 깔리지 않게 사이드바 위에 둔다 */
+@media (max-width: 1100px) {
+  .artifact-window {
+    z-index: 45;
+  }
+}

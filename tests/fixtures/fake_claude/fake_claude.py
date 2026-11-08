@@ -9,6 +9,8 @@
 - FAKE_CLAUDE_SLOW: 답하기 전에 기다릴 초 (동시 실행 확인용)
 - 질문에 "(느리게)"가 있으면 답하기 전에 10초 기다린다 (E2E 중단 확인용, 브리지가 끝낸다)
 - 질문에 "(문단)"이 있으면 답 끝에 문단 근거 [근거 1¶2]와 문단 범위 [근거 1¶3–4]를 붙인다 (E2E 문단 근거 확인용)
+- 질문에 "(아티팩트)"가 있으면 답 끝에 아티팩트 여섯 종류(ARTIFACTS)를 붙인다 (E2E 아티팩트 창·격리 확인용)
+- 질문에 "(코드 블록)"이 있으면 답 끝에 아티팩트 형식이 아닌 보통 코드 블록(FENCED)을 붙인다 (E2E 확인용)
 - FAKE_CLAUDE_STEP: 글 조각 사이에 기다릴 초 (생성되는 대로 전달되는지 확인용)
 - FAKE_CLAUDE_REFRESH_RACE: 작업 폴더에서 처음 이만큼의 실행(프로세스를 가로질러 센다)은 실제 CLI처럼 로그인 토큰 갱신이 겹친
   API 오류(모델 <synthetic>, 오류 결과)로 끝난다 (2026-10-13 기록의 모양)
@@ -33,6 +35,94 @@ REFRESH_RACE = (
     "Failed to refresh OAuth token: another Claude Code process is refreshing it or exited mid-refresh. This is usually transient; "
     "retry in a minute, and if it persists close other Claude Code processes or sign in again"
 )
+
+
+# 시스템 프롬프트(cli.SYSTEM_PROMPT)의 아티팩트 형식. HTML은 격리를 스스로 재어 글로 적는다: 스크립트가 돌았는지, 바깥 주소
+# 요청(fetch)·저장소·바깥 창(Paperloom) DOM이 막혔는지. fetch는 no-cors라 CORS로는 실패하지 않고 CSP만 막는다.
+# React는 눌러 바뀌는 상태로 실행을 보인다.
+ARTIFACTS = """격리 시험 페이지입니다.
+
+```artifact type="html" title="격리 시험"
+<!doctype html>
+<html><head><title>격리 시험</title></head>
+<body>
+<p id="script">스크립트 전</p><p id="network">요청 전</p><p id="storage">저장소 전</p><p id="parent">바깥 창 전</p>
+<script>
+document.getElementById("script").textContent = "스크립트 실행됨";
+fetch("http://127.0.0.1:8791/api/v1/health", { mode: "no-cors" }).then(
+  function () { document.getElementById("network").textContent = "바깥 요청 열림"; },
+  function () { document.getElementById("network").textContent = "바깥 요청 막힘"; });
+try { localStorage.setItem("paperloom", "1"); document.getElementById("storage").textContent = "저장소 열림"; }
+catch (error) { document.getElementById("storage").textContent = "저장소 막힘"; }
+try { void parent.document.title; document.getElementById("parent").textContent = "바깥 창 열림"; }
+catch (error) { document.getElementById("parent").textContent = "바깥 창 막힘"; }
+</script>
+</body></html>
+```
+
+```artifact type="svg" title="네모 그림"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect x="2" y="2" width="116" height="36" fill="none" stroke="black"/><text x="12" y="26">SVG 그림</text></svg>
+```
+
+```artifact type="mermaid" title="읽기 흐름"
+graph LR
+  A[논문 읽기] --> B[근거 고르기]
+```
+
+```artifact type="react" title="눌러 세기"
+import { useState } from "react";
+
+export default function Counter(): JSX.Element {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>눌린 수 {count}</button>;
+}
+```
+
+````artifact type="markdown" title="정리 문서"
+# 정리
+
+- 첫째 줄
+- 둘째 줄
+
+```python
+print("문서 안 코드")
+```
+````
+
+```artifact type="code" language="python" title="합 계산"
+print(sum([1, 2]))
+```
+
+아티팩트 여섯 개를 만들었습니다."""
+
+# 아티팩트 형식 없이 보통 코드 블록으로 준 답 (2026-11-08 Sonnet이 "claude artifact로 만들어줘"에 준 모양). 웹은 완전한 HTML
+# 문서·svg·mermaid 블록만 아티팩트로 열고, 조각 HTML·다른 언어는 코드 블록으로 둔다.
+FENCED = """바로 쓸 수 있는 단일 HTML 코드로 드립니다.
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>발표 예상 질문</title></head>
+<body><p id="script">스크립트 전</p><script>document.getElementById("script").textContent = "스크립트 실행됨";</script></body>
+</html>
+```
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><text x="12" y="26">블록 그림</text></svg>
+```
+
+```mermaid
+graph LR
+  A[질문] --> B[답]
+```
+
+```html
+<div class="card">조각 HTML</div>
+```
+
+```python
+print("코드는 코드로")
+```"""
 
 
 def emit(event: dict) -> None:
@@ -113,6 +203,10 @@ def main() -> int:
     )
     if "(문단)" in texts[-1]:  # 문단 근거 확인용: 근거 1의 둘째 문단을 짚는다
         answer += "\n\n둘째 문단을 봤습니다 [근거 1¶2]. 이어진 문단은 [근거 1¶3–4]입니다."
+    if "(아티팩트)" in texts[-1]:
+        answer += "\n\n" + ARTIFACTS
+    if "(코드 블록)" in texts[-1]:
+        answer += "\n\n" + FENCED
     if mode == "error":
         emit({"type": "result", "subtype": "success", "is_error": True, "result": "Claude AI usage limit reached (fake)", "session_id": session})
         return 1

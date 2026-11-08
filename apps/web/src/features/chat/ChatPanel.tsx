@@ -4,6 +4,7 @@ import { Icon } from "../../shared/Icon";
 import { formatTime, relativeTime } from "../../shared/time";
 import type { Anchor } from "../annotations/api";
 import { type Answer, type AnswerContext, type Citation, discardAnswer, listAnswers } from "../answers/api";
+import type { Artifact } from "../artifacts/artifact";
 import { AnswerMarkdown } from "../answers/AnswerMarkdown";
 import { findCitation } from "../answers/citations";
 import { type ContextPacket, createPacket, EVIDENCE_ROLE_LABELS, type Intent } from "../context/api";
@@ -72,6 +73,8 @@ type Props = Readonly<{
   onShowCitation: (citation: Citation) => void;
   onShowAnchor: (anchorId: string) => void;
   onShowPage: (pageNumber: number) => void;
+  /** 답 안의 아티팩트를 열 때 (Reader 본문 위 창) */
+  onOpenArtifact: (artifact: Artifact) => void;
   /** 답을 버렸을 때 (선택 설명·질문 목록이 그 대화의 차례 수를 맞춘다) */
   onDiscarded: (answer: Answer) => void;
   /** 대화 이름을 바꿨을 때·대화를 지웠을 때 (원문 위에서 옮겨 온 대화면 선택 설명·질문 목록도 맞춘다) */
@@ -89,7 +92,7 @@ const LIST_LIMIT = 200;
  * 그 대화에서 이어 보인다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
  * 보인다. 지금 대화의 컨텍스트 길이(마지막 차례 끝 기준)를 제목 아래에 보인다 (2026-10-02 사용자 요청).
  */
-export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onDiscarded, onSessionRenamed, onSessionDeleted }: Props) {
+export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
   // 답을 처음 받는 동안은 지금 대화(가장 최근 대화)를 아직 모른다. 그동안 패널을 aria-busy로 둔다.
   const [loading, setLoading] = useState(true);
@@ -440,6 +443,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               onShowCitation={onShowCitation}
               onShowAnchor={onShowAnchor}
               onShowPage={onShowPage}
+              onOpenArtifact={onOpenArtifact}
               onDiscard={discard}
               onFork={pending ? null : startFork}
             />
@@ -451,7 +455,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
             <UserBubble prompt={pending.prompt} quote={pending.quote} onShowAnchor={onShowAnchor} />
             <div className="chat-answer">
               {pending.text ? (
-                <AnswerMarkdown markdown={pending.text} canCite={() => false} onCite={() => undefined} />
+                <AnswerMarkdown markdown={pending.text} canCite={() => false} onCite={() => undefined} streaming />
               ) : (
                 <p className="chat-thinking muted">답을 만드는 중…</p>
               )}
@@ -581,6 +585,7 @@ function Turn({
   onShowCitation,
   onShowAnchor,
   onShowPage,
+  onOpenArtifact,
   onDiscard,
   onFork,
 }: {
@@ -591,6 +596,7 @@ function Turn({
   onShowCitation: (citation: Citation) => void;
   onShowAnchor: (anchorId: string) => void;
   onShowPage: (pageNumber: number) => void;
+  onOpenArtifact: (artifact: Artifact) => void;
   onDiscard: (answer: Answer) => void;
   /** 이 답까지 이어받은 갈래를 시작한다. 답을 만드는 중이면 null */
   onFork: ((answer: Answer) => void) | null;
@@ -606,6 +612,7 @@ function Turn({
           canCite={(number, paragraph) => cite(number, paragraph) !== undefined}
           onCite={(number, paragraph) => onShowCitation(cite(number, paragraph)!)}
           onPage={onShowPage}
+          onOpenArtifact={onOpenArtifact}
         />
         {answer.unresolved_citations.length > 0 && (
           <p className="status error">문맥에 없는 근거 번호: {answer.unresolved_citations.map((number) => `근거 ${number}`).join(", ")}</p>

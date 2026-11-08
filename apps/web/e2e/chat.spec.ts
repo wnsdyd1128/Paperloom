@@ -578,6 +578,93 @@ test("답을 만드는 중에 서재로 나갔다 돌아와도 그 차례를 이
   await expect(row.locator(".conversation-count")).toHaveText("답변 2", { timeout: 15_000 });
 });
 
+test("아티팩트: 답의 아티팩트를 누르면 본문 위 창에서 격리해 그린다(HTML·SVG·Mermaid·React·문서·코드)", async ({ page }, testInfo) => {
+  // 2026-11-08 사용자 요청: claude.ai의 artifact처럼. 결정: 본문 위 큰 창, 스크립트는 격리해서 실행
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  await input.fill("(아티팩트) 그려 주세요"); // 가짜 CLI가 여섯 종류를 하나씩 답에 넣는다
+  await input.press("Enter");
+  const turn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(turn.locator(".artifact-card")).toHaveCount(6, { timeout: 15_000 });
+  await expect(turn.locator(".markdown pre")).toHaveCount(0); // 아티팩트 글은 답 안에 코드로 펼치지 않는다
+  const view = page.getByRole("dialog", { name: /^아티팩트: / });
+  const frame = page.frameLocator(".artifact-frame");
+  const open = async (title: string) => {
+    await turn.getByRole("button", { name: `아티팩트 열기: ${title}` }).click();
+    await expect(page.getByRole("dialog", { name: `아티팩트: ${title}` })).toBeVisible();
+  };
+
+  // 1) HTML: 스크립트는 돌지만 바깥 요청(fetch)·저장소·Paperloom 창은 막혔다. 코드 보기로 원문을 본다
+  await open("격리 시험");
+  await expect(page.locator(".artifact-frame")).toHaveAttribute("sandbox", "allow-scripts");
+  await expect(frame.locator("#script")).toHaveText("스크립트 실행됨");
+  await expect(frame.locator("#network")).toHaveText("바깥 요청 막힘");
+  await expect(frame.locator("#storage")).toHaveText("저장소 막힘");
+  await expect(frame.locator("#parent")).toHaveText("바깥 창 막힘");
+  await view.getByRole("button", { name: "코드", exact: true }).click();
+  await expect(view.locator(".artifact-code")).toContainText('<p id="script">스크립트 전</p>');
+
+  // 2) SVG, 3) Mermaid(웹앱이 SVG로 그려 격리 창에 넣는다), 4) React(누르면 상태가 바뀐다)
+  await open("네모 그림");
+  await expect(frame.locator("svg text")).toHaveText("SVG 그림");
+  await open("읽기 흐름");
+  await expect(frame.locator("svg")).toContainText("논문 읽기");
+  await expect(frame.locator("svg")).toContainText("근거 고르기");
+  await open("눌러 세기");
+  await frame.getByRole("button", { name: "눌린 수 0" }).click();
+  await expect(frame.getByRole("button", { name: "눌린 수 1" })).toBeVisible();
+
+  // 5) 문서는 답과 같은 Markdown으로(안의 코드 블록은 코드로), 6) 코드는 글자 그대로 보이고 파일로 내려받는다
+  await open("정리 문서");
+  await expect(view.locator(".artifact-doc").getByRole("heading", { name: "정리", exact: true })).toBeVisible();
+  await expect(view.locator(".artifact-doc pre")).toContainText('print("문서 안 코드")');
+  await open("합 계산");
+  await expect(view.getByRole("button", { name: "미리 보기" })).toHaveCount(0);
+  await expect(view.locator(".artifact-code")).toHaveText("print(sum([1, 2]))");
+  const download = page.waitForEvent("download");
+  await view.getByRole("button", { name: "파일로 내려받기" }).click();
+  expect((await download).suggestedFilename()).toBe("합 계산.py");
+
+  // Esc로 닫는다. 새로고침해도 저장된 답에서 다시 연다
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+  await page.reload();
+  await openPanel(page, "Claude와 대화");
+  await chat.locator(".chat-turn:not(.is-pending)").last().getByRole("button", { name: "아티팩트 열기: 눌러 세기" }).click();
+  await expect(frame.getByRole("button", { name: "눌린 수 0" })).toBeVisible();
+});
+
+test("아티팩트: 형식 없이 보통 코드 블록으로 온 HTML 문서·SVG·Mermaid도 아티팩트로 연다", async ({ page }, testInfo) => {
+  // 2026-11-08 사용자 보고: "claude artifact로 만들어줘"에 Sonnet이 ```html 블록으로 답해 열리지 않았다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  await input.fill("(코드 블록) 만들어 주세요");
+  await input.press("Enter");
+  const turn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(turn.locator(".artifact-card")).toHaveCount(3, { timeout: 15_000 });
+  // 조각 HTML과 다른 언어는 코드 블록 그대로다
+  await expect(turn.locator(".markdown pre")).toHaveCount(2);
+  await expect(turn.locator(".markdown pre").first()).toContainText('<div class="card">조각 HTML</div>');
+  const frame = page.frameLocator(".artifact-frame");
+
+  await turn.getByRole("button", { name: "아티팩트 열기: 발표 예상 질문" }).click(); // 제목은 문서의 <title>
+  await expect(page.locator(".artifact-frame")).toHaveAttribute("sandbox", "allow-scripts");
+  await expect(frame.locator("#script")).toHaveText("스크립트 실행됨");
+  await turn.getByRole("button", { name: "아티팩트 열기: 그림" }).click();
+  await expect(frame.locator("svg text")).toHaveText("블록 그림");
+  await turn.getByRole("button", { name: "아티팩트 열기: 다이어그램" }).click();
+  await expect(frame.locator("svg")).toContainText("질문");
+  await expect(frame.locator("svg")).toContainText("답");
+});
+
 test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화는 그대로다. 컨텍스트 길이를 보인다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
   const { paperId } = await openPaper(page, "text-digital.pdf");
