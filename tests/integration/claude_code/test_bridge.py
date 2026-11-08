@@ -385,6 +385,24 @@ def test_a_running_turn_can_be_cancelled_and_nothing_is_saved(core, tmp_path, fa
     server.should_exit = True
 
 
+def test_a_turn_whose_browser_left_mid_answer_still_saves_the_answer(core, tmp_path, fake_log, monkeypatch):
+    """답을 받는 중에 브라우저가 끊겨도(Reader를 떠남·탭을 닫음) 차례를 끝까지 실행해 답을 저장한다. 웹은 돌아왔을 때 그
+    답을 대화 기록에서 보인다(2026-11-08 사용자 보고). TestClient는 응답을 모아 줄 수 있어 실제 uvicorn으로 띄운다."""
+    import urllib.request
+
+    monkeypatch.setenv("FAKE_CLAUDE_STEP", "0.4")
+    port, server = serve(lambda port: build_app(ClaudeCli(FAKE, tmp_path / "work"), CoreClient(core["url"]), {WEB}, port))
+    packet_id = core["packet"](core["text"])
+    with urllib.request.urlopen(request(port, "/chat", {"packet_id": packet_id, "question": "q"}), timeout=60) as response:
+        assert [json.loads(response.readline())["type"] for _ in range(2)] == ["start", "delta"]  # 답을 받는 중에 끊는다
+    deadline, saved = time.monotonic() + 30, []
+    while not saved and time.monotonic() < deadline:
+        time.sleep(0.2)
+        saved = core["client"].get("/api/v1/answers", params={"packet_id": packet_id}).json()["answers"]
+    server.should_exit = True
+    assert len(saved) == 1 and saved[0]["markdown"] and saved[0]["session_id"]
+
+
 def test_cancelling_before_the_cli_starts_does_not_start_it(tmp_path, fake_log):
     """E2E에서 찾음: 실행 ID를 받자마자 중단하면 질문을 쓰기 전에 Claude Code가 끝나 쓰기가 실패했다(BrokenPipe →
     "브리지에서 오류가 났습니다"). 이미 중단된 차례는 띄우지 않는다."""

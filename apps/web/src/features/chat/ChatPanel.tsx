@@ -12,10 +12,11 @@ import { approxPages } from "../settings/api";
 import { usePreferences } from "../settings/PreferencesProvider";
 import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
+import { finishTurn, onTurnFinished, runningTurn, startTurn, type TurnOutcome, updateTurn, useRunningTurn } from "./runningTurn";
 import {
   conversationTurns,
   deleteSession,
-  type ForkLink,
+  type ForkDraft,
   listSessionMeta,
   recordFork,
   renameSession,
@@ -78,32 +79,31 @@ type Props = Readonly<{
   onSessionDeleted: (sessionId: string) => void;
 }>;
 
-type Pending = Readonly<{ prompt: string; quote: readonly AnswerContext[]; text: string }>;
-/** 아직 첫 답이 없는 갈래: 이어받을 대화, 갈라진 답(대화 전체면 null), 갈래의 이름 */
-type ForkDraft = ForkLink & Readonly<{ title: string }>;
-
 const LIST_LIMIT = 200;
 
 /**
  * Reader 오른쪽 사이드바의 "Claude와 대화" (ADR 0003, 시안 3a–3c). 논문마다 대화가 이어진다: 입력칸에서 묻거나,
  * 고른 위치를 붙여 묻는다. 답은 생성되는 대로 Markdown으로 보이고, 근거 번호·쪽 표기를 누르면 원문 위치로 간다.
  * 모델은 이 PC의 Claude Code가 사용자의 Claude 구독 사용량으로 실행한다. 질문과 답은 검토 전 답변으로 남는다.
- * 답을 만드는 중에는 보내기 단추가 중단 단추다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
+ * 답을 만드는 중에는 보내기 단추가 중단 단추다. 만드는 중인 차례는 runningTurn.ts가 들고 있어, 서재로 나갔다 돌아와도
+ * 그 대화에서 이어 보인다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
  * 보인다. 지금 대화의 컨텍스트 길이(마지막 차례 끝 기준)를 제목 아래에 보인다 (2026-10-02 사용자 요청).
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onDiscarded, onSessionRenamed, onSessionDeleted }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
   // 답을 처음 받는 동안은 지금 대화(가장 최근 대화)를 아직 모른다. 그동안 패널을 aria-busy로 둔다.
   const [loading, setLoading] = useState(true);
-  // undefined: 아직 고르지 않음(가장 최근 대화를 연다), null: 새 대화
-  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  // undefined: 아직 고르지 않음(가장 최근 대화를 연다), null: 새 대화. 답을 만드는 중에 돌아왔으면 그 차례의 대화를 연다
+  const [chosen, setChosen] = useState<string | null | undefined>(() => {
+    const turn = runningTurn(paperId);
+    return turn ? turn.session : undefined;
+  });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [meta, setMeta] = useState<ReadonlyMap<string, SessionMeta>>(new Map()); // 이름·갈라져 나온 대화
-  const [fork, setFork] = useState<ForkDraft | null>(null);
-  const [runId, setRunId] = useState<string | null>(null); // 지금 실행 중인 차례(중단용)
+  const [fork, setFork] = useState<ForkDraft | null>(() => runningTurn(paperId)?.fork ?? null);
   const [notice, setNotice] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const pending = useRunningTurn(paperId);
   const [attachments, setAttachments] = useState<readonly Anchor[]>([]);
   const [question, setQuestion] = useState("");
   const [scope, setScope] = useState<ChatScope>(storedScope);
@@ -130,6 +130,32 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
       .finally(() => setLoading(false));
     void reloadMeta().catch(() => undefined);
   }, [paperId]);
+
+  // 이 논문의 차례가 끝나면(이 칸에서 물었든, 답을 만드는 중에 나갔다 돌아온 칸이든) 그 결과를 보인다.
+  useEffect(
+    () =>
+      onTurnFinished((finished, turn, outcome) => {
+        if (finished !== paperId) return;
+        if (outcome.kind === "done") {
+          const { answer } = outcome;
+          const created = answer.session_id;
+          // 돌아온 칸이 처음 받은 목록에 이미 있을 수 있다
+          setAnswers((current) => (current.some((item) => item.answer_id === answer.answer_id) ? current : [...current, answer]));
+          if (turn.fork && created) {
+            const link = { parent: turn.fork.parent, at: turn.fork.at };
+            setMeta((current) => new Map(current).set(created, { title: turn.fork!.title, fork: link }));
+            setFork(null);
+          }
+          setChosen(created);
+        } else if (outcome.kind === "cancelled") {
+          setNotice("답 만들기를 중단했습니다. 질문은 입력칸에 돌려 두었습니다.");
+          setQuestion((current) => current || turn.prompt);
+        } else {
+          setError(outcome.message);
+        }
+      }),
+    [paperId],
+  );
 
   const titles = new Map([...meta].map(([id, item]) => [id, item.title]));
   const links = new Map([...meta].flatMap(([id, item]) => (item.fork ? [[id, item.fork] as const] : [])));
@@ -178,42 +204,51 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     if (list) list.scrollTop = list.scrollHeight;
   }, [turns.length, pending?.text, session]);
 
+  /**
+   * 차례 하나를 브리지에 보낸다. 만드는 중인 차례와 그 결과는 runningTurn.ts를 거친다: 답을 받는 중에 이 칸이 사라져도
+   * (서재로 나감) 답을 계속 받고, 돌아온 칸이 이어 보인다. 갈래 기록은 칸이 없어도 남긴다.
+   */
   async function send(packetId: string, prompt: string, quote: readonly AnswerContext[]) {
+    if (runningTurn(paperId)) {
+      setError("앞 질문의 답을 만드는 중입니다. 끝난 뒤 다시 보내세요.");
+      return;
+    }
     setError(null);
     setNotice(null);
-    setPending({ prompt, quote, text: "" });
-    const url = await bridge.resolveUrl();
     const draft = forkRef.current; // 갈래면 원래 대화를 이어받은 새 대화로 묻는다
-    const forking = draft ? { fork: true, ...(draft.at ? { fork_at: draft.at } : {}) } : {};
-    const body = { packet_id: packetId, question: prompt, session_id: draft?.parent ?? sessionRef.current, model, ...forking };
-    await askClaude(url, body, (event) => {
-      if (event.type === "start") setRunId(event.run_id);
-      if (event.type === "delta") setPending((current) => current && { ...current, text: current.text + event.text });
-      if (event.type === "done") {
-        const created = event.answer.session_id;
-        setAnswers((current) => [...current, event.answer]);
-        if (draft && created) {
-          const link = { parent: draft.parent, at: draft.at };
-          setMeta((current) => new Map(current).set(created, { title: draft.title, fork: link }));
-          setFork(null);
-          void recordFork(created, paperId, link, draft.title).catch(() => setError("갈래를 기록하지 못했습니다. 답은 저장됐습니다."));
+    const session = sessionRef.current;
+    startTurn(paperId, { prompt, quote, text: "", runId: null, session, fork: draft });
+    let outcome = null as TurnOutcome | null;
+    try {
+      const url = await bridge.resolveUrl();
+      const forking = draft ? { fork: true, ...(draft.at ? { fork_at: draft.at } : {}) } : {};
+      const body = { packet_id: packetId, question: prompt, session_id: draft?.parent ?? session, model, ...forking };
+      await askClaude(url, body, (event) => {
+        if (event.type === "start") updateTurn(paperId, (turn) => ({ ...turn, runId: event.run_id }));
+        if (event.type === "delta") updateTurn(paperId, (turn) => ({ ...turn, text: turn.text + event.text }));
+        if (event.type === "done") {
+          outcome = { kind: "done", answer: event.answer };
+          const created = event.answer.session_id;
+          if (draft && created) {
+            void recordFork(created, paperId, { parent: draft.parent, at: draft.at }, draft.title).catch(() =>
+              setError("갈래를 기록하지 못했습니다. 답은 저장됐습니다."),
+            );
+          }
         }
-        setChosen(created);
-      }
-      if (event.type === "cancelled") {
-        setNotice("답 만들기를 중단했습니다. 질문은 입력칸에 돌려 두었습니다.");
-        setQuestion((current) => current || prompt);
-      }
-      if (event.type === "error") {
-        setError(event.message);
-        if (event.code === "BRIDGE_OFFLINE") bridge.markOffline();
-      }
-    });
-    setRunId(null);
-    setPending(null);
+        if (event.type === "cancelled") outcome = { kind: "cancelled" };
+        if (event.type === "error") {
+          outcome = { kind: "error", message: event.message };
+          if (event.code === "BRIDGE_OFFLINE") bridge.markOffline();
+        }
+      });
+    } finally {
+      // 흐름을 읽다 예외가 나도 차례를 끝낸다(남으면 이 논문에서 다시 묻지 못한다)
+      finishTurn(paperId, outcome ?? { kind: "error", message: "답을 받는 중에 연결이 끊겼습니다. 답이 저장됐는지 잠시 뒤 확인하세요." });
+    }
   }
 
   async function stop() {
+    const runId = pending?.runId;
     if (runId && !(await cancelClaude(await bridge.resolveUrl(), runId))) setError("이미 끝난 차례입니다.");
   }
 
@@ -490,7 +525,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
           </label>
           {measured?.context_tokens != null && <ContextRing tokens={measured.context_tokens} window={measured.context_window} />}
           {pending ? (
-            <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={runId === null}>
+            <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={pending.runId === null}>
               <Icon name="stop" size={14} />
             </button>
           ) : (

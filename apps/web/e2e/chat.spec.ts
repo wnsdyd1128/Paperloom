@@ -535,6 +535,49 @@ test("답을 만드는 중에 중단하면 답을 저장하지 않고 질문을 
   expect(answersAfter).toBe(answersBefore); // 어느 쪽도 답을 저장하지 않았다
 });
 
+test("답을 만드는 중에 서재로 나갔다 돌아와도 그 차례를 이어 보이고, 끝나면 대화 기록·답변 화면에 있다", async ({ page }, testInfo) => {
+  // 2026-11-08 사용자 보고: 답을 받는 중에 메인으로 나가면 돌아와도 그 대화가 대화 기록에 없었다(브리지는 답을 저장했다)
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  const stamp = Date.now();
+  const first = `${stamp} (느리게) 나갔다 돌아올 질문`; // 가짜 CLI는 "(느리게)"면 10초 뒤에 답한다
+  const toLibrary = async () => {
+    await expect(chat.getByRole("button", { name: "중단" })).toBeEnabled(); // 브리지가 차례를 시작했다
+    await page.getByRole("button", { name: "서재로 돌아가기" }).click();
+    await expect(page.getByRole("button", { name: "답변", exact: true })).toBeVisible();
+  };
+
+  // 1) 새 대화의 첫 질문: 나갔다 돌아오면 그 새 대화에서 만드는 중인 차례를 보이고(중단도 된다), 끝나면 답을 보인다
+  await input.fill(first);
+  await input.press("Enter");
+  await toLibrary();
+  await page.goBack();
+  await openPanel(page, "Claude와 대화");
+  await expect(chat.locator(".chat-turn.is-pending .chat-prompt")).toHaveText(first);
+  await expect(chat.locator(".chat-turn.is-pending .chat-thinking")).toHaveText("답을 만드는 중…");
+  await expect(chat.getByRole("button", { name: "중단" })).toBeEnabled();
+  await expect(chat.locator(".chat-title")).toHaveText("새 대화"); // 가장 최근의 다른 대화가 아니다
+  await expect(chat.locator(".chat-turn:not(.is-pending) .chat-prompt")).toHaveText([first], { timeout: 15_000 });
+  await expect(chat.locator(".chat-turn.is-pending")).toHaveCount(0);
+  await expect(chat.getByRole("button", { name: "보내기" })).toBeVisible();
+  await chat.getByRole("button", { name: "대화 기록", exact: true }).click();
+  await expect(chat.locator(".chat-history-item", { hasText: String(stamp) })).toHaveCount(1);
+  await chat.getByRole("button", { name: "대화 기록", exact: true }).click();
+
+  // 2) 이어 묻고 나가 답변 화면을 보고 있으면, 답이 저장될 때 그 대화의 답변 수가 바뀐다
+  await input.fill("(느리게) 답변 화면에서 기다릴 질문");
+  await input.press("Enter");
+  await toLibrary();
+  await page.getByRole("button", { name: "답변", exact: true }).click();
+  const row = page.locator(".conversation-row", { hasText: String(stamp) });
+  await expect(row.locator(".conversation-count")).toHaveText("답변 1");
+  await expect(row.locator(".conversation-count")).toHaveText("답변 2", { timeout: 15_000 });
+});
+
 test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화는 그대로다. 컨텍스트 길이를 보인다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
   const { paperId } = await openPaper(page, "text-digital.pdf");

@@ -11,6 +11,8 @@ import type { Answer } from "../answers/api";
 export type Session = Readonly<{ id: string; title: string; updated: string }>;
 /** 갈래의 이어받기: 갈라져 나온 대화와, 답에서 갈라졌으면 그 답(없으면 갈래를 만든 때까지 또는 지금까지) */
 export type ForkLink = Readonly<{ parent: string; at: string | null }>;
+/** 아직 첫 답이 없는 갈래: 이어받을 대화, 갈라진 답(대화 전체면 null), 갈래의 이름 */
+export type ForkDraft = ForkLink & Readonly<{ title: string }>;
 /** 서버가 아는 대화 정보: 이름, 갈래면 이어받기 */
 export type SessionMeta = Readonly<{ title: string; fork: ForkLink | null }>;
 type Turns = Readonly<{ inherited: readonly Answer[]; own: readonly Answer[] }>;
