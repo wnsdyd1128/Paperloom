@@ -139,6 +139,10 @@ def test_first_question_sends_the_packet_with_its_images_streams_and_saves_the_a
     assert "첫 장 제목(예: \"1 Introduction\", \"I. INTRODUCTION\") 앞" in system_prompt and "\"Abstract\" 표시가 없을 수도" in system_prompt
     assert "> [근거 밖]" in system_prompt  # 웹이 "근거 밖 · 일반 지식" 칸으로 그리는 표기 (docs/UI_PLAN.md A10)
     assert '"범위와 출처"' in system_prompt  # 대화 범위(U3)로 받은 본문에서 빠진 쪽을 보라는 안내
+    # 아티팩트 (2026-11-08 사용자 요청): 웹(apps/web/src/features/artifacts/artifact.ts)이 읽는 울타리 형식과 격리 창의 제약
+    assert '```artifact type="html" title=' in system_prompt and "바깥 주소(CDN·이미지·글꼴·API)를 불러올 수 없고" in system_prompt
+    # "claude artifact로 만들어줘"에 Sonnet이 도구가 없다며 ```html 블록을 주고 claude.ai에 붙여 넣으라 했다(같은 날 사용자 보고)
+    assert "아티팩트는 도구가 아니라 답 안의 코드 블록" in system_prompt and "Claude artifact·아티팩트로 만들어 달라고 하면" in system_prompt
     assert run["env"] == []  # API 키·OAuth 토큰 환경변수는 넘기지 않는다
     assert Path(run["cwd"]) == tmp_path / "work"
     image, text = run["message"]["message"]["content"]
