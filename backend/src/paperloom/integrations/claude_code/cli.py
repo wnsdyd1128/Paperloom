@@ -149,9 +149,12 @@ class ClaudeCli:
         self, content: list[dict], resume: str | None, model: str | None, fork: bool, resume_at: str | None,
         cancel: threading.Event | None, prompt_file: Path, effort: str | None,
     ) -> Iterator[dict]:
+        # --system-prompt-snapshot off: 기본(on)이면 대화 첫 요청의 시스템 프롬프트를 기록해 이어묻기·갈래에도 그대로 보내고,
+        # 그 뒤에 넘긴 규칙·사용자 설정은 버린다(2.1.305 도움말과 2026-11-08 확인 실행: 11-07에 시작한 대화가 그 뒤에 더한
+        # 아티팩트 규칙을 받지 못했다). 차례마다 지금 규칙을 보낸다
         arguments = [
             "-p", "--safe-mode", "--tools", "", "--disallowedTools", "mcp__*",
-            "--system-prompt-file", str(prompt_file),
+            "--system-prompt-file", str(prompt_file), "--system-prompt-snapshot", "off",
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
         ]
         if resume:
