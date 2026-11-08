@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { artifactFileName, fencedArtifact, parseArtifact } from "./artifact";
-import { FRAME_CSP, htmlDocument, reactDocument, svgDocument } from "./frameDocument";
+import { codeDocument, FRAME_CSP, htmlDocument, markdownDocument, reactDocument, svgDocument, withTitle } from "./frameDocument";
 
 describe("parseArtifact", () => {
   it("울타리 줄의 type·title·language를 읽고 끝 줄바꿈을 뗀다 (시스템 프롬프트 형식)", () => {
@@ -79,5 +79,29 @@ describe("격리 문서", () => {
     expect(html).toContain('"<\\/script><img src=x>"');
     expect(html).toContain("react만 쓸 수 있습니다");
     expect(cspAt(html)).toBeLessThan(html.indexOf("<script>"));
+  });
+});
+
+describe("링크로 여는 페이지", () => {
+  it("코드는 글자 그대로 보이고 태그로 읽히지 않는다", () => {
+    const html = codeDocument('if (a < b && c > d) print("</pre><script>x()</script>")');
+    expect(html).toContain("a &lt; b &amp;&amp; c &gt; d");
+    expect(html).not.toContain("<script>");
+    expect(html.match(/<\/pre>/g)).toHaveLength(1);
+  });
+
+  it("탭 제목은 CSP 뒤, 아티팩트 자신의 글(제목 포함)보다 앞에 들어가고 태그로 읽히지 않는다", () => {
+    const html = withTitle(htmlDocument("<html><head><title>원래 제목</title></head></html>"), "a < b & 그림");
+    expect(html).toContain("<title>a &lt; b &amp; 그림</title>");
+    expect(html.indexOf("<title>a")).toBeGreaterThan(html.indexOf(`content="${FRAME_CSP}"`));
+    expect(html.indexOf("<title>a")).toBeLessThan(html.indexOf("<title>원래 제목"));
+    expect(html.match(/<!doctype/gi)).toHaveLength(1);
+  });
+
+  it("문서는 그린 HTML을 그대로 담고, 수식은 KaTeX의 HTML 쪽을 숨겨 MathML로 보인다", () => {
+    const html = markdownDocument("<h1>정리</h1>");
+    expect(html).toContain("<main><h1>정리</h1></main>");
+    expect(html).toContain(".katex-html{display:none}");
+    expect(html.startsWith("<!doctype html><meta http-equiv")).toBe(true);
   });
 });

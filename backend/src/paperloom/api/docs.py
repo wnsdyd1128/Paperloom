@@ -31,6 +31,7 @@ TAGS = [
     {"name": "대화", "description": "선택 설명·질문 대화와 대화 이름·갈래"},
     {"name": "번역", "description": "쪽 번역. 저장은 Claude Code 브리지가 번역을 검사한 뒤 부른다"},
     {"name": "Wiki로 내보내기", "description": "LLM Wiki가 읽을 Evidence Bundle을 outbox에 쓴다. LLM Wiki는 이 API를 부르지 않고 파일만 읽는다"},
+    {"name": "아티팩트", "description": "대화 답의 아티팩트를 페이지 파일로 쓰고 이 PC에서 여는 링크를 준다. 페이지는 `/artifacts/<id>`에서 격리해서 준다"},
     {"name": "검색", "description": "논문 제목 검색"},
     {"name": "설정", "description": "사용자 설정"},
     {"name": "상태", "description": "서버 상태"},
@@ -40,6 +41,7 @@ IDEMPOTENCY_KEY = "재전송 방지 키. 공백 없는 ASCII 1–200자"
 
 # 코드 → (상태, 뜻). `@` 뒤는 같은 코드가 다른 상태로도 쓰일 때 구분하는 표시이고 문서에는 보이지 않는다.
 _ERRORS = {
+    "ARTIFACT_WRITE_FAILED": (500, "아티팩트 파일을 쓰지 못했다. 남은 파일은 없다"),
     "BUNDLE_TOO_LARGE": (413, "내보낼 내용이 한도(파일 64개·합계 32 MiB·파일당 8 MiB)를 넘는다. `details`에 넘은 한도가 있다"),
     "BUNDLE_WRITE_FAILED": (500, "bundle을 쓰다 실패했다. 남은 파일은 없다"),
     "DUPLICATE_SOURCE": (409, "같은 내용의 PDF가 이미 있다. `details.paper_id`가 그 논문이다"),
@@ -67,6 +69,7 @@ _ERRORS = {
     "TEXT_EXTRACTION_RUNNING": (409, "본문을 추출하는 중이라 지울 수 없다"),
     "TEXT_NOT_READY": (409, "본문 추출이 아직 끝나지 않았다"),
     "TOO_LARGE": (413, "파일이 업로드 한도를 넘는다"),
+    "TOO_LARGE@artifact": (413, "페이지 문서가 한도(UTF-8로 8 MiB)를 넘는다. `details.max_bytes`가 한도다"),
     "UNKNOWN_SESSION": (409, "이 논문에 대해 저장된 대화가 아니다"),
     "UNSUPPORTED_MEDIA_TYPE": (415, "본문이 `application/pdf`가 아니다"),
 }

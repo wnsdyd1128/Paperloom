@@ -665,6 +665,80 @@ test("아티팩트: 형식 없이 보통 코드 블록으로 온 HTML 문서·SV
   await expect(frame.locator("svg")).toContainText("답");
 });
 
+test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {
+  // 2026-11-08 사용자 요청: claude.ai 링크를 못 만들면 파일을 만들고 경로를 주면 된다. 결정: 링크+파일 경로
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  await input.fill("(아티팩트) 링크로 열어 주세요");
+  await input.press("Enter");
+  const turn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(turn.locator(".artifact-card")).toHaveCount(6, { timeout: 15_000 });
+  const view = page.getByRole("dialog", { name: /^아티팩트: / });
+
+  /** 아티팩트를 열어 링크를 만들고, 링크·파일 경로·디스크의 파일을 확인한 뒤 새 탭으로 연다 */
+  const openLink = async (title: string) => {
+    await turn.getByRole("button", { name: `아티팩트 열기: ${title}` }).click();
+    await view.getByRole("button", { name: "링크 만들기" }).click();
+    const link = view.locator(".artifact-link a");
+    await expect(link).toHaveText(/^http:\/\/127\.0\.0\.1:8791\/artifacts\/[0-9a-f]{32}$/);
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    const url = (await link.textContent()) ?? "";
+    const id = url.slice(url.lastIndexOf("/") + 1);
+    await expect(view.locator(".artifact-link code")).toHaveText(new RegExp(`var/e2e/artifacts/${id}\\.html$`));
+    expect(readFileSync(new URL(`../../../var/e2e/artifacts/${id}.html`, import.meta.url), "utf-8")).toContain(`<title>${title}</title>`);
+    const [tab] = await Promise.all([context.waitForEvent("page"), link.click()]);
+    await expect(tab).toHaveURL(url);
+    await expect(tab).toHaveTitle(title);
+    return { tab, url };
+  };
+
+  // 1) HTML: 새 탭에서도 스크립트는 돌지만 바깥 요청·저장소가 막혔다(Core가 sandbox로 준다). 탭은 Paperloom 창을 모른다(noopener).
+  //    새 탭에는 바깥 창이 없어 #parent는 자기 자신을 읽는다(재지 않는다)
+  const { tab: html, url } = await openLink("격리 시험");
+  await expect(html.locator("#script")).toHaveText("스크립트 실행됨");
+  await expect(html.locator("#network")).toHaveText("바깥 요청 막힘");
+  await expect(html.locator("#storage")).toHaveText("저장소 막힘");
+  expect(await html.evaluate(() => window.opener)).toBeNull();
+  expect((await page.request.get(url)).headers()["content-security-policy"]).toMatch(/^sandbox allow-scripts; default-src 'none'/);
+  await html.close();
+
+  // 2) SVG, 3) Mermaid(웹앱이 그린 SVG), 4) React(문서에 넣은 React 묶음으로 돈다)
+  const { tab: svg } = await openLink("네모 그림");
+  await expect(svg.locator("svg text")).toHaveText("SVG 그림");
+  await svg.close();
+  const { tab: mermaid, url: diagram } = await openLink("읽기 흐름");
+  await expect(mermaid.locator("svg")).toContainText("근거 고르기");
+  await mermaid.close();
+  // 같은 아티팩트는 다시 만들어도 같은 링크다(Mermaid는 그릴 때마다 SVG 안 id가 달라지므로 따로 본다)
+  await view.getByRole("button", { name: "링크 만들기" }).click();
+  await expect(view.getByRole("button", { name: "링크 만들기" })).toBeEnabled();
+  await expect(view.locator(".artifact-link a")).toHaveText(diagram);
+  const { tab: react } = await openLink("눌러 세기");
+  await react.getByRole("button", { name: "눌린 수 0" }).click();
+  await expect(react.getByRole("button", { name: "눌린 수 1" })).toBeVisible();
+  await react.close();
+
+  // 5) 문서는 창과 같은 Markdown으로 그린 페이지, 6) 코드는 글자 그대로
+  const { tab: doc } = await openLink("정리 문서");
+  await expect(doc.getByRole("heading", { name: "정리", exact: true })).toBeVisible();
+  await expect(doc.locator("pre")).toContainText('print("문서 안 코드")');
+  await doc.close();
+  const { tab: code } = await openLink("합 계산");
+  await expect(code.locator("pre")).toHaveText("print(sum([1, 2]))");
+  await code.close();
+
+  // 서버가 파일을 쓰지 못하면 그 이유를 보인다
+  const refusal = { code: "ARTIFACT_WRITE_FAILED", message: "아티팩트 파일을 쓰지 못했습니다. 폴더 권한·디스크 공간을 확인하세요.", request_id: "e2e", retryable: true };
+  await page.route("**/api/v1/artifacts", (route) => route.fulfill({ status: 500, json: refusal }));
+  await view.getByRole("button", { name: "링크 만들기" }).click();
+  await expect(view.locator(".artifact-link .error")).toHaveText(refusal.message);
+  await expect(view.locator(".artifact-link a")).toHaveCount(0);
+});
+
 test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화는 그대로다. 컨텍스트 길이를 보인다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
   const { paperId } = await openPaper(page, "text-digital.pdf");

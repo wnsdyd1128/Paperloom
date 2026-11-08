@@ -52,6 +52,13 @@ class WikiSettings(_Strict):
     outbox_path: Path | None = None
 
 
+class ArtifactSettings(_Strict):
+    """대화 답의 아티팩트를 링크로 열 페이지 파일(paperloom.artifacts). 서버는 <data_dir>/artifacts에 쓴다."""
+
+    # 화면에 보일 폴더. Docker처럼 서버가 쓰는 폴더가 이 PC의 다른 폴더에 붙어 있을 때만 쓴다(경로로 풀지 않고 글자 그대로 보인다)
+    shown_dir: str | None = None
+
+
 class CostPolicy(_Strict):
     mode: Literal["plan_only"] = "plan_only"
     paid_model_calls_allowed: Literal[False] = False
@@ -64,6 +71,7 @@ class Settings(_Strict):
     layout: LayoutSettings = LayoutSettings()
     ocr: OcrSettings = OcrSettings()
     wiki: WikiSettings = WikiSettings()
+    artifacts: ArtifactSettings = ArtifactSettings()
     cost_policy: CostPolicy = CostPolicy()
 
 

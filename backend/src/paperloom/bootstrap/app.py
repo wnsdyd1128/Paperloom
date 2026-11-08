@@ -18,6 +18,8 @@ from paperloom.annotations.service import AnnotationService
 from paperloom.api.docs import DESCRIPTION, TAGS, Health, install_openapi, install_swagger_ui
 from paperloom.api.errors import install_error_handler
 from paperloom.api.idempotency import IdempotencyStore
+from paperloom.artifacts.routes import build_router as build_artifacts_router
+from paperloom.artifacts.store import ArtifactStore
 from paperloom.bootstrap.config import Settings
 from paperloom.context.routes import build_router as build_context_router
 from paperloom.context.service import ContextService
@@ -119,6 +121,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     app.include_router(build_evidence_bundles_router(EvidenceBundleService(db_path, anchors, answers, outbox), keys))
     app.include_router(build_threads_router(ThreadService(db_path)))
     app.include_router(build_translation_router(TranslationService(db_path)))
+    app.include_router(build_artifacts_router(ArtifactStore(data_dir / "artifacts", settings.artifacts.shown_dir)))
 
     # API 라우트를 먼저 등록해야 정적 파일 mount가 /api 경로를 가리지 않는다.
     if web_dist_dir := settings.app.web_dist_dir:

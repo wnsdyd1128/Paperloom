@@ -17,6 +17,9 @@ services:
       # Wiki로 내보낼 Evidence Bundle을 쓰는 폴더(저장소의 var/outbox). LLM Wiki는 같은 폴더를 읽기 전용으로 붙인다(compose.paperloom.yaml).
       # 리눅스에서는 이 폴더가 컨테이너 사용자(uid 10001)에게 쓰기 가능해야 한다.
       - ../../var/outbox:/data/outbox
+      # 대화 답의 아티팩트를 링크로 열 페이지 파일(저장소의 var/artifacts). 파일 탐색기에서 바로 열거나 옮길 수 있게 호스트 폴더에 둔다.
+      # 리눅스에서는 outbox처럼 컨테이너 사용자(uid 10001)가 쓸 수 있어야 한다.
+      - ../../var/artifacts:/data/artifacts
     restart: unless-stopped
 
 volumes:

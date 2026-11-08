@@ -33,7 +33,7 @@ def _operations(schema: dict):
 def test_every_operation_has_a_known_tag_and_a_written_summary(schema):
     known = {tag["name"] for tag in schema["tags"]}
     operations = dict(_operations(schema))
-    assert len(operations) == 55
+    assert len(operations) == 56
     for name, operation in operations.items():
         assert len(operation["tags"]) == 1 and operation["tags"][0] in known, name
         # 쓰지 않으면 FastAPI가 함수 이름으로 영어 제목을 만든다
@@ -116,6 +116,12 @@ def test_the_upload_body_is_a_pdf_file(schema):
 )
 def test_file_responses_name_their_type_and_not_json(schema, path, media_type):
     assert list(schema["paths"][path]["get"]["responses"]["200"]["content"]) == [media_type]
+
+
+def test_the_artifact_link_names_its_own_size_limit(schema):
+    responses = schema["paths"]["/api/v1/artifacts"]["post"]["responses"]
+    assert responses["413"]["description"].startswith("- `TOO_LARGE`: 페이지 문서가 한도(UTF-8로 8 MiB)")
+    assert {"200", "201"} <= set(responses)
 
 
 def test_the_retried_bundle_response_is_documented(schema):

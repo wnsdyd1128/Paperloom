@@ -6,6 +6,9 @@
  *
  * 막지 못하는 것: 문서가 스스로 다른 주소로 이동하는 것(링크·location). 창은 이동을 알아채면 그 화면을 치우지만 이동 요청은
  * 이미 나간다(ArtifactWindow).
+ *
+ * 링크로 여는 페이지(standalone.ts)도 같은 문서를 쓰고, Core가 같은 CSP에 sandbox를 더한 응답 머리로 준다
+ * (backend paperloom/artifacts/routes.py).
  */
 
 export const FRAME_CSP = [
@@ -77,6 +80,33 @@ ${compiled}
     '<div id="root"></div><p id="artifact-error" hidden></p>' +
     `<script>${escapeScript(runtime)}</script><script>${escapeScript(program)}</script>`
   );
+}
+
+const PAGE_STYLE =
+  "body{margin:0;background:#fff;color:#1c1917;font:16px/1.65 system-ui,sans-serif}main{max-width:760px;margin:0 auto;padding:32px 24px}" +
+  "pre{padding:12px 14px;overflow:auto;background:#f5f5f4;font:13px/1.55 ui-monospace,monospace}code{font-family:ui-monospace,monospace}" +
+  "table{border-collapse:collapse}th,td{padding:4px 8px;border:1px solid #d6d3d1}blockquote{margin:0;padding-left:12px;border-left:3px solid #d6d3d1}";
+
+/**
+ * 링크로 여는 문서 아티팩트. html은 웹앱이 답과 같은 Markdown으로 그린 것이다(스크립트 없음). 수식은 KaTeX 글꼴·CSS 없이
+ * 브라우저의 MathML로 보인다(KaTeX가 함께 내는 HTML 쪽은 숨긴다).
+ */
+export function markdownDocument(html: string): string {
+  return `${HEAD}<style>${PAGE_STYLE}.katex-html{display:none}</style><main>${html}</main>`;
+}
+
+/** 링크로 여는 코드 아티팩트: 글자 그대로 */
+export function codeDocument(code: string): string {
+  return `${HEAD}<style>${PAGE_STYLE}main{max-width:none}</style><main><pre><code>${escapeHtml(code)}</code></pre></main>`;
+}
+
+/** 링크로 여는 페이지의 탭 제목. 모든 문서는 HEAD로 시작하므로 그 바로 뒤에 넣는다(아티팩트 자신의 <title>보다 앞서 이긴다) */
+export function withTitle(document: string, title: string): string {
+  return `${HEAD}<title>${escapeHtml(title)}</title>${document.slice(HEAD.length)}`;
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** 스크립트 글 안의 </script>가 스크립트를 끝내지 않게 한다 */

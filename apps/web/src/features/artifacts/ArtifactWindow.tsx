@@ -2,16 +2,24 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { AnswerMarkdown } from "../answers/AnswerMarkdown";
+import { createArtifactLink } from "./api";
 import { type Artifact, ARTIFACT_LABELS, artifactFileName, artifactMimeType } from "./artifact";
 import { isFramed, previewDocument } from "./preview";
+import { standaloneDocument } from "./standalone";
 import "./artifacts.css";
 
 type Preview = Readonly<{ kind: "loading" }> | Readonly<{ kind: "ready"; html: string }> | Readonly<{ kind: "failed"; message: string }>;
+type Link =
+  | Readonly<{ kind: "none" }>
+  | Readonly<{ kind: "making" }>
+  | Readonly<{ kind: "ready"; url: string; path: string }>
+  | Readonly<{ kind: "failed"; message: string }>;
 
 /**
  * Reader 본문 위에 넓게 띄우는 아티팩트 창 (2026-11-08 사용자 요청·결정: 본문 위 큰 창, 스크립트는 격리해서 실행).
  * HTML·SVG·Mermaid·React는 격리 iframe(frameDocument.ts)에서, 문서는 답과 같은 Markdown으로, 코드는 글자 그대로 보인다.
  * 미리 보기와 코드를 오가고, 코드를 복사하거나 파일로 내려받는다. Esc나 닫기 단추로 닫으면 읽던 자리가 그대로다.
+ * 링크 만들기는 페이지 파일을 Core에 쓰고 새 탭에서 여는 링크와 그 파일 경로를 보인다(claude.ai 게시 대신, standalone.ts).
  * 다른 아티팩트를 열면 창을 새로 만든다(부르는 쪽이 key를 바꾼다).
  */
 export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artifact; onClose: () => void }>) {
@@ -19,6 +27,7 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
   const [view, setView] = useState<"preview" | "code">(hasPreview ? "preview" : "code");
   const [preview, setPreview] = useState<Preview>({ kind: "loading" });
   const [copied, setCopied] = useState(false);
+  const [link, setLink] = useState<Link>({ kind: "none" });
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => closeRef.current?.focus(), []);
@@ -56,6 +65,16 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const makeLink = async () => {
+    setLink({ kind: "making" });
+    try {
+      const saved = await createArtifactLink(await standaloneDocument(artifact));
+      setLink({ kind: "ready", url: new URL(saved.url, window.location.origin).href, path: saved.path });
+    } catch (error) {
+      setLink({ kind: "failed", message: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
   return (
     <section className="artifact-window" role="dialog" aria-label={`아티팩트: ${artifact.title}`} onKeyDown={onKeyDown}>
       <header className="artifact-head">
@@ -83,10 +102,38 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
         <button type="button" className="btn btn-icon" aria-label="파일로 내려받기" title={`${artifactFileName(artifact)}로 내려받기`} onClick={download}>
           <Icon name="download" size={16} />
         </button>
+        <button
+          type="button"
+          className="btn btn-icon"
+          aria-label="링크 만들기"
+          title="파일로 저장하고 새 탭에서 여는 링크 만들기"
+          disabled={link.kind === "making"}
+          onClick={() => void makeLink()}
+        >
+          <Icon name="link" size={16} />
+        </button>
         <button ref={closeRef} type="button" className="btn btn-icon" aria-label="아티팩트 닫기" title="닫기 (Esc)" onClick={onClose}>
           <Icon name="x" size={16} />
         </button>
       </header>
+      {link.kind !== "none" && (
+        <p className="artifact-link" aria-live="polite">
+          {link.kind === "making" ? (
+            <span className="muted">링크를 만드는 중…</span>
+          ) : link.kind === "failed" ? (
+            <span className="status error">{link.message}</span>
+          ) : (
+            <>
+              <a href={link.url} target="_blank" rel="noopener noreferrer">
+                {link.url}
+              </a>
+              <span className="muted">
+                파일 <code>{link.path}</code>
+              </span>
+            </>
+          )}
+        </p>
+      )}
       <div className="artifact-body">
         {view === "code" ? (
           <pre className="artifact-code">

@@ -49,6 +49,15 @@ def test_shipped_configs_name_the_outbox():
     assert load_settings(REPO_ROOT / "ops" / "config" / "docker.yaml").wiki.outbox_path.as_posix().endswith("/data/outbox")
 
 
+def test_docker_shows_artifacts_in_the_host_folder_that_compose_mounts():
+    """서버는 <data_dir>/artifacts(/data/artifacts)에 쓰고, 화면에는 compose가 그 자리에 붙인 저장소 폴더로 보인다."""
+    settings = load_settings(REPO_ROOT / "ops" / "config" / "docker.yaml")
+    assert settings.app.data_dir.as_posix().endswith("/data")
+    assert settings.artifacts.shown_dir == "var/artifacts"
+    assert "- ../../var/artifacts:/data/artifacts" in (REPO_ROOT / "ops" / "compose" / "compose.yaml").read_text(encoding="utf-8")
+    assert load_settings(REPO_ROOT / "ops" / "config" / "local.yaml").artifacts.shown_dir is None
+
+
 def home(tmp_path: Path, monkeypatch) -> Path:
     """~가 가리킬 사용자 폴더 (Path.expanduser: Windows는 USERPROFILE, 그 밖은 HOME)"""
     folder = tmp_path / "home"
