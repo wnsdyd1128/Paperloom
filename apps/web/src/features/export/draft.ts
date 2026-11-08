@@ -25,7 +25,7 @@ export const EMPTY_DRAFT: PaperDraft = {
   anchorIds: [],
   includeComments: true,
   includeRegionImages: false,
-  textMode: "none", // LLM Wiki 수신기가 texts/를 받기 전까지 기본은 싣지 않음이다
+  textMode: "anchor_pages", // 기본은 고른 위치가 있는 쪽이다(요구사항 Q3). LLM Wiki 수신기는 2026-11-02부터 texts/를 받는다
   pageRanges: "",
   answerIds: [],
   proposals: [],

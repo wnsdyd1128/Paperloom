@@ -123,10 +123,10 @@ def test_export_writes_one_bundle_the_receiver_accepts(client, paper, outbox, ch
     [folder] = bundles_in(outbox)
     assert folder.name == bundle["directory"] == f"bundle_{bundle['bundle_id']}"
     manifest = check_evidence_bundle(folder)
-    assert manifest["schema_version"] == bundle["schema_version"] == "paperloom-bundle.v1"
+    assert manifest["schema_version"] == bundle["schema_version"] == "paperloom-bundle.v1.1"  # 기본으로 고른 위치가 있는 쪽의 추출문을 싣는다
     assert bundle["manifest_sha256"] == hashlib.sha256((folder / "manifest.json").read_bytes()).hexdigest()
     assert bundle["status"] == "written"
-    assert bundle["file_count"] == 5 and bundle["counts"] == {"anchors": 2, "proposals": 1, "answers": 0, "assets": 0, "texts": 0}
+    assert bundle["file_count"] == 6 and bundle["counts"] == {"anchors": 2, "proposals": 1, "answers": 0, "assets": 0, "texts": 1}
     assert bundle["papers"] == [{"paper_id": paper_id, "version_id": version_id, "title": paper["title"]}]
     assert bundle["size_bytes"] == sum(path.stat().st_size for path in folder.rglob("*") if path.is_file())
 
@@ -223,9 +223,9 @@ def test_preview_writes_nothing_and_matches_what_export_writes(client, paper, ou
     assert bundles_in(outbox) == []
     assert client.get("/api/v1/evidence-bundles").json()["bundles"] == []
     assert shown["files"][0]["path"] == "manifest.json"
-    assert [item["kind"] for item in shown["files"]] == ["manifest", "sources", "anchors", "proposal", "artifact"]
+    assert [item["kind"] for item in shown["files"]] == ["manifest", "sources", "anchors", "proposal", "artifact", "text"]
     assert shown["limits"] == {"max_files": 64, "max_file_bytes": 8 * 1024 * 1024, "max_total_bytes": 32 * 1024 * 1024}
-    assert (shown["file_count"], shown["schema_version"]) == (5, "paperloom-bundle.v1")
+    assert (shown["file_count"], shown["schema_version"]) == (6, "paperloom-bundle.v1.1")
     assert shown["total_bytes"] == sum(item["size_bytes"] for item in shown["files"])
     assert shown["auto_added_anchors"] == [] and shown["warnings"] == []
 
@@ -312,8 +312,9 @@ def test_images_are_not_drawn_when_the_file_limit_is_already_lost(app, client, p
 
     monkeypatch.setattr(reading_service, "render_region", never)
     regions = [make_anchor(client, paper["version_id"], quote_text="", kind="figure") for _ in range(70)]
+    choice = {"version_id": paper["version_id"], "anchor_ids": regions, "include_region_images": True, "text": {"mode": "none"}}
 
-    response = preview(client, {"papers": [{"version_id": paper["version_id"], "anchor_ids": regions, "include_region_images": True}]})
+    response = preview(client, {"papers": [choice]})
 
     assert "over_limit" in [item["code"] for item in response.json()["warnings"]]
     assert response.json()["file_count"] == 73
@@ -413,13 +414,16 @@ def test_text_ranges_count_from_zero_and_include_both_ends(client, paper, outbox
     assert [page["page_index"] for page in read_json(folder, f"texts/{version_id}.json")["pages"]] == [1, 2]
 
 
-def test_no_text_is_carried_unless_chosen(client, paper, outbox):
-    """수신기가 texts/를 받기 전까지 기본은 싣지 않음이다."""
-    bundle = create(client, {"papers": [{"version_id": paper["version_id"]}]}).json()
+def test_text_of_anchor_pages_is_carried_by_default(client, paper, outbox):
+    """요구사항 Q3: LLM Wiki 수신기가 texts/를 받으므로 기본은 고른 위치가 있는 쪽이다."""
+    version_id = paper["version_id"]
+    anchor_id = make_anchor(client, version_id, 1)
 
-    assert bundle["schema_version"] == "paperloom-bundle.v1"
+    bundle = create(client, {"papers": [{"version_id": version_id, "anchor_ids": [anchor_id]}]}).json()
+
+    assert (bundle["schema_version"], bundle["counts"]["texts"]) == ("paperloom-bundle.v1.1", 1)
     [folder] = bundles_in(outbox)
-    assert not (folder / "texts").exists()
+    assert [page["page_index"] for page in read_json(folder, f"texts/{version_id}.json")["pages"]] == [1]
 
 
 def test_ranges_are_ignored_unless_the_mode_asks_for_them(client, paper, outbox):
@@ -569,7 +573,7 @@ def test_repeated_ids_count_once(client, paper, outbox, check_evidence_bundle):
         "proposals": [{"version_id": paper["version_id"], "title": "제목", "content_markdown": "본문", "anchor_ids": [anchor_id, anchor_id]}],
     }).json()
 
-    assert bundle["counts"] == {"anchors": 1, "proposals": 1, "answers": 1, "assets": 0, "texts": 0}
+    assert bundle["counts"] == {"anchors": 1, "proposals": 1, "answers": 1, "assets": 0, "texts": 1}
     [folder] = bundles_in(outbox)
     check_evidence_bundle(folder)
     [path] = (folder / "proposals").iterdir()
@@ -761,8 +765,9 @@ def test_the_web_app_answers_on_the_bundle_history_address(tmp_path):
 def test_near_limit_is_counted_with_rendered_images(client, paper, monkeypatch):
     monkeypatch.setattr(reading_service, "render_region", lambda *_: PNG)
     regions = [make_anchor(client, paper["version_id"], quote_text="", kind="figure") for _ in range(50)]
+    choice = {"version_id": paper["version_id"], "anchor_ids": regions, "include_region_images": True, "text": {"mode": "none"}}
 
-    response = preview(client, {"papers": [{"version_id": paper["version_id"], "anchor_ids": regions, "include_region_images": True}]})
+    response = preview(client, {"papers": [choice]})
 
     assert response.json()["file_count"] == 53
     assert [item["code"] for item in response.json()["warnings"]] == ["near_limit"]

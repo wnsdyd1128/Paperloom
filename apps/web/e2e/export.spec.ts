@@ -91,7 +91,8 @@ test("Reader에서 위치·메모·제안을 고르고 미리본 뒤 bundle을 �
   await expect(dialog.getByRole("status")).toContainText("Wiki로 내보냈습니다");
   const folder = onlyBundle();
   const manifest = readManifest(folder);
-  expect(manifest.schema_version).toBe("paperloom-bundle.v1");
+  expect(manifest.schema_version).toBe("paperloom-bundle.v1.1"); // 기본은 고른 위치가 있는 쪽의 추출문을 싣는다
+  expect(manifest.files.map((file) => file.path)).toContain(`texts/${fixture.versionId}.json`);
   const [source] = JSON.parse(readFileSync(`${folder}sources.json`, "utf-8"));
   const [anchor] = JSON.parse(readFileSync(`${folder}anchors.json`, "utf-8"));
   expect(source.version_id).toBe(fixture.versionId);

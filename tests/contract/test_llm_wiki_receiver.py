@@ -114,13 +114,15 @@ def test_evidence_only_bundle_is_kept_without_a_candidate(paperloom, receiver):
     assert record.proposals == [] and len(service.record(record.id).evidence) == 1
 
 
-def test_todays_receiver_refuses_a_bundle_with_texts(paperloom, receiver):
-    """03-api-spec §7의 의존: 기본이 싣지 않음인 까닭이다. 이 시험이 실패하면 수신기가 texts/를 받게 된 것이니 기본값을 다시 정한다(Q3)."""
+def test_the_receiver_keeps_the_text_that_the_default_carries(paperloom, receiver):
+    """03-api-spec §7·요구사항 Q3: 수신기가 texts/를 받으므로(2026-11-02) 기본은 고른 위치가 있는 쪽의 추출문을 싣는다."""
     service, _, _ = receiver
-    client, _, version_id, _ = paperloom
-    bundle = export(client, {"papers": [{"version_id": version_id, "text": {"mode": "all"}}]})
+    client, _, version_id, anchor_id = paperloom
+    bundle = export(client, {"papers": [{"version_id": version_id, "anchor_ids": [anchor_id]}]})
 
     [entry] = service.bundles()
+    record, _ = service.receive(bundle["bundle_id"])
 
-    assert (entry.bundle_id, entry.status) == (bundle["bundle_id"], "invalid")
-    assert entry.reason == "unexpected_directory:texts"
+    assert (bundle["schema_version"], bundle["counts"]["texts"]) == ("paperloom-bundle.v1.1", 1)
+    assert (entry.status, entry.reason) == ("new", None)
+    assert len(record.text_sources) == 1

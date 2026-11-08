@@ -194,7 +194,6 @@ function Options({ draft, invalid, onChange }: Readonly<{ draft: PaperDraft; inv
           />
         </label>
       )}
-      {draft.textMode !== "none" && <p className="export-note">지금 LLM Wiki 수신기는 추출문이 든 bundle을 받지 않습니다. LLM Wiki가 texts/를 받게 된 뒤에 쓰세요.</p>}
     </section>
   );
 }

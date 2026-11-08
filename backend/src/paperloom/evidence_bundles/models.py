@@ -35,8 +35,8 @@ class PageRange(_Strict):
 
 
 class TextChoice(_Strict):
-    # 수신기가 texts/를 받기 전까지 기본은 싣지 않음이다 (03-api-spec §7)
-    mode: TextMode = Field(default="none", description="none: 싣지 않음, anchor_pages: 고른 위치가 있는 쪽, all: 모든 쪽, ranges: ranges의 쪽")
+    # 기본은 고른 위치가 있는 쪽이다(요구사항 Q3). LLM Wiki 수신기는 2026-11-02부터 texts/를 받는다 (03-api-spec §7)
+    mode: TextMode = Field(default="anchor_pages", description="none: 싣지 않음, anchor_pages: 고른 위치가 있는 쪽, all: 모든 쪽, ranges: ranges의 쪽")
     ranges: Annotated[list[PageRange], Field(max_length=MAX_RANGES)] = []
 
     @model_validator(mode="after")

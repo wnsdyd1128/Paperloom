@@ -1,7 +1,7 @@
 """Evidence Bundle 계약 fixture 생성기 (NFR-10). LLM Wiki 쪽이 수신기를 시험할 때도 이 폴더를 쓸 수 있다. 값은 모두 합성이다.
 
 v1/   paperloom-bundle.v1: 논문 하나, Anchor 둘(글·표), 메모, 제안 하나, 답변 하나, 영역 이미지 하나
-v1.1/ paperloom-bundle.v1.1: 같은 내용에 원문 추출문 texts/ (LLM Wiki 수신기는 2026-10-30 기준 이 폴더를 거부한다, 03-api-spec §7)
+v1.1/ paperloom-bundle.v1.1: 같은 내용에 원문 추출문 texts/ (LLM Wiki 수신기는 2026-11-02부터 이 폴더를 받는다, 03-api-spec §7)
 
 실행: python tests/fixtures/evidence-bundles/generate_bundles.py
 """

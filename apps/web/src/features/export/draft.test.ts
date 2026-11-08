@@ -69,7 +69,7 @@ describe("요청", () => {
 
     expect(toRequest([{ versionId: "v1", pageCount: 5, draft: first }, { versionId: "v2", pageCount: 5, draft: second }])).toEqual({
       papers: [
-        { version_id: "v1", anchor_ids: ["a"], include_comments: true, include_region_images: false, text: { mode: "none" } },
+        { version_id: "v1", anchor_ids: ["a"], include_comments: true, include_region_images: false, text: { mode: "anchor_pages" } },
         { version_id: "v2", anchor_ids: [], include_comments: false, include_region_images: true, text: { mode: "ranges", ranges: [{ from: 1, to: 2 }] } },
       ],
       answer_ids: ["x", "y"],
