@@ -185,7 +185,7 @@ export async function saveNote(page: Page, comment = "") {
 }
 
 /** 오른쪽 레일에서 패널을 연다 (이미 열려 있으면 그대로 둔다). */
-export async function openPanel(page: Page, label: "Claude와 대화" | "선택 설명·질문" | "하이라이트" | "주석") {
+export async function openPanel(page: Page, label: "Claude와 대화" | "아티팩트" | "선택 설명·질문" | "하이라이트" | "주석") {
   const button = page.getByRole("navigation", { name: "사이드바 패널" }).getByRole("button", { name: label, exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");

@@ -636,6 +636,22 @@ test("아티팩트: 답의 아티팩트를 누르면 본문 위 창에서 격리
   await openPanel(page, "Claude와 대화");
   await chat.locator(".chat-turn:not(.is-pending)").last().getByRole("button", { name: "아티팩트 열기: 눌러 세기" }).click();
   await expect(frame.getByRole("button", { name: "눌린 수 0" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // 아티팩트 탭(2026-11-09 사용자 요청: 대화에서 만든 아티팩트를 모아 두는 곳)에는 이 논문 대화의 아티팩트가 최근 답부터 모인다.
+  // 답과 함께 저장되어 새로고침 뒤에도 있고, 누르면 같은 본문 위 창에서 연다
+  await openPanel(page, "아티팩트");
+  const shelf = page.locator(".reader-side").getByRole("region", { name: "아티팩트", exact: true });
+  const rows = shelf.getByRole("button", { name: /^아티팩트 열기: / });
+  const titles = ["격리 시험", "네모 그림", "읽기 흐름", "눌러 세기", "정리 문서", "합 계산"];
+  await expect(rows.first()).toBeVisible();
+  expect((await rows.allTextContents()).slice(0, 6).map((text) => titles.find((title) => text.includes(title)))).toEqual(titles);
+  await expect(rows.first()).toContainText("(아티팩트) 그려 주세요"); // 그 차례의 질문
+  await expect(rows.nth(5)).toContainText("코드 · python");
+  await rows.nth(3).click();
+  await expect(page.locator(".reader-stage").getByRole("dialog", { name: "아티팩트: 눌러 세기" })).toBeVisible();
+  await expect(frame.getByRole("button", { name: "눌린 수 0" })).toBeVisible();
+  await expect(shelf).toBeVisible(); // 사이드바는 그대로다
 });
 
 test("아티팩트: 형식 없이 보통 코드 블록으로 온 HTML 문서·SVG·Mermaid도 아티팩트로 연다", async ({ page }, testInfo) => {

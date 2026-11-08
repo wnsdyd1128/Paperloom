@@ -79,7 +79,9 @@ class AnswerOut(BaseModel):
     connection_name: str | None  # host_mcp면 저장한 연결의 이름
     prompt: str | None  # claude_code: 이 차례의 질문
     session_id: str | None  # claude_code: 이어 묻기에 쓰는 대화 ID
-    markdown: str
+    markdown: str = Field(
+        description="모델이 쓴 Markdown 그대로. 아티팩트는 이 안의 울타리 코드 블록이다(논문별 목록은 `GET /api/v1/papers/{paper_id}/artifacts`)"
+    )
     content_sha256: str
     citations: list[Citation]
     unresolved_citations: list[int]  # packet에 없는 근거 번호

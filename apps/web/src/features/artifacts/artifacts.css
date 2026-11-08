@@ -44,6 +44,73 @@ button.artifact-card:hover {
   font-size: 12px;
 }
 
+/* ── 사이드바의 아티팩트 탭: 이 논문 대화의 아티팩트 목록 ── */
+.artifact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.artifact-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.artifact-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.artifact-row > svg {
+  margin-top: 2px;
+}
+
+.artifact-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.artifact-row-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-neutral-700);
+  font-size: 11px;
+}
+
+.artifact-row-meta .tag {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.artifact-row-prompt {
+  overflow: hidden;
+  color: var(--color-neutral-800);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── 본문 위 창 ── */
 .artifact-window {
   position: absolute;

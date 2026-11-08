@@ -13,6 +13,7 @@ import { HighlightsPanel } from "../annotations/HighlightsPanel";
 import { NotesPanel } from "../annotations/NotesPanel";
 import { useAnnotations } from "../annotations/useAnnotations";
 import type { Artifact } from "../artifacts/artifact";
+import { ArtifactPanel } from "../artifacts/ArtifactPanel";
 import { ArtifactWindow } from "../artifacts/ArtifactWindow";
 import { useBridge } from "../chat/BridgeStatus";
 import { usePreferences } from "../settings/PreferencesProvider";
@@ -70,11 +71,12 @@ const CONTEXT_CHARS = 64; // anchor.v1 prefix·suffix 길이
 const EQUATION_QUESTION = "이 수식을 LaTeX로 옮기고, 각 기호의 뜻과 수식이 말하는 바를 설명해 주세요.";
 const NOTICE_MS = 4000;
 
-/** 오른쪽 사이드바 패널 (시안 레일): Claude와 대화, 선택 설명·질문, 하이라이트(U5), 주석 */
-type Panel = "chat" | "threads" | "highlights" | "notes";
+/** 오른쪽 사이드바 패널 (시안 레일): Claude와 대화, 아티팩트 모음(2026-11-09 사용자 요청), 선택 설명·질문, 하이라이트(U5), 주석 */
+type Panel = "chat" | "artifacts" | "threads" | "highlights" | "notes";
 const PANEL_KEY = "paperloom.reader.panel"; // 이 브라우저에서만 기억하는 편의 설정
 const RAIL: readonly Readonly<{ panel: Panel; label: string; icon: IconName }>[] = [
   { panel: "chat", label: "Claude와 대화", icon: "chat" },
+  { panel: "artifacts", label: "아티팩트", icon: "artifact" },
   { panel: "threads", label: "선택 설명·질문", icon: "sparkles" },
   { panel: "highlights", label: "하이라이트", icon: "highlighter" },
   { panel: "notes", label: "주석", icon: "notes" },
@@ -146,7 +148,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   const [regionMode, setRegionMode] = useState(false);
   const [{ panel, open: panelOpen }, setPanelState] = useState(storedPanel);
   const [chatRequest, setChatRequest] = useState<ChatRequest | null>(null);
-  // 본문 위에 연 아티팩트. 다시 열면 nonce가 바뀌어 창을 새로 만든다
+  // 본문 위에 연 아티팩트(답의 카드나 아티팩트 탭의 목록에서). 다시 열면 nonce가 바뀌어 창을 새로 만든다
   const [openArtifact, setOpenArtifact] = useState<Readonly<{ artifact: Artifact; nonce: number }> | null>(null);
   const showArtifact = (artifact: Artifact) => setOpenArtifact({ artifact, nonce: Date.now() });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1008,6 +1010,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   );
   const counts: Readonly<Record<Panel, number>> = {
     chat: 0,
+    artifacts: 0, // 목록은 탭을 열 때 받으므로 수를 미리 알지 못한다
     threads: inline.items.length,
     highlights: annotations.state.kind === "ready" ? annotations.state.items.filter((item) => item.color).length : 0,
     notes: annotations.state.kind === "ready" ? annotations.state.items.length : 0,
@@ -1238,6 +1241,9 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
               onSessionRenamed={inline.sessionRenamed}
               onSessionDeleted={inline.sessionDeleted}
             />
+          </div>
+          <div className="side-panel" hidden={panel !== "artifacts"}>
+            <ArtifactPanel paperId={paper.paper_id} visible={panelOpen && panel === "artifacts"} onOpen={showArtifact} />
           </div>
           <div className="side-panel" hidden={panel !== "threads"}>
             <ThreadsPanel items={inline.items} active={inline.expanded} onOpen={openThread} />

@@ -6,7 +6,8 @@
  *     ```
  *
  * 형식은 브리지의 시스템 프롬프트(backend/src/paperloom/integrations/claude_code/cli.py)가 정한다. 답과 함께 저장되므로
- * 다시 열어도 남고, 다른 곳에 붙여 넣으면 보통 코드 블록으로 보인다. 그리는 곳은 Reader 본문 위 창(ArtifactWindow)이다.
+ * 다시 열어도 남고, 다른 곳에 붙여 넣으면 보통 코드 블록으로 보인다. 그리는 곳은 Reader 본문 위 창(ArtifactWindow)이다. Reader 오른쪽의 아티팩트 탭(ArtifactPanel)은
+ * 이 논문 대화의 아티팩트를 모아 보이며, 서버가 같은 규칙으로 찾는다(backend/src/paperloom/artifacts/blocks.py).
  */
 
 export const ARTIFACT_TYPES = ["html", "svg", "mermaid", "react", "markdown", "code"] as const;

@@ -31,7 +31,7 @@ TAGS = [
     {"name": "대화", "description": "선택 설명·질문 대화와 대화 이름·갈래"},
     {"name": "번역", "description": "쪽 번역. 저장은 Claude Code 브리지가 번역을 검사한 뒤 부른다"},
     {"name": "Wiki로 내보내기", "description": "LLM Wiki가 읽을 Evidence Bundle을 outbox에 쓴다. LLM Wiki는 이 API를 부르지 않고 파일만 읽는다"},
-    {"name": "아티팩트", "description": "대화 답의 아티팩트를 페이지 파일로 쓰고 이 PC에서 여는 링크를 준다. 페이지는 `/artifacts/<id>`에서 격리해서 준다"},
+    {"name": "아티팩트", "description": "대화 답에서 Claude가 만든 아티팩트(답 Markdown의 `artifact` 울타리 코드 블록)의 논문별 목록과, 아티팩트를 이 PC에서 여는 링크. 아티팩트는 답과 함께 저장된다. 링크의 페이지 `/artifacts/<id>`는 새 탭에서 여는 화면이라 이 문서에 없다"},
     {"name": "검색", "description": "논문 제목 검색"},
     {"name": "설정", "description": "사용자 설정"},
     {"name": "상태", "description": "서버 상태"},

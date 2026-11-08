@@ -121,7 +121,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     app.include_router(build_evidence_bundles_router(EvidenceBundleService(db_path, anchors, answers, outbox), keys))
     app.include_router(build_threads_router(ThreadService(db_path)))
     app.include_router(build_translation_router(TranslationService(db_path)))
-    app.include_router(build_artifacts_router(ArtifactStore(data_dir / "artifacts", settings.artifacts.shown_dir)))
+    app.include_router(build_artifacts_router(ArtifactStore(data_dir / "artifacts", settings.artifacts.shown_dir), answers))
 
     # API 라우트를 먼저 등록해야 정적 파일 mount가 /api 경로를 가리지 않는다.
     if web_dist_dir := settings.app.web_dist_dir:
