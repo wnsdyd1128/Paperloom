@@ -58,11 +58,36 @@ export function finishTurn(paperId: string, outcome: TurnOutcome): void {
   for (const listener of finishListeners) listener(paperId, turn, outcome);
   turns.delete(paperId);
   changed();
+  if (outcome.kind === "done") {
+    const channel = savedChannel();
+    channel?.postMessage(paperId);
+    channel?.close(); // 보낸 소식은 닫아도 간다
+  }
 }
 
 export function onTurnFinished(listener: FinishListener): () => void {
   finishListeners.add(listener);
   return () => void finishListeners.delete(listener);
+}
+
+/**
+ * 대화 차례가 답을 저장했을 때. 이 탭의 차례뿐 아니라 다른 탭(사이드바에서 분리한 대화 탭)의 차례도 알린다: 대화를 분리해도
+ * 답변 화면이 그 답을 목록에 넣는다(2026-11-08 사용자 보고).
+ */
+export function onAnswerSaved(listener: (paperId: string) => void): () => void {
+  const channel = savedChannel();
+  // 같은 탭의 차례도 채널로 온다(보낸 채널 객체에만 오지 않는다). 채널이 없는 브라우저면 이 탭의 차례만 듣는다
+  if (!channel) {
+    return onTurnFinished((paperId, _turn, outcome) => {
+      if (outcome.kind === "done") listener(paperId);
+    });
+  }
+  channel.onmessage = (event: MessageEvent<string>) => listener(event.data);
+  return () => channel.close();
+}
+
+function savedChannel(): BroadcastChannel | null {
+  return typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("paperloom-answer-saved");
 }
 
 /** 그 논문에서 만드는 중인 차례. 바뀌면 다시 그린다. */

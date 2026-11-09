@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { relativeTime } from "../../shared/time";
-import { onTurnFinished } from "../chat/runningTurn";
+import { onAnswerSaved } from "../chat/runningTurn";
 import { type Conversation, listConversations, THREAD_KIND_LABELS } from "../threads/api";
 import type { Citation } from "./api";
 import { AnswerList } from "./AnswerList";
@@ -29,10 +29,9 @@ export function ConversationsPage({ onOpen, onOpenCitation }: Props) {
         .then((items) => setState({ kind: "ready", items }))
         .catch(() => setState({ kind: "failed" }));
     void load();
-    // 답을 만드는 중에 Reader를 나와 이 화면을 보고 있으면, 그 답이 저장될 때 목록에 넣는다(2026-11-08 사용자 보고)
-    return onTurnFinished((_paper, _turn, outcome) => {
-      if (outcome.kind === "done") void load();
-    });
+    // 답을 만드는 중에 Reader를 나와(또는 분리한 대화 탭에서 묻는 동안) 이 화면을 보고 있으면, 그 답이 저장될 때 목록에 넣는다
+    // (2026-11-08 사용자 보고)
+    return onAnswerSaved(() => void load());
   }, []);
 
   return (

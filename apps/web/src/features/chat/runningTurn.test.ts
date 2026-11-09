@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Answer } from "../answers/api";
-import { finishTurn, onTurnFinished, type RunningTurn, runningTurn, startTurn, updateTurn } from "./runningTurn";
+import { finishTurn, onAnswerSaved, onTurnFinished, type RunningTurn, runningTurn, startTurn, updateTurn } from "./runningTurn";
 
 const turn: RunningTurn = { prompt: "질문", quote: [], text: "", runId: null, session: "s1", fork: null };
 
@@ -30,5 +30,16 @@ describe("runningTurn", () => {
     startTurn("p1", turn);
     finishTurn("p1", { kind: "cancelled" }); // 그만 들은 곳은 받지 않는다
     expect(heard).toHaveLength(1);
+  });
+
+  it("답을 저장한 차례는 다른 탭에도 알린다(답변 화면이 다시 읽는다). 중단·실패는 알리지 않는다", async () => {
+    const saved: string[] = [];
+    const stop = onAnswerSaved((paperId) => saved.push(paperId));
+    startTurn("p1", turn);
+    finishTurn("p1", { kind: "cancelled" });
+    startTurn("p2", turn);
+    finishTurn("p2", { kind: "done", answer: { answer_id: "a2", session_id: "s1" } as Answer });
+    await expect.poll(() => saved).toEqual(["p2"]);
+    stop();
   });
 });
