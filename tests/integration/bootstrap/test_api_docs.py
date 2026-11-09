@@ -33,7 +33,7 @@ def _operations(schema: dict):
 def test_every_operation_has_a_known_tag_and_a_written_summary(schema):
     known = {tag["name"] for tag in schema["tags"]}
     operations = dict(_operations(schema))
-    assert len(operations) == 57
+    assert len(operations) == 59
     for name, operation in operations.items():
         assert len(operation["tags"]) == 1 and operation["tags"][0] in known, name
         # 쓰지 않으면 FastAPI가 함수 이름으로 영어 제목을 만든다
@@ -110,6 +110,7 @@ def test_the_upload_body_is_a_pdf_file(schema):
         ("/api/v1/versions/{version_id}/pdf", "application/pdf"),
         ("/api/v1/anchors/{anchor_id}/image", "image/png"),
         ("/api/v1/versions/{version_id}/pages/{page_index}/image", "image/png"),
+        ("/api/v1/versions/{version_id}/figures/{label}/image", "image/png"),
         ("/api/v1/context-packets/{packet_id}/export.md", "text/markdown"),
         ("/api/v1/context-packets/{packet_id}/export.zip", "application/zip"),
     ],

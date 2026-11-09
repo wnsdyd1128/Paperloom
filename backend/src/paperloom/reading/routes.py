@@ -1,4 +1,4 @@
-"""원문 위치 REST (IMPL §8): 만들기, 조회, 영역 종류 바꾸기, 영역 이미지, 쪽의 그림 후보·영역 이미지."""
+"""원문 위치 REST (IMPL §8): 만들기, 조회, 영역 종류 바꾸기, 영역 이미지, 쪽의 그림 후보·영역 이미지, 번호 붙은 그림."""
 
 import math
 from typing import Annotated
@@ -10,7 +10,7 @@ from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 from paperloom.api.idempotency import IdempotencyStore
 from paperloom.reading.figures import FiguresFailed
 from paperloom.reading.geometry import quad_shape_problem
-from paperloom.reading.models import AnchorIn, AnchorKindPatch, AnchorList, AnchorOut, FigureList, FigureOut
+from paperloom.reading.models import AnchorIn, AnchorKindPatch, AnchorList, AnchorOut, FigureList, FigureOut, NumberedFigureList, NumberedFigureOut
 from paperloom.reading.region_image import RenderFailed
 from paperloom.reading.service import AnchorService, InvalidAnchor, VersionNotFound
 
@@ -80,6 +80,26 @@ def build_router(service: AnchorService, keys: IdempotencyStore) -> APIRouter:
         if figures is None:
             raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
         return FigureList(figures=[FigureOut(box=list(figure.box), source=figure.source) for figure in figures])
+
+    @router.get("/versions/{version_id}/figures", summary="판본의 번호 붙은 그림", responses=errors("NOT_FOUND"))
+    def numbered_figures(version_id: str) -> NumberedFigureList:
+        """캡션("Figure 3: …", "Fig. 2.", "그림 1." …)으로 찾은 그림, 문서 차례로. 본문 추출 전이면 빈 목록이다.
+        대화 브리지가 Claude에게 알리고, 아티팩트가 그림 번호(paperloom-figure:3)로 원본 그림을 넣을 때 쓴다."""
+        figures = service.numbered_figures(version_id)
+        if figures is None:
+            raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
+        return NumberedFigureList(
+            version_id=version_id,
+            figures=[NumberedFigureOut(label=figure.label, page_index=figure.page_index, caption=figure.caption) for figure in figures],
+        )
+
+    @router.get("/versions/{version_id}/figures/{label}/image", summary="번호 붙은 그림의 이미지", response_class=Response, responses=_IMAGE_DOCS)
+    def numbered_figure_image(version_id: str, label: str, scale: Annotated[float, Query(ge=0.5, le=4)] = 2) -> Response:
+        """캡션에 붙은 그림 영역(그림 후보와 축 이름 같은 그림의 글)의 PNG. 그 번호가 없거나 그림 영역을 찾지 못하면 404다."""
+        try:
+            return _png_response(lambda: service.numbered_figure_image(version_id, label, scale))
+        except FiguresFailed:
+            raise ApiError(503, "RESOURCE_LIMIT", "쪽의 그림을 시간 안에 찾지 못했습니다.", retryable=True) from None
 
     return router
 

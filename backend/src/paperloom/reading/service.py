@@ -4,11 +4,14 @@ Anchor는 한 SourceVersion의 한 쪽에 속하고, 위치(쪽·quad)와 인용
 종류(그림·표·수식·영역)만 바꿀 수 있다. 서버는 형식 검사(models) 뒤에 쪽 존재 여부와 quad 모양을 검사한다.
 """
 
+import json
+import sqlite3
 import uuid
 from contextlib import closing
 from pathlib import Path
 
 from paperloom.documents import repository as documents
+from paperloom.documents import text_repository
 from paperloom.infrastructure.clock import utc_now
 from paperloom.infrastructure.database.sqlite import connect
 from paperloom.infrastructure.files.source_store import SourceStore
@@ -16,6 +19,7 @@ from paperloom.reading import repository
 from paperloom.reading.figures import Figure, find_figures
 from paperloom.reading.geometry import quad_shape_problem
 from paperloom.reading.models import AnchorIn, AnchorOut
+from paperloom.reading.numbered_figures import NumberedFigure, Paragraph, figure_box, numbered_figures
 from paperloom.reading.region_image import render_region
 
 _FIGURE_CACHE_LIMIT = 512  # (버전, 쪽) 수. SourceVersion은 바뀌지 않으므로 결과도 바뀌지 않는다.
@@ -109,6 +113,33 @@ class AnchorService:
         self._figure_cache[key] = figures
         return figures
 
+    def numbered_figures(self, version_id: str) -> list[NumberedFigure] | None:
+        """캡션으로 찾은 번호 붙은 그림, 문서 차례로(reading.numbered_figures). 버전이 없으면 None, 본문 추출 전이면 빈 목록."""
+        with closing(connect(self._db_path)) as connection:
+            if documents.get_version(connection, version_id) is None:
+                return None
+            pages = [row["page_index"] for row in text_repository.list_pages(connection, version_id)]
+            rows = text_repository.blocks_on_pages(connection, version_id, pages) if pages else []
+        by_page: dict[int, list[Paragraph]] = {}
+        for row in rows:
+            by_page.setdefault(row["page_index"], []).append(_paragraph(row))
+        return numbered_figures(sorted(by_page.items()))
+
+    def numbered_figure_image(self, version_id: str, label: str, scale: float) -> bytes | None:
+        """번호 붙은 그림 영역의 PNG. 버전·번호가 없거나 캡션에 붙은 그림 영역을 찾지 못하면 None.
+        그림 후보를 찾지 못하면 FiguresFailed, 그리지 못하면 RenderFailed."""
+        figure = next((item for item in self.numbered_figures(version_id) or [] if item.label == label.upper()), None)
+        if figure is None:
+            return None
+        with closing(connect(self._db_path)) as connection:
+            paragraphs = [_paragraph(row) for row in text_repository.page_blocks(connection, version_id, figure.page_index)]
+        caption = next((paragraph for paragraph in paragraphs if paragraph.block_id == figure.block_id), None)
+        candidates = self.figures(version_id, figure.page_index)
+        if caption is None or candidates is None:  # 그 사이 다시 추출했다
+            return None
+        box = figure_box(caption, [candidate.box for candidate in candidates], paragraphs)
+        return None if box is None else self.page_image(version_id, figure.page_index, box, scale)
+
     def image(self, anchor_id: str, scale: float) -> bytes | None:
         """Anchor quad들을 감싸는 영역의 PNG (화면에 보이는 방향). 없으면 None. 실패하면 RenderFailed."""
         anchor = self.get(anchor_id)
@@ -130,3 +161,7 @@ class AnchorService:
         if path is None:
             return None
         return render_region(path, page_index, box, scale, self._render_timeout_seconds)
+
+
+def _paragraph(row: sqlite3.Row) -> Paragraph:
+    return Paragraph(row["block_id"], row["text"], json.loads(row["regions_json"]), json.loads(row["quality_flags_json"]))

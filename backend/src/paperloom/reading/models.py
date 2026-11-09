@@ -66,6 +66,19 @@ class FigureList(BaseModel):
     figures: list[FigureOut]
 
 
+class NumberedFigureOut(BaseModel):
+    """캡션으로 찾은 번호 붙은 그림 (reading.numbered_figures). label은 캡션의 번호(3, S1), caption은 캡션 문단(앞 300자)."""
+
+    label: str
+    page_index: int
+    caption: str
+
+
+class NumberedFigureList(BaseModel):
+    version_id: str
+    figures: list[NumberedFigureOut]
+
+
 class AnchorOut(BaseModel):
     schema_version: str
     kind: str
