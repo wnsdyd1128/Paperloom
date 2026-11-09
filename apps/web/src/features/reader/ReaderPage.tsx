@@ -1250,7 +1250,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           )}
           <ReturnBar spots={returns.spots} onBack={goBack} onClose={returns.clear} />
           {find.open && <FindBar focusKey={find.focusKey} matches={findMatches} pending={findPending} onFind={findText} onClose={closeFind} />}
-          {openArtifact && <ArtifactWindow key={openArtifact.nonce} artifact={openArtifact.artifact} onClose={() => setOpenArtifact(null)} />}
+          {openArtifact && <ArtifactWindow key={openArtifact.nonce} artifact={openArtifact.artifact} versionId={versionId} onClose={() => setOpenArtifact(null)} />}
         </main>
         {/* 사이드바를 바꾸거나 닫아도 대화·입력이 남도록 패널을 숨기기만 한다. */}
         <aside className="reader-side" hidden={!panelOpen} aria-label="사이드바" style={{ width: side.width }}>

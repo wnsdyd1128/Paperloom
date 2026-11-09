@@ -1,12 +1,13 @@
 import "katex/dist/katex.min.css";
 
-import Markdown, { type Components } from "react-markdown";
+import Markdown, { type Components, defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import { type Artifact, ARTIFACT_LANGUAGE, fencedArtifact, parseArtifact } from "../artifacts/artifact";
 import { ArtifactCard } from "../artifacts/ArtifactCard";
+import { FIGURE_SCHEME, type FigureImages } from "../artifacts/paperFigures";
 import { citeTarget, isLegacyAnswer, OLD_CITE_PREFIX, PAGE_PREFIX, remarkCitations, remarkInlineMathTags, remarkOutsideEvidence } from "./citations";
 
 type Props = Readonly<{
@@ -20,17 +21,20 @@ type Props = Readonly<{
   onOpenArtifact?: (artifact: Artifact) => void;
   /** 답을 만드는 중: 아티팩트는 자리만 보이고 열지 않는다 */
   streaming?: boolean;
+  /** 문서 아티팩트의 논문 그림(paperloom-figure:N → 그림). 없으면 그 그림도 대체 글로 보인다 */
+  figures?: FigureImages;
 }>;
 
 /**
  * AI 답변 Markdown을 그린다 (표·목록·코드·수식 $…$). 모델이 쓴 글이므로 안전하게만 그린다:
  * HTML은 해석하지 않고 글자로 보이며(react-markdown 기본), javascript: 같은 링크는 지워지고(기본 urlTransform),
- * 이미지는 외부 주소를 불러오지 않도록 대체 글로만 보인다. 근거 표기 [근거 n]·쪽 표기는 원문 위치로 가는 단추가 되고,
+ * 이미지는 외부 주소를 불러오지 않도록 대체 글로만 보인다(문서 아티팩트의 논문 그림 참조는 figures가 준 그림으로 보인다,
+ * artifacts/paperFigures.ts). 근거 표기 [근거 n]·쪽 표기는 원문 위치로 가는 단추가 되고,
  * "> [근거 밖]" 인용문은 "근거 밖 · 일반 지식" 칸으로 따로 보인다. 논문의 참고문헌 번호 [12]는 글자 그대로다.
  * ```artifact 블록과 그대로 열 수 있는 html·svg·mermaid 블록(features/artifacts, fencedArtifact)은 아티팩트 자리가 된다.
  * 그 안의 HTML·스크립트는 여기서 실행하지 않는다.
  */
-export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifact, streaming = false }: Props) {
+export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifact, streaming = false, figures }: Props) {
   const components: Components = {
     pre: ({ node, ...props }) => {
       const code = node?.children[0];
@@ -98,7 +102,10 @@ export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifa
       ) : (
         <blockquote>{children}</blockquote>
       ),
-    img: ({ alt }) => <span className="muted">[그림: {alt || "설명 없음"}]</span>,
+    img: ({ src, alt }) => {
+      const figure = typeof src === "string" ? figures?.get(src) : undefined;
+      return figure ? <img className="markdown-figure" src={figure} alt={alt ?? ""} /> : <span className="muted">[그림: {alt || "설명 없음"}]</span>;
+    },
   };
   return (
     <div className="markdown">
@@ -106,6 +113,8 @@ export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifa
         remarkPlugins={[remarkGfm, remarkMath, remarkInlineMathTags, remarkOutsideEvidence, [remarkCitations, { legacy: isLegacyAnswer(markdown) }]]}
         rehypePlugins={[rehypeKatex]}
         components={components}
+        // 그림 참조는 기본 규칙이 모르는 주소라 지워지므로 이미지 주소일 때만 남긴다(img가 figures로 바꾼다)
+        urlTransform={(url, key) => (key === "src" && url.startsWith(FIGURE_SCHEME) ? url : defaultUrlTransform(url))}
       >
         {markdown}
       </Markdown>

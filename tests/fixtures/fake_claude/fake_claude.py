@@ -11,6 +11,8 @@
 - 질문에 "(문단)"이 있으면 답 끝에 문단 근거 [근거 1¶2]와 문단 범위 [근거 1¶3–4]를 붙인다 (E2E 문단 근거 확인용)
 - 질문에 "(아티팩트)"가 있으면 답 끝에 아티팩트 여섯 종류(ARTIFACTS)를 붙인다 (E2E 아티팩트 창·격리 확인용)
 - 질문에 "(코드 블록)"이 있으면 답 끝에 아티팩트 형식이 아닌 보통 코드 블록(FENCED)을 붙인다 (E2E 확인용)
+- 질문에 "(원본 그림)"이 있으면 받은 "이 논문의 그림" 목록의 번호로 원본 그림을 넣은 아티팩트(figure_artifacts)를 붙인다
+  (E2E 확인용)
 - FAKE_CLAUDE_STEP: 글 조각 사이에 기다릴 초 (생성되는 대로 전달되는지 확인용)
 - FAKE_CLAUDE_REFRESH_RACE: 작업 폴더에서 처음 이만큼의 실행(프로세스를 가로질러 센다)은 실제 CLI처럼 로그인 토큰 갱신이 겹친
   API 오류(모델 <synthetic>, 오류 결과)로 끝난다 (2026-10-13 기록의 모양)
@@ -25,6 +27,7 @@
 import contextlib
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -125,6 +128,21 @@ print("코드는 코드로")
 ```"""
 
 
+def figure_artifacts(text: str) -> str:
+    """받은 "이 논문의 그림" 목록의 번호로 원본 그림을 넣은 HTML·문서 아티팩트. 목록에 없는 번호 99도 하나 넣는다."""
+    labels = re.findall(r"^- paperloom-figure:(\w+) ·", text, re.MULTILINE)
+    images = "".join(f'<img class="figure" src="paperloom-figure:{label}" alt="Figure {label}">' for label in labels)
+    markdown = "\n\n".join(f"![Figure {label}](paperloom-figure:{label})" for label in labels)
+    return (
+        '```artifact type="html" title="그림 슬라이드"\n'
+        f'<!DOCTYPE html><html><body><h1>원본 그림</h1>{images}<img id="missing" src="paperloom-figure:99" alt="Figure 99"></body></html>\n'
+        "```\n\n"
+        '````artifact type="markdown" title="그림 문서"\n'
+        f"# 그림 문서\n\n{markdown}\n"
+        "````"
+    )
+
+
 def emit(event: dict) -> None:
     sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
     sys.stdout.flush()
@@ -207,6 +225,8 @@ def main() -> int:
         answer += "\n\n" + ARTIFACTS
     if "(코드 블록)" in texts[-1]:
         answer += "\n\n" + FENCED
+    if "(원본 그림)" in texts[-1]:
+        answer += "\n\n" + figure_artifacts(texts[-1])
     if mode == "error":
         emit({"type": "result", "subtype": "success", "is_error": True, "result": "Claude AI usage limit reached (fake)", "session_id": session})
         return 1

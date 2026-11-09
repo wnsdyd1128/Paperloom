@@ -206,6 +206,15 @@ button.artifact-card:hover {
   padding: var(--space-4) var(--space-6);
 }
 
+/* 문서 아티팩트에 넣은 논문 그림(paperFigures.ts). 원문을 잘라 그린 것이라 흰 바탕이다 */
+.artifact-doc .markdown-figure {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-2) 0;
+  background: #fff;
+}
+
 .artifact-status {
   margin: 0;
   padding: var(--space-4);

@@ -737,6 +737,43 @@ test("아티팩트: 형식 없이 보통 코드 블록으로 온 HTML 문서·SV
   await expect(frame.locator("svg")).toContainText("답");
 });
 
+test("아티팩트의 논문 그림: 그림 번호(paperloom-figure:N)를 원문에서 잘라 낸 그림으로 바꿔 그린다", async ({ page }, testInfo) => {
+  // 2026-11-09 사용자 요청: 발표 슬라이드에 논문의 figure를 넣어 달랬더니 Claude가 그림을 받지 못해 다시 그리거나 빈 자리로 뒀다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "figures.pdf"); // "Figure 1. Synthetic bar chart with three bars." 위에 막대 그림이 있다
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  const runsBefore = fakeRuns().length;
+  await input.fill("(원본 그림) 발표 슬라이드에 그림을 넣어 주세요"); // 가짜 CLI가 받은 그림 목록의 번호와 없는 번호 99를 쓴다
+  await input.press("Enter");
+  const turn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(turn.locator(".artifact-card")).toHaveCount(2, { timeout: 15_000 });
+  // 브리지는 그 논문의 그림 번호와 캡션만 알린다
+  expect(fakeRuns().slice(runsBefore)[0].message.message.content.at(-1)!.text).toContain(
+    "- paperloom-figure:1 · p.1 · Figure 1. Synthetic bar chart with three bars.",
+  );
+  const view = page.getByRole("dialog", { name: /^아티팩트: / });
+  const frame = page.frameLocator(".artifact-frame");
+
+  // HTML: 격리 문서 안의 원본 그림(PNG)이 실제로 그려지고, 목록에 없는 번호는 찾지 못했다는 자리 그림이다
+  await turn.getByRole("button", { name: "아티팩트 열기: 그림 슬라이드" }).click();
+  const figure = frame.locator("img.figure");
+  await expect(figure).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await expect.poll(() => figure.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(100);
+  await expect(frame.locator("#missing")).toHaveAttribute("src", /^data:image\/svg\+xml/);
+  await view.getByRole("button", { name: "코드", exact: true }).click();
+  await expect(view.locator(".artifact-code")).toContainText('src="paperloom-figure:1"'); // 코드는 쓴 그대로다
+
+  // 문서(Markdown)도 같은 그림을 보인다
+  await turn.getByRole("button", { name: "아티팩트 열기: 그림 문서" }).click();
+  const docFigure = view.locator(".artifact-doc img.markdown-figure");
+  await expect(docFigure).toHaveAttribute("alt", "Figure 1");
+  await expect(docFigure).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await expect.poll(() => docFigure.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(100);
+});
+
 test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {
   // 2026-11-08 사용자 요청: claude.ai 링크를 못 만들면 파일을 만들고 경로를 주면 된다. 결정: 링크+파일 경로
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");

@@ -178,7 +178,7 @@ function ChatTabView({ paper, route }: Readonly<{ paper: Paper; route: ChatRoute
           onSessionRenamed={(sessionId, title) => channel.current?.post({ type: "renamed", sessionId, title })}
           onSessionDeleted={(sessionId) => channel.current?.post({ type: "deleted", sessionId })}
         />
-        {artifact && <ArtifactWindow key={artifact.nonce} artifact={artifact.artifact} onClose={() => setArtifact(null)} />}
+        {artifact && <ArtifactWindow key={artifact.nonce} artifact={artifact.artifact} versionId={versionId} onClose={() => setArtifact(null)} />}
       </div>
     </div>
   );

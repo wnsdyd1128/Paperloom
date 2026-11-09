@@ -4,6 +4,7 @@ import { Icon } from "../../shared/Icon";
 import { AnswerMarkdown } from "../answers/AnswerMarkdown";
 import { createArtifactLink } from "./api";
 import { type Artifact, ARTIFACT_LABELS, artifactFileName, artifactMimeType } from "./artifact";
+import { type FigureImages, loadFigureImages, withFigureImages } from "./paperFigures";
 import { isFramed, previewDocument } from "./preview";
 import { standaloneDocument } from "./standalone";
 import "./artifacts.css";
@@ -20,29 +21,39 @@ type Link =
  * HTML·SVG·Mermaid·React는 격리 iframe(frameDocument.ts)에서, 문서는 답과 같은 Markdown으로, 코드는 글자 그대로 보인다.
  * 미리 보기와 코드를 오가고, 코드를 복사하거나 파일로 내려받는다. Esc나 닫기 단추로 닫으면 읽던 자리가 그대로다.
  * 링크 만들기는 페이지 파일을 Core에 쓰고 새 탭에서 여는 링크와 그 파일 경로를 보인다(claude.ai 게시 대신, standalone.ts).
- * 다른 아티팩트를 열면 창을 새로 만든다(부르는 쪽이 key를 바꾼다).
+ * 논문 그림 참조(paperloom-figure:N)는 versionId 판본의 원본 그림으로 바꿔 그린다(paperFigures.ts). 미리 보기·내려받기·링크는
+ * 그림을 담고, 코드 보기·복사는 쓴 그대로다. 다른 아티팩트를 열면 창을 새로 만든다(부르는 쪽이 key를 바꾼다).
  */
-export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artifact; onClose: () => void }>) {
+export function ArtifactWindow({ artifact, versionId, onClose }: Readonly<{ artifact: Artifact; versionId: string | null; onClose: () => void }>) {
   const hasPreview = artifact.type !== "code";
   const [view, setView] = useState<"preview" | "code">(hasPreview ? "preview" : "code");
   const [preview, setPreview] = useState<Preview>({ kind: "loading" });
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState<Link>({ kind: "none" });
+  const [figures, setFigures] = useState<FigureImages | null>(null); // 그림 참조의 그림을 받는 동안 null
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => closeRef.current?.focus(), []);
 
   useEffect(() => {
-    if (!isFramed(artifact)) return;
     let cancelled = false;
-    previewDocument(artifact).then(
+    void loadFigureImages(versionId, artifact.content).then((loaded) => !cancelled && setFigures(loaded));
+    return () => {
+      cancelled = true;
+    };
+  }, [artifact, versionId]);
+
+  useEffect(() => {
+    if (!isFramed(artifact) || figures === null) return;
+    let cancelled = false;
+    previewDocument({ ...artifact, content: withFigureImages(artifact.content, figures) }).then(
       (html) => !cancelled && setPreview({ kind: "ready", html }),
       (error: unknown) => !cancelled && setPreview({ kind: "failed", message: error instanceof Error ? error.message : String(error) }),
     );
     return () => {
       cancelled = true;
     };
-  }, [artifact]);
+  }, [artifact, figures]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
@@ -57,7 +68,8 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
     });
 
   const download = () => {
-    const url = URL.createObjectURL(new Blob([artifact.content], { type: artifactMimeType(artifact) }));
+    const content = figures ? withFigureImages(artifact.content, figures) : artifact.content;
+    const url = URL.createObjectURL(new Blob([content], { type: artifactMimeType(artifact) }));
     const link = document.createElement("a");
     link.href = url;
     link.download = artifactFileName(artifact);
@@ -68,7 +80,7 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
   const makeLink = async () => {
     setLink({ kind: "making" });
     try {
-      const saved = await createArtifactLink(await standaloneDocument(artifact));
+      const saved = await createArtifactLink(await standaloneDocument(artifact, figures ?? (await loadFigureImages(versionId, artifact.content))));
       setLink({ kind: "ready", url: new URL(saved.url, window.location.origin).href, path: saved.path });
     } catch (error) {
       setLink({ kind: "failed", message: error instanceof Error ? error.message : String(error) });
@@ -141,7 +153,7 @@ export function ArtifactWindow({ artifact, onClose }: Readonly<{ artifact: Artif
           </pre>
         ) : artifact.type === "markdown" ? (
           <div className="artifact-doc">
-            <AnswerMarkdown markdown={artifact.content} canCite={() => false} onCite={() => undefined} />
+            <AnswerMarkdown markdown={artifact.content} canCite={() => false} onCite={() => undefined} figures={figures ?? undefined} />
           </div>
         ) : preview.kind === "loading" ? (
           <p className="artifact-status muted">미리 보기를 준비하는 중…</p>

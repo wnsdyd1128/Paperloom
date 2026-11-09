@@ -85,7 +85,8 @@ ${compiled}
 const PAGE_STYLE =
   "body{margin:0;background:#fff;color:#1c1917;font:16px/1.65 system-ui,sans-serif}main{max-width:760px;margin:0 auto;padding:32px 24px}" +
   "pre{padding:12px 14px;overflow:auto;background:#f5f5f4;font:13px/1.55 ui-monospace,monospace}code{font-family:ui-monospace,monospace}" +
-  "table{border-collapse:collapse}th,td{padding:4px 8px;border:1px solid #d6d3d1}blockquote{margin:0;padding-left:12px;border-left:3px solid #d6d3d1}";
+  "table{border-collapse:collapse}th,td{padding:4px 8px;border:1px solid #d6d3d1}blockquote{margin:0;padding-left:12px;border-left:3px solid #d6d3d1}" +
+  "img{max-width:100%;height:auto}";
 
 /**
  * 링크로 여는 문서 아티팩트. html은 웹앱이 답과 같은 Markdown으로 그린 것이다(스크립트 없음). 수식은 KaTeX 글꼴·CSS 없이
