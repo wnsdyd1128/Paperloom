@@ -1,5 +1,5 @@
 /**
- * 사용자 설정을 앱 전체에 준다 (U6). 처음에 한 번 받고, 바꾸면 바로 반영한 뒤 서버에 저장한다.
+ * 사용자 설정을 앱 전체에 준다 (U6). 처음에 한 번 받고, 바꾸면 바로 반영한 뒤 서버에 저장한다. 다른 탭에서 저장한 설정도 받는다.
  * 화면 설정(테마·글꼴 크기)은 문서 뿌리에 둔다: data-theme(system이면 운영체제), --reading-font-size.
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +17,19 @@ type Value = Readonly<{
 
 const PreferencesContext = createContext<Value>({ preferences: DEFAULT_PREFERENCES, save: async () => undefined });
 
+// 저장한 설정을 같은 브라우저의 다른 탭(대화 탭·번역 탭)에도 알린다. 대화가 별도 탭이 된 뒤(2026-11-09) 원문 탭에서
+// 테마·기본 모델을 바꾸면 대화 탭도 바로 바뀌어야 한다. 이 탭이 보낸 소식은 받지 않는다.
+const CHANNEL = "paperloom-preferences";
+const TAB = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+type Announcement = Readonly<{ from: string; preferences: Preferences }>;
+
+function announce(preferences: Preferences): void {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel(CHANNEL);
+  channel.postMessage({ from: TAB, preferences } satisfies Announcement);
+  channel.close(); // 보낸 소식은 닫아도 간다
+}
+
 export function PreferencesProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   // 저장은 차례로 보내고, 마지막 저장의 응답만 반영한다(늦게 온 앞 응답이 화면을 되돌리지 않게).
@@ -31,6 +44,15 @@ export function PreferencesProvider({ children }: Readonly<{ children: ReactNode
     getPreferences()
       .then((loaded) => saves.current.turn === 0 && apply(loaded))
       .catch(() => undefined); // 받지 못하면 기본값으로 쓴다
+  }, [apply]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(CHANNEL);
+    channel.onmessage = (event: MessageEvent<Announcement>) => {
+      if (event.data.from !== TAB) apply(event.data.preferences);
+    };
+    return () => channel.close();
   }, [apply]);
 
   useEffect(() => {
@@ -53,7 +75,10 @@ export function PreferencesProvider({ children }: Readonly<{ children: ReactNode
       );
       try {
         const saved = await request;
-        if (current.turn === turn) apply(saved);
+        if (current.turn === turn) {
+          apply(saved);
+          announce(saved);
+        }
       } catch (error) {
         if (current.turn === turn) getPreferences().then(apply, () => undefined);
         throw error;
