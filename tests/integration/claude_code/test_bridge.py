@@ -148,6 +148,8 @@ def test_first_question_sends_the_packet_with_its_images_streams_and_saves_the_a
     # 논문의 원본 그림 (2026-11-09 사용자 요청: 발표 슬라이드에 figure를 넣어 달랬더니 그림을 지어 그렸다): 번호로 쓰면 웹이 열 때
     # 원문 그림으로 바꾼다(apps/web/src/features/artifacts/paperFigures.ts)
     assert '<img src="paperloom-figure:3" alt="Figure 3">' in system_prompt and "그림을 지어 다시 그리거나 빈 자리로 두지 마세요" in system_prompt
+    # 같은 날 사용자 보고: 22장 슬라이드의 19번 장이 내용이 넘쳐 아래가 잘렸다(글자가 덱 크기에 비례해 창 크기와 무관하다)
+    assert "많으면 장을 나누세요" in system_prompt and "scrollHeight > clientHeight" in system_prompt
     assert run["env"] == []  # API 키·OAuth 토큰 환경변수는 넘기지 않는다
     assert Path(run["cwd"]) == tmp_path / "work"
     image, text = run["message"]["message"]["content"]
