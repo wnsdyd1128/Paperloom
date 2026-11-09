@@ -8,9 +8,23 @@ from pathlib import Path
 import pytest
 
 from paperloom.answers.models import Citation
+from paperloom.artifacts.blocks import Block as ArtifactBlock
 from paperloom.context.builder import Block, VersionText, anchor_section
 from paperloom.evidence_bundles import builder
-from paperloom.evidence_bundles.builder import AnchorEntry, BundleContent, ProposalEntry, SourceEntry, block_kind, build_files, file_kind, limit_excess, near_limit, reader_url, text_sha256
+from paperloom.evidence_bundles.builder import (
+    AnchorEntry,
+    ArtifactEntry,
+    BundleContent,
+    ProposalEntry,
+    SourceEntry,
+    block_kind,
+    build_files,
+    file_kind,
+    limit_excess,
+    near_limit,
+    reader_url,
+    text_sha256,
+)
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "evidence-bundles"
 BUNDLE = "0f6c2c1e-7a4b-4c8e-9d1a-2b3c4d5e6f70"
@@ -26,10 +40,11 @@ def _fixture():
 fixture = _fixture()
 
 
-def content(*, anchors=None, proposals=(), answers=(), paper=None) -> BundleContent:
+def content(*, anchors=None, proposals=(), answers=(), artifacts=(), paper=None) -> BundleContent:
     paper = paper or fixture._paper()
     version = fixture.VersionOut(**paper.current_version.model_dump(), paper_id=paper.paper_id)
-    return BundleContent(BUNDLE, fixture.NOW, "test", "http://127.0.0.1:8000/", [SourceEntry(paper, version, anchors or [], None)], list(proposals), list(answers))
+    sources = [SourceEntry(paper, version, anchors or [], None)]
+    return BundleContent(BUNDLE, fixture.NOW, "test", "http://127.0.0.1:8000/", sources, list(proposals), list(answers), list(artifacts))
 
 
 def anchor_entry(anchor_id: str = fixture.TEXT_ANCHOR, **fields) -> AnchorEntry:
@@ -121,6 +136,27 @@ def test_the_answer_head_stays_on_one_line_each():
 
     assert len(head) == 3 and head[1].startswith("> 질문: 여러 줄의 질문 ") and len(head[1]) == len("> 질문: ") + 200
     assert head[2] == "> 근거: 없음"
+
+
+def test_a_code_artifact_keeps_its_language_without_breaking_the_fence():
+    answer = answer_with([])
+    block = ArtifactBlock("code", "여러\n줄의 제목", "py thon`", "print('``')")
+
+    text = build_files(content(artifacts=[ArtifactEntry(answer, 0, block)]))[f"artifacts/artifact-{answer.answer_id}-1.md"].decode()
+
+    head, body = text.split("\n\n", 1)
+    assert head.split("\n")[0].endswith(f"· 답변의 1번째 · type code · py thon` · review unreviewed · {answer.created_at}")
+    assert head.split("\n")[1] == "> 제목: 여러 줄의 제목"
+    assert body == "```python\nprint('``')\n```\n"  # 백틱 울타리의 정보 글에는 백틱이 없어야 한다
+
+
+def test_an_artifact_of_an_unsafe_answer_id_gets_a_replaced_name():
+    answer = answer_with([]).model_copy(update={"answer_id": "../evil id"})
+    block = ArtifactBlock("mermaid", "다이어그램", None, "graph TD; A-->B")
+
+    files = build_files(content(artifacts=[ArtifactEntry(answer, 2, block)]))
+
+    assert files["artifacts/artifact-n001-3.md"].decode().endswith("\n\n```mermaid\ngraph TD; A-->B\n```\n")
 
 
 def test_text_hash_covers_the_pages_in_the_agreed_form():

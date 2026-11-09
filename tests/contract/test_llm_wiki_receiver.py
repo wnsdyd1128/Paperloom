@@ -114,6 +114,23 @@ def test_evidence_only_bundle_is_kept_without_a_candidate(paperloom, receiver):
     assert record.proposals == [] and len(service.record(record.id).evidence) == 1
 
 
+def test_the_receiver_keeps_an_artifact_exported_without_its_answer(paperloom, receiver):
+    """2026-11-09 사용자 요청: 아티팩트만 따로 내보낸다. 수신기는 artifacts/에 Markdown만 받으므로 .md 한 파일로 넣는다."""
+    service, _, _ = receiver
+    client, _, version_id, anchor_id = paperloom
+    packet = client.post("/api/v1/context-packets", json={"intent": "ask", "question": "질문", "anchors": [{"anchor_id": anchor_id}]}).json()
+    client.patch(f"/api/v1/context-packets/{packet['packet_id']}", json={"status": "HANDED_OFF", "handoff_method": "claude_code"})
+    markdown = '그림입니다.\n\n```artifact type="html" title="합성 페이지"\n<!doctype html>\n<p>합성</p>\n```\n'
+    answer = client.post(f"/api/v1/context-packets/{packet['packet_id']}/answers", json={"markdown": markdown, "prompt": "질문", "session_id": "0f6c2c1e-7a4b-4c8e-9d1a-2b3c4d5e6f70"}).json()
+    bundle = export(client, {"papers": [{"version_id": version_id}], "artifacts": [{"answer_id": answer["answer_id"], "index": 0}]})
+
+    [entry] = service.bundles()
+    record, _ = service.receive(bundle["bundle_id"])
+
+    assert (entry.status, entry.reason) == ("new", None)
+    assert f"artifacts/artifact-{answer['answer_id']}-1.md" in [item.path for item in record.files]
+
+
 def test_the_receiver_keeps_the_text_that_the_default_carries(paperloom, receiver):
     """03-api-spec §7·요구사항 Q3: 수신기가 texts/를 받으므로(2026-11-02) 기본은 고른 위치가 있는 쪽의 추출문을 싣는다."""
     service, _, _ = receiver

@@ -186,6 +186,38 @@ test("고른 답변을 넣고 인용한 위치를 자동으로 더한다", async
   expect(text).toContain(markdown);
 });
 
+test("답변 안의 아티팩트만 따로 고르면 그 아티팩트만 파일 하나로 넣는다", async ({ page }) => {
+  const title = `내보낼 그림 ${Date.now()}`;
+  const fixture = await openFixture(page);
+  const anchorId = await makeAnchor(page, fixture.versionId, `아티팩트 답변의 근거 ${Date.now()}`);
+  const packet = await (await page.request.post("/api/v1/context-packets", { data: { intent: "ask", question: "질문", anchors: [{ anchor_id: anchorId }] } })).json();
+  await page.request.patch(`/api/v1/context-packets/${packet.packet_id}`, { data: { status: "HANDED_OFF", handoff_method: "claude_code" } });
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>';
+  const answer = await (
+    await page.request.post(`/api/v1/context-packets/${packet.packet_id}/answers`, {
+      data: { markdown: `그림입니다 [근거 1].\n\n\`\`\`artifact type="svg" title="${title}"\n${svg}\n\`\`\`\n`, prompt: "그림을 그려 줘", session_id: crypto.randomUUID() },
+    })
+  ).json();
+  await page.reload();
+
+  await page.getByRole("button", { name: "Wiki로 내보내기" }).click();
+  const dialog = exportDialog(page);
+  const artifacts = dialog.getByRole("region", { name: "넣을 아티팩트" });
+  const row = artifacts.getByRole("listitem").filter({ hasText: title });
+  await expect(row).toContainText("그림");
+  await row.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "미리보기" }).click();
+  await expect(dialog.getByRole("region", { name: "자동으로 더한 위치" })).toHaveCount(0); // 답변 글을 넣지 않으므로 그 근거도 더하지 않는다
+  await dialog.getByRole("button", { name: "내보내기", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Wiki로 내보냈습니다");
+
+  const folder = onlyBundle();
+  const manifest = readManifest(folder);
+  expect(manifest.files.map((file) => file.path).filter((path) => path.startsWith("artifacts/"))).toEqual([`artifacts/artifact-${answer.answer_id}-1.md`]);
+  const text = readFileSync(`${folder}artifacts/artifact-${answer.answer_id}-1.md`, "utf-8");
+  expect(text).toContain(`> 제목: ${title}\n> 질문: 그림을 그려 줘\n\n\`\`\`svg\n${svg}\n\`\`\`\n`);
+});
+
 test("outbox가 준비되지 않으면 내보내기를 막고 이유를 보인다", async ({ page }) => {
   await page.route("**/api/v1/health", async (route) => {
     const response = await route.fetch();

@@ -1,4 +1,4 @@
-"""Wiki로 내보내기: 고른 판본·Anchor·메모·답변·제안·추출문을 Evidence Bundle로 outbox에 쓴다 (docs/integration/paperloom).
+"""Wiki로 내보내기: 고른 판본·Anchor·메모·답변·아티팩트·제안·추출문을 Evidence Bundle로 outbox에 쓴다 (docs/integration/paperloom).
 
 Paperloom 쪽 일은 bundle을 쓰는 데서 끝난다. LLM Wiki를 부르거나 알리지 않고, 모델을 부르지 않고, 원본 PDF를 넣지 않는다.
 미리보기와 생성은 같은 내용을 계산한다(미리보기는 쓰지 않는다). 생성은 그때의 Anchor·메모로 다시 계산한다.
@@ -208,7 +208,7 @@ class EvidenceBundleService:
         unready: list[str] = []
         sources: list[SourceEntry] = []
         wanted = {item.version.version_id: _text_pages(item) for item in selection.papers}
-        planned = 3 + 2 * len(request.proposals) + len(selection.answers) + sum(map(bool, wanted.values()))
+        planned = 3 + 2 * len(request.proposals) + len(selection.answers) + len(selection.artifacts) + sum(map(bool, wanted.values()))
         planned += sum(len(_regions(item)) for item in selection.papers if item.choice.include_region_images)
         with closing(connect(self._db_path)) as connection:
             for item in selection.papers:
@@ -242,7 +242,7 @@ class EvidenceBundleService:
             ProposalEntry(str(uuid.uuid4()), proposal.version_id, proposal.title, proposal.content_markdown, proposal.anchor_ids)
             for proposal in request.proposals
         ]
-        files = build_files(BundleContent(bundle_id, created_at, __version__, base_url, sources, proposals, selection.answers))
+        files = build_files(BundleContent(bundle_id, created_at, __version__, base_url, sources, proposals, selection.answers, selection.artifacts))
         warnings += _answer_warnings(selection)
         if excess := limit_excess(files):
             detail = f"파일 {excess['file_count']}개 · {excess['total_bytes']:,}바이트 · 가장 큰 파일 {excess['largest_path']}"
@@ -259,6 +259,7 @@ class EvidenceBundleService:
                 answers=len(selection.answers),
                 assets=sum(path.startswith("assets/") for path in files),
                 texts=sum(path.startswith("texts/") for path in files),
+                artifacts=len(selection.artifacts),
             ),
             schema_version=BUNDLE_SCHEMA_WITH_TEXTS if any(entry.text for entry in sources) else BUNDLE_SCHEMA,
         )

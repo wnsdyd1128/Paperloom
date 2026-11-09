@@ -11,6 +11,7 @@ MAX_PAPERS = 20
 MAX_ANCHORS = 200
 MAX_RANGES = 20
 MAX_ANSWERS = 20
+MAX_ARTIFACTS = 20
 MAX_PROPOSALS = 20
 MAX_TITLE_CHARS = 500
 MAX_CONTENT_CHARS = 200_000
@@ -75,6 +76,13 @@ class ProposalIn(_Strict):
         return content
 
 
+class ArtifactChoice(_Strict):
+    """대화 답변 안의 아티팩트 하나. 값은 `GET /api/v1/papers/{paper_id}/artifacts`의 `answer_id`·`index`다."""
+
+    answer_id: Id
+    index: Annotated[StrictInt, Field(ge=0, description="답변 안에서 몇 번째 아티팩트인지(0부터)")]
+
+
 class BundleRequest(_Strict):
     """내보낼 논문·답변·제안. `/preview`와 만들기가 같은 본문을 받는다."""
 
@@ -92,6 +100,15 @@ class BundleRequest(_Strict):
 
     papers: Annotated[list[PaperChoice], Field(min_length=1, max_length=MAX_PAPERS)]
     answer_ids: Annotated[list[Id], Field(max_length=MAX_ANSWERS)] = []
+    # 2026-11-09 사용자 요청: 답변 전체가 아니라 그 안의 아티팩트만 따로 내보낸다
+    artifacts: Annotated[
+        list[ArtifactChoice],
+        Field(
+            max_length=MAX_ARTIFACTS,
+            description="아티팩트마다 파일 하나(`artifacts/artifact-<answer_id>-<순번>.md`)로 넣는다. 그 답변을 `answer_ids`에 넣지 않아도 된다. "
+            "답변의 출처 판본이 `papers`에 있어야 한다",
+        ),
+    ] = []
     proposals: Annotated[list[ProposalIn], Field(max_length=MAX_PROPOSALS)] = []
 
 
@@ -140,6 +157,7 @@ class BundleCounts(BaseModel):
     answers: int
     assets: int
     texts: int
+    artifacts: int = 0  # 이 칸이 생기기 전(2026-11-09)의 기록에는 없다
 
 
 class BundleOut(BaseModel):

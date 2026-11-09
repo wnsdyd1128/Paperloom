@@ -9,6 +9,8 @@ export type WikiOutbox = Readonly<{ status: OutboxStatus; path: string | null }>
 export type TextMode = "none" | "anchor_pages" | "all" | "ranges";
 /** 쪽 범위. 0부터, 양 끝 포함 (화면은 1부터다) */
 export type PageRange = Readonly<{ from: number; to: number }>;
+/** 답변 안의 아티팩트 하나. index는 답변 안 차례(0부터)로, 아티팩트 목록 API(listChatArtifacts)의 값이다 */
+export type ArtifactChoice = Readonly<{ answer_id: string; index: number }>;
 
 export type BundleRequest = Readonly<{
   papers: readonly Readonly<{
@@ -19,6 +21,7 @@ export type BundleRequest = Readonly<{
     text: Readonly<{ mode: TextMode; ranges?: readonly PageRange[] }>;
   }>[];
   answer_ids: readonly string[];
+  artifacts: readonly ArtifactChoice[];
   proposals: readonly Readonly<{ version_id: string; title: string; content_markdown: string; anchor_ids: readonly string[] }>[];
 }>;
 
@@ -45,7 +48,7 @@ export type Bundle = Readonly<{
   file_count: number;
   size_bytes: number;
   papers: readonly BundlePaper[];
-  counts: Readonly<{ anchors: number; proposals: number; answers: number; assets: number; texts: number }>;
+  counts: Readonly<{ anchors: number; proposals: number; answers: number; assets: number; texts: number; artifacts: number }>;
   created_at: string;
 }>;
 

@@ -8,10 +8,11 @@ LLM Wiki 수신기는 bundle을 통째로 받거나 통째로 거부한다. 그�
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import quote, urlencode
 
 from paperloom.answers.models import AnswerOut, Citation
+from paperloom.artifacts.blocks import Block as ArtifactBlock
 from paperloom.context.builder import Block
 from paperloom.documents.block_kinds import IN_FIGURE, IN_TABLE, MATH, PAGE_FOOTER, PAGE_HEADER, REFERENCE, is_caption
 from paperloom.documents.models import PaperOut, VersionOut
@@ -41,6 +42,8 @@ MAX_DOI = 500
 QUESTION_CHARS = 200  # 답변 머리에 적는 질문 앞부분
 
 _SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
+_BACKTICKS = re.compile(r"`+")
+_FENCE_LANGUAGES = {"html": "html", "svg": "svg", "mermaid": "mermaid", "react": "jsx"}
 _BODY_FLAGS = (REFERENCE, IN_TABLE, IN_FIGURE, MATH, PAGE_HEADER, PAGE_FOOTER)
 _FILE_KINDS = {"proposals": "proposal", "artifacts": "artifact", "assets": "asset", "texts": "text"}
 
@@ -78,6 +81,15 @@ class ProposalEntry:
 
 
 @dataclass(frozen=True)
+class ArtifactEntry:
+    """답변 안의 아티팩트 하나 (paperloom.artifacts.blocks). index는 답변 안 차례(0부터)다."""
+
+    answer: AnswerOut
+    index: int
+    block: ArtifactBlock
+
+
+@dataclass(frozen=True)
 class BundleContent:
     bundle_id: str
     created_at: str
@@ -86,6 +98,7 @@ class BundleContent:
     sources: list[SourceEntry]
     proposals: list[ProposalEntry]
     answers: list[AnswerOut]
+    artifacts: list[ArtifactEntry] = field(default_factory=list)
 
 
 class _Names:
@@ -142,6 +155,8 @@ def build_files(content: BundleContent) -> dict[str, bytes]:
         files[content_file] = proposal.content.encode()
     for answer in content.answers:
         files[f"artifacts/answer-{names(answer.answer_id)}.md"] = _answer_markdown(answer, anchor_refs).encode()
+    for item in content.artifacts:
+        files[f"artifacts/artifact-{names(item.answer.answer_id)}-{item.index + 1}.md"] = _artifact_markdown(item).encode()
     files |= assets | texts
 
     manifest = {
@@ -271,6 +286,26 @@ def _answer_markdown(answer: AnswerOut, anchor_refs: dict[str, str]) -> str:
         f"> 근거: {' · '.join(parts) or '없음'}",
     ]
     return "\n".join([*head, "", answer.markdown, ""])
+
+
+def _artifact_markdown(item: ArtifactEntry) -> str:
+    """머리 뒤에 아티팩트를 둔다(§6.5). LLM Wiki는 artifacts/에 Markdown만 받으므로 HTML·SVG 파일로 따로 넣지 않는다: 문서는 그대로
+    두고, 나머지는 소스가 그대로 보이게 울타리 코드 블록에 담는다. 울타리는 안에 든 어떤 백틱 줄보다 길게 한다."""
+    answer, block = item.answer, item.block
+    kind = f"{block.type} · {block.language}" if block.language else block.type
+    question = " ".join((answer.prompt or answer.question).split())[:QUESTION_CHARS]
+    head = [
+        f"> Paperloom 아티팩트 · answer_id {answer.answer_id} · 답변의 {item.index + 1}번째 · type {kind} · review {answer.review_status} · {answer.created_at}",
+        f"> 제목: {' '.join(block.title.split())[:MAX_TITLE]}",
+        f"> 질문: {question}",
+    ]
+    if block.type == "markdown":
+        body = block.content
+    else:
+        fence = "`" * max(3, 1 + max(map(len, _BACKTICKS.findall(block.content)), default=0))
+        info = re.sub(r"[\s`]", "", block.language or "") if block.type == "code" else _FENCE_LANGUAGES[block.type]
+        body = f"{fence}{info}\n{block.content}\n{fence}"
+    return "\n".join([*head, "", body, ""])
 
 
 def _citation_label(citation: Citation) -> str:

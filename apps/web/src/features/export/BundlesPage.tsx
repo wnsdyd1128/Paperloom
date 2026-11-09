@@ -112,7 +112,7 @@ function Details({ bundle }: Readonly<{ bundle: BundleDetail }>) {
       {bundle.status === "written" && (
         <>
           <p className="muted">
-            위치 {counts.anchors} · 제안 {counts.proposals} · 답변 {counts.answers} · 이미지 {counts.assets} · 추출문 {counts.texts}
+            위치 {counts.anchors} · 제안 {counts.proposals} · 답변 {counts.answers} · 아티팩트 {counts.artifacts} · 이미지 {counts.assets} · 추출문 {counts.texts}
           </p>
           <p className="muted">
             manifest SHA-256 <code>{bundle.manifest_sha256}</code>

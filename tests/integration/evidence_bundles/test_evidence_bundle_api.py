@@ -23,6 +23,12 @@ QUAD = [0.1, 0.1, 0.5, 0.1, 0.5, 0.12, 0.1, 0.12]
 SESSION = str(uuid.uuid4())
 BASE_URL = "http://127.0.0.1:8000"
 PNG = encode_png(1, 1, bytes([255, 255, 255]), 3)
+SVG_ANSWER = '그림입니다.\n\n```artifact type="svg" title="합성 그림"\n<svg xmlns="http://www.w3.org/2000/svg"></svg>\n```\n'
+ARTIFACTS_ANSWER = (
+    "설명 [근거 1].\n\n"
+    '```artifact type="markdown" title="요약 문서"\n# 요약\n\n본문\n```\n\n'
+    '````artifact type="html" title="표 페이지"\n<!doctype html>\n<pre>\n```\n안의 울타리\n```\n</pre>\n````\n'
+)
 
 
 @pytest.fixture
@@ -126,7 +132,7 @@ def test_export_writes_one_bundle_the_receiver_accepts(client, paper, outbox, ch
     assert manifest["schema_version"] == bundle["schema_version"] == "paperloom-bundle.v1.1"  # 기본으로 고른 위치가 있는 쪽의 추출문을 싣는다
     assert bundle["manifest_sha256"] == hashlib.sha256((folder / "manifest.json").read_bytes()).hexdigest()
     assert bundle["status"] == "written"
-    assert bundle["file_count"] == 6 and bundle["counts"] == {"anchors": 2, "proposals": 1, "answers": 0, "assets": 0, "texts": 1}
+    assert bundle["file_count"] == 6 and bundle["counts"] == {"anchors": 2, "proposals": 1, "answers": 0, "assets": 0, "texts": 1, "artifacts": 0}
     assert bundle["papers"] == [{"paper_id": paper_id, "version_id": version_id, "title": paper["title"]}]
     assert bundle["size_bytes"] == sum(path.stat().st_size for path in folder.rglob("*") if path.is_file())
 
@@ -563,17 +569,58 @@ def test_an_answer_needs_its_paper_in_the_bundle(app, client, paper):
     assert errors_of(response) == ["answer_version_not_selected"]
 
 
+def test_an_artifact_is_written_alone_without_its_answer(client, paper, outbox, check_evidence_bundle):
+    version_id = paper["version_id"]
+    answer = make_answer(client, [make_anchor(client, version_id)], ARTIFACTS_ANSWER)
+    answer_id = answer["answer_id"]
+    body = {"papers": [{"version_id": version_id}], "artifacts": [{"answer_id": answer_id, "index": 1}, {"answer_id": answer_id, "index": 0}]}
+
+    shown = preview(client, body).json()
+
+    assert sorted(file["path"] for file in shown["files"] if file["kind"] == "artifact") == [f"artifacts/artifact-{answer_id}-1.md", f"artifacts/artifact-{answer_id}-2.md"]
+    assert shown["auto_added_anchors"] == []  # 답변 글을 넣지 않으므로 그 근거도 더하지 않는다
+    bundle = create(client, body).json()
+    assert (bundle["counts"]["artifacts"], bundle["counts"]["answers"], bundle["counts"]["anchors"]) == (2, 0, 0)
+    [folder] = bundles_in(outbox)
+    check_evidence_bundle(folder)
+    assert not (folder / f"artifacts/answer-{answer_id}.md").exists()
+    page = (folder / f"artifacts/artifact-{answer_id}-2.md").read_text(encoding="utf-8")
+    assert page.startswith(
+        f"> Paperloom 아티팩트 · answer_id {answer_id} · 답변의 2번째 · type html · review unreviewed · {answer['created_at']}\n"
+        "> 제목: 표 페이지\n> 질문: 차례의 질문\n\n````html\n<!doctype html>\n"
+    )
+    assert page.endswith("\n```\n안의 울타리\n```\n</pre>\n````\n")  # 안의 울타리보다 긴 울타리로 감싼다
+    document = (folder / f"artifacts/artifact-{answer_id}-1.md").read_text(encoding="utf-8")
+    assert document.endswith("> 제목: 요약 문서\n> 질문: 차례의 질문\n\n# 요약\n\n본문\n")  # 문서는 감싸지 않는다
+
+
+def test_an_artifact_needs_its_answer_its_place_and_its_paper(app, client, paper):
+    answer = make_answer(client, [make_anchor(client, paper["version_id"])], SVG_ANSWER)
+
+    def chosen(choice: dict, version_id: str = paper["version_id"]):
+        return preview(client, {"papers": [{"version_id": version_id}], "artifacts": [choice]})
+
+    for choice, field in (({"answer_id": "no-such", "index": 0}, "artifacts[0].answer_id"), ({"answer_id": answer["answer_id"], "index": 1}, "artifacts[0].index")):
+        response = chosen(choice)
+        assert (response.status_code, response.json()["code"], response.json()["details"]) == (404, "NOT_FOUND", {"field": field})
+    other = upload(client, "text-parts.pdf")
+    extract(app)
+    assert errors_of(chosen({"answer_id": answer["answer_id"], "index": 0}, other["version_id"])) == ["artifact_version_not_selected"]
+
+
 def test_repeated_ids_count_once(client, paper, outbox, check_evidence_bundle):
     anchor_id = make_anchor(client, paper["version_id"])
     answer = make_answer(client, [anchor_id], "답 [근거 1]")
+    artifact_answer = make_answer(client, [anchor_id], SVG_ANSWER)
 
     bundle = create(client, {
         "papers": [{"version_id": paper["version_id"], "anchor_ids": [anchor_id, anchor_id]}],
         "answer_ids": [answer["answer_id"], answer["answer_id"]],
+        "artifacts": [{"answer_id": artifact_answer["answer_id"], "index": 0}] * 2,
         "proposals": [{"version_id": paper["version_id"], "title": "제목", "content_markdown": "본문", "anchor_ids": [anchor_id, anchor_id]}],
     }).json()
 
-    assert bundle["counts"] == {"anchors": 1, "proposals": 1, "answers": 1, "assets": 0, "texts": 1}
+    assert bundle["counts"] == {"anchors": 1, "proposals": 1, "answers": 1, "assets": 0, "texts": 1, "artifacts": 1}
     [folder] = bundles_in(outbox)
     check_evidence_bundle(folder)
     [path] = (folder / "proposals").iterdir()
@@ -641,6 +688,9 @@ def test_unknown_ids_are_not_found_and_name_the_field(client, paper, change, fie
         {"papers": [{"version_id": "v", "text": {"mode": "other"}}]},
         {"papers": [{"version_id": "v", "text": {"mode": "ranges", "ranges": [{"from": 0, "to": 0}] * 21}}]},
         {"papers": [{"version_id": "v"}], "answer_ids": ["a"] * 21},
+        {"papers": [{"version_id": "v"}], "artifacts": [{"answer_id": "a", "index": 0}] * 21},
+        {"papers": [{"version_id": "v"}], "artifacts": [{"answer_id": "a", "index": -1}]},
+        {"papers": [{"version_id": "v"}], "artifacts": [{"answer_id": "a", "index": "0"}]},
         {"papers": [{"version_id": "v"}], "proposals": [{"version_id": "v", "title": "   ", "content_markdown": "본문"}]},
         {"papers": [{"version_id": "v"}], "proposals": [{"version_id": "v", "title": "제목", "content_markdown": "  \n "}]},
         {"papers": [{"version_id": "v"}], "proposals": [{"version_id": "v", "title": "가" * 501, "content_markdown": "본문"}]},

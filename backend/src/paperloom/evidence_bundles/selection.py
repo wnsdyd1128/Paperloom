@@ -2,6 +2,7 @@
 
 없는 것은 NOT_FOUND로 바로 거부하고, 서로 맞지 않는 것은 이유를 모아 INVALID_BUNDLE로 거부한다(보낸 값은 돌려주지 않는다).
 제안과 답변이 가리키는 Anchor는 그 판본의 고른 Anchor에 더한다. 제안 하나는 판본 하나만 가리키고, 판본을 섞지 않는다.
+따로 고른 아티팩트는 그 답변의 근거를 풀지 않는다: 답변 글이 아니라 아티팩트만 넣기 때문이다.
 """
 
 from collections.abc import Callable
@@ -11,8 +12,10 @@ from pathlib import Path
 
 from paperloom.answers.models import AnswerOut
 from paperloom.answers.service import AnswerService
+from paperloom.artifacts.blocks import artifacts_in
 from paperloom.documents import repository as documents
 from paperloom.documents.models import PaperOut, VersionOut
+from paperloom.evidence_bundles.builder import ArtifactEntry
 from paperloom.evidence_bundles.models import AutoAddedAnchor, BundleRequest, PaperChoice
 from paperloom.infrastructure.database.sqlite import connect
 from paperloom.reading.models import AnchorOut
@@ -41,6 +44,7 @@ class Selection:
     papers: list[SelectedPaper]
     answers: list[AnswerOut]
     auto_added: list[AutoAddedAnchor]
+    artifacts: list[ArtifactEntry]
 
 
 def select(request: BundleRequest, db_path: Path, anchors: AnchorService, answers: AnswerService) -> Selection:
@@ -63,9 +67,7 @@ def select(request: BundleRequest, db_path: Path, anchors: AnchorService, answer
     _proposal_anchors(request, papers, find, add, errors)
     selected: dict[str, AnswerOut] = {}
     for index, answer_id in enumerate(request.answer_ids):
-        answer = answers.get(answer_id)
-        if answer is None or answer.discarded_at is not None or answer.origin != "claude_code":
-            raise BundleRefused("NOT_FOUND", {"field": f"answer_ids[{index}]"})
+        answer = _answer(answers, answer_id, f"answer_ids[{index}]")
         if not any(version_id in papers for version_id in answer.source_versions):
             errors.append({"loc": ["answer_ids", index], "reason": "answer_version_not_selected"})
             continue
@@ -76,9 +78,32 @@ def select(request: BundleRequest, db_path: Path, anchors: AnchorService, answer
             anchor = anchors.get(citation.anchor_id) if paper and citation.anchor_id else None
             if anchor is not None:
                 add(paper, anchor, "cited_by_answer")
+    artifacts = _artifacts(request, papers, answers, errors)
     if errors:
         raise BundleRefused("INVALID_BUNDLE", {"errors": errors})
-    return Selection(list(papers.values()), list(selected.values()), auto_added)
+    return Selection(list(papers.values()), list(selected.values()), auto_added, artifacts)
+
+
+def _answer(answers: AnswerService, answer_id: str, field: str) -> AnswerOut:
+    answer = answers.get(answer_id)
+    if answer is None or answer.discarded_at is not None or answer.origin != "claude_code":
+        raise BundleRefused("NOT_FOUND", {"field": field})
+    return answer
+
+
+def _artifacts(request: BundleRequest, papers: dict[str, SelectedPaper], answers: AnswerService, errors: list[dict]) -> list[ArtifactEntry]:
+    """같은 아티팩트를 두 번 고르면 한 번만 넣는다(답변과 같다). 순번은 목록 API와 같은 규칙(artifacts_in)으로 센다."""
+    chosen: dict[tuple[str, int], ArtifactEntry] = {}
+    for index, choice in enumerate(request.artifacts):
+        answer = _answer(answers, choice.answer_id, f"artifacts[{index}].answer_id")
+        blocks = artifacts_in(answer.markdown)
+        if choice.index >= len(blocks):
+            raise BundleRefused("NOT_FOUND", {"field": f"artifacts[{index}].index"})
+        if not any(version_id in papers for version_id in answer.source_versions):
+            errors.append({"loc": ["artifacts", index], "reason": "artifact_version_not_selected"})
+            continue
+        chosen.setdefault((choice.answer_id, choice.index), ArtifactEntry(answer, choice.index, blocks[choice.index]))
+    return list(chosen.values())
 
 
 def _papers(request: BundleRequest, db_path: Path, errors: list[dict]) -> dict[str, SelectedPaper]:

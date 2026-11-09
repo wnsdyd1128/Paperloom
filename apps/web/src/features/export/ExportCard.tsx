@@ -1,6 +1,6 @@
 /**
- * 내보내기 창의 판본 한 칸 (기능 명세 F-02·F-03·F-10): 넣을 위치, 메모·이미지·추출문, 답변, Wiki 제안.
- * 처음에는 아무것도 고르지 않는다. 판본을 섞지 않는다: 위치·답변·제안은 그 판본 카드에만 있다.
+ * 내보내기 창의 판본 한 칸 (기능 명세 F-02·F-03·F-10): 넣을 위치, 메모·이미지·추출문, 답변, 아티팩트, Wiki 제안.
+ * 처음에는 아무것도 고르지 않는다. 판본을 섞지 않는다: 위치·답변·아티팩트·제안은 그 판본 카드에만 있다.
  */
 import { useEffect, useState } from "react";
 
@@ -8,9 +8,22 @@ import { Icon } from "../../shared/Icon";
 import { formatTime } from "../../shared/time";
 import { type Anchor, listAnnotations, listVersionAnchors, REGION_KIND_LABELS, type RegionKind } from "../annotations/api";
 import { type Answer, listAnswers } from "../answers/api";
+import { type ChatArtifact, listChatArtifacts } from "../artifacts/api";
+import { ARTIFACT_LABELS } from "../artifacts/artifact";
 import { listPageTexts, type Paper } from "../library/api";
 import type { TextMode } from "./api";
-import { type DraftProblems, MAX_ANCHORS, MAX_CONTENT_CHARS, MAX_TITLE_CHARS, type PaperDraft, toggled, toggleProposalAnchor, withAnswers } from "./draft";
+import {
+  type DraftProblems,
+  hasArtifact,
+  MAX_ANCHORS,
+  MAX_CONTENT_CHARS,
+  MAX_TITLE_CHARS,
+  type PaperDraft,
+  toggled,
+  toggledArtifact,
+  toggleProposalAnchor,
+  withAnswers,
+} from "./draft";
 
 const QUOTE_CHARS = 80;
 const QUESTION_CHARS = 80;
@@ -31,6 +44,7 @@ type Loaded =
       memos: ReadonlySet<string>;
       labels: ReadonlyMap<number, string | null>;
       answers: readonly Answer[];
+      artifacts: readonly ChatArtifact[];
     }>;
 
 type Props = Readonly<{
@@ -47,12 +61,18 @@ export function ExportCard({ paper, draft, problems, onChange, onRemove }: Props
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listVersionAnchors(versionId), listAnnotations(versionId), listPageTexts(versionId), listAnswers({ paperId: paper.paper_id, origin: "claude_code", limit: MAX_ANSWERS })])
-      .then(([anchors, annotations, texts, answers]) => {
+    Promise.all([
+      listVersionAnchors(versionId),
+      listAnnotations(versionId),
+      listPageTexts(versionId),
+      listAnswers({ paperId: paper.paper_id, origin: "claude_code", limit: MAX_ANSWERS }),
+      listChatArtifacts(paper.paper_id),
+    ])
+      .then(([anchors, annotations, texts, answers, artifacts]) => {
         if (cancelled) return;
         const memos = new Set(annotations.filter((item) => item.comment.trim()).map((item) => item.anchor.anchor_id));
         const labels = new Map(texts.pages.map((page) => [page.page_index, page.page_label]));
-        setLoaded({ kind: "ready", anchors, memos, labels, answers });
+        setLoaded({ kind: "ready", anchors, memos, labels, answers, artifacts });
       })
       .catch(() => !cancelled && setLoaded({ kind: "failed" }));
     return () => {
@@ -88,6 +108,7 @@ export function ExportCard({ paper, draft, problems, onChange, onRemove }: Props
           <AnchorList anchors={loaded.anchors} memos={loaded.memos} labels={loaded.labels} draft={draft} invalid={problems?.anchors ?? false} onChange={onChange} />
           <Options draft={draft} invalid={problems?.ranges ?? false} onChange={onChange} />
           <AnswerList answers={loaded.answers} draft={draft} onChange={onChange} />
+          <ArtifactList artifacts={loaded.artifacts} draft={draft} onChange={onChange} />
           <Proposals anchors={loaded.anchors} labels={loaded.labels} answers={loaded.answers} draft={draft} problems={problems} onChange={onChange} />
         </>
       )}
@@ -216,6 +237,32 @@ function AnswerList({ answers, draft, onChange }: Readonly<{ answers: readonly A
               <span className="muted export-when">
                 {formatTime(answer.created_at)} · 근거 {answer.citations.length}
               </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** 답변 안의 아티팩트를 하나씩 고른다. 답변과 따로 파일 하나씩 들어가고, 답변 글과 근거는 함께 가지 않는다 */
+function ArtifactList({ artifacts, draft, onChange }: Readonly<{ artifacts: readonly ChatArtifact[]; draft: PaperDraft; onChange: (draft: PaperDraft) => void }>) {
+  if (artifacts.length === 0) return null;
+  return (
+    <section className="export-section" aria-label="넣을 아티팩트">
+      <header className="export-section-head">
+        <h4>
+          아티팩트 <span className="muted">{`${draft.artifacts.length} / ${artifacts.length}`}</span>
+        </h4>
+      </header>
+      <ul className="export-list">
+        {artifacts.map((item) => (
+          <li key={`${item.answer_id}:${item.index}`}>
+            <label className="export-check">
+              <input type="checkbox" checked={hasArtifact(draft.artifacts, item)} onChange={() => onChange({ ...draft, artifacts: toggledArtifact(draft.artifacts, item) })} />
+              <span className="tag tag-neutral">{ARTIFACT_LABELS[item.type] + (item.language ? ` · ${item.language}` : "")}</span>
+              <span className="export-quote">{item.title}</span>
+              <span className="muted export-when">{formatTime(item.created_at)}</span>
             </label>
           </li>
         ))}

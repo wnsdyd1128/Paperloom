@@ -1,6 +1,6 @@
 /** 내보내기 창에서 고른 것 (기능 명세 F-02·F-03·F-10). 창 안의 상태일 뿐 저장하지 않는다. 화면 없이 시험하도록 순수 함수만 둔다. */
 
-import type { BundleRequest, OutboxStatus, PageRange, TextMode, WikiOutbox } from "./api";
+import type { ArtifactChoice, BundleRequest, OutboxStatus, PageRange, TextMode, WikiOutbox } from "./api";
 
 export const MAX_PAPERS = 20;
 export const MAX_ANCHORS = 200;
@@ -18,6 +18,8 @@ export type PaperDraft = Readonly<{
   /** 화면의 쪽 범위 글, 예: 1-5, 8 */
   pageRanges: string;
   answerIds: readonly string[];
+  /** 답변과 따로 넣을 아티팩트 (2026-11-09 사용자 요청) */
+  artifacts: readonly ArtifactChoice[];
   proposals: readonly ProposalDraft[];
 }>;
 
@@ -28,6 +30,7 @@ export const EMPTY_DRAFT: PaperDraft = {
   textMode: "anchor_pages", // 기본은 고른 위치가 있는 쪽이다(요구사항 Q3). LLM Wiki 수신기는 2026-11-02부터 texts/를 받는다
   pageRanges: "",
   answerIds: [],
+  artifacts: [],
   proposals: [],
 };
 
@@ -36,6 +39,16 @@ export type DraftProblems = Readonly<{ anchors: boolean; ranges: boolean; titles
 
 export function toggled(list: readonly string[], id: string): readonly string[] {
   return list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+}
+
+export function hasArtifact(list: readonly ArtifactChoice[], choice: ArtifactChoice): boolean {
+  return list.some((item) => item.answer_id === choice.answer_id && item.index === choice.index);
+}
+
+export function toggledArtifact(list: readonly ArtifactChoice[], choice: ArtifactChoice): readonly ArtifactChoice[] {
+  return hasArtifact(list, choice)
+    ? list.filter((item) => item.answer_id !== choice.answer_id || item.index !== choice.index)
+    : [...list, { answer_id: choice.answer_id, index: choice.index }];
 }
 
 /** 제안의 근거를 체크한다. 고르지 않은 위치를 체크하면 F-02에서도 고른 상태가 된다 */
@@ -89,6 +102,7 @@ export function toRequest(entries: readonly DraftEntry[]): BundleRequest {
       text: draft.textMode === "ranges" ? { mode: "ranges", ranges: parsePageRanges(draft.pageRanges, pageCount) ?? [] } : { mode: draft.textMode },
     })),
     answer_ids: entries.flatMap(({ draft }) => draft.answerIds),
+    artifacts: entries.flatMap(({ draft }) => draft.artifacts),
     proposals: entries.flatMap(({ versionId, draft }) =>
       draft.proposals.map((item) => ({ version_id: versionId, title: item.title.trim(), content_markdown: item.content, anchor_ids: item.anchorIds })),
     ),

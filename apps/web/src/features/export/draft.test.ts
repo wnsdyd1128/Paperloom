@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY_DRAFT, findProblems, formatBytes, hasProblems, outboxProblem, parsePageRanges, type PaperDraft, toggled, toggleProposalAnchor, toRequest, withAnswers } from "./draft";
+import {
+  EMPTY_DRAFT,
+  findProblems,
+  formatBytes,
+  hasArtifact,
+  hasProblems,
+  outboxProblem,
+  parsePageRanges,
+  type PaperDraft,
+  toggled,
+  toggledArtifact,
+  toggleProposalAnchor,
+  toRequest,
+  withAnswers,
+} from "./draft";
 
 const proposal = (key: number, fields: Partial<PaperDraft["proposals"][number]> = {}) => ({ key, title: "제목", content: "본문", anchorIds: [], ...fields });
 
@@ -24,6 +38,18 @@ describe("고르기", () => {
   it("넣고 뺀다", () => {
     expect(toggled(["a"], "b")).toEqual(["a", "b"]);
     expect(toggled(["a", "b"], "a")).toEqual(["b"]);
+  });
+
+  it("아티팩트는 답변과 차례로 가린다. 목록의 다른 칸은 넣지 않는다", () => {
+    const listed = { answer_id: "x", index: 1, title: "그림", content: "<svg/>" };
+    const chosen = toggledArtifact([{ answer_id: "x", index: 0 }], listed);
+    expect(chosen).toEqual([
+      { answer_id: "x", index: 0 },
+      { answer_id: "x", index: 1 },
+    ]);
+    expect(hasArtifact(chosen, { answer_id: "x", index: 1 })).toBe(true);
+    expect(hasArtifact(chosen, { answer_id: "y", index: 1 })).toBe(false);
+    expect(toggledArtifact(chosen, listed)).toEqual([{ answer_id: "x", index: 0 }]);
   });
 
   it("제안의 근거를 체크하면 고른 위치에도 들어가고, 빼도 고른 위치는 남는다", () => {
@@ -65,7 +91,7 @@ describe("미리보기 전 검사", () => {
 describe("요청", () => {
   it("판본마다 고른 것을 모으고 기본값을 보낸다", () => {
     const first = { ...EMPTY_DRAFT, anchorIds: ["a"], answerIds: ["x"], proposals: [proposal(1, { title: " 제목 ", anchorIds: ["a"] })] };
-    const second = { ...EMPTY_DRAFT, includeComments: false, includeRegionImages: true, textMode: "ranges", pageRanges: "2-3", answerIds: ["y"] } as const;
+    const second = { ...EMPTY_DRAFT, includeComments: false, includeRegionImages: true, textMode: "ranges", pageRanges: "2-3", answerIds: ["y"], artifacts: [{ answer_id: "y", index: 2 }] } as const;
 
     expect(toRequest([{ versionId: "v1", pageCount: 5, draft: first }, { versionId: "v2", pageCount: 5, draft: second }])).toEqual({
       papers: [
@@ -73,6 +99,7 @@ describe("요청", () => {
         { version_id: "v2", anchor_ids: [], include_comments: false, include_region_images: true, text: { mode: "ranges", ranges: [{ from: 1, to: 2 }] } },
       ],
       answer_ids: ["x", "y"],
+      artifacts: [{ answer_id: "y", index: 2 }],
       proposals: [{ version_id: "v1", title: "제목", content_markdown: "본문", anchor_ids: ["a"] }],
     });
   });
