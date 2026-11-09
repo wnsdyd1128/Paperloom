@@ -50,6 +50,10 @@ class CoreClient:
             raise ValueError(path)
         return self._request("GET", path)
 
+    def figures(self, version_id: str) -> list[dict]:
+        """판본의 번호 붙은 그림(label·page_index·caption, 문서 차례). 대화 첫 메시지에 목록을 붙인다(아티팩트에 원본 그림 넣기)."""
+        return json.loads(self._request("GET", f"/api/v1/versions/{quote(version_id, safe='')}/figures"))["figures"]
+
     def hand_off(self, packet_id: str) -> dict:
         body = {"status": "HANDED_OFF", "handoff_method": "claude_code"}
         return json.loads(self._request("PATCH", f"/api/v1/context-packets/{quote(packet_id, safe='')}", body))

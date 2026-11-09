@@ -19,7 +19,7 @@ from paperloom.bootstrap.config import AppSettings, Settings
 from paperloom.integrations.claude_code.__main__ import web_origins
 from paperloom.integrations.claude_code.app import build_app
 from paperloom.integrations.claude_code.cli import ClaudeCli, locate
-from paperloom.integrations.claude_code.core import CoreClient
+from paperloom.integrations.claude_code.core import CoreClient, CoreRefused
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 FAKE = [sys.executable, str(FIXTURES / "fake_claude" / "fake_claude.py")]
@@ -145,12 +145,42 @@ def test_first_question_sends_the_packet_with_its_images_streams_and_saves_the_a
     assert '```artifact type="html" title=' in system_prompt and "바깥 주소(CDN·이미지·글꼴·API)를 불러올 수 없고" in system_prompt
     # "claude artifact로 만들어줘"에 Sonnet이 도구가 없다며 ```html 블록을 주고 claude.ai에 붙여 넣으라 했다(같은 날 사용자 보고)
     assert "아티팩트는 도구가 아니라 답 안의 코드 블록" in system_prompt and "Claude artifact·아티팩트로 만들어 달라고 하면" in system_prompt
+    # 논문의 원본 그림 (2026-11-09 사용자 요청: 발표 슬라이드에 figure를 넣어 달랬더니 그림을 지어 그렸다): 번호로 쓰면 웹이 열 때
+    # 원문 그림으로 바꾼다(apps/web/src/features/artifacts/paperFigures.ts)
+    assert '<img src="paperloom-figure:3" alt="Figure 3">' in system_prompt and "그림을 지어 다시 그리거나 빈 자리로 두지 마세요" in system_prompt
     assert run["env"] == []  # API 키·OAuth 토큰 환경변수는 넘기지 않는다
     assert Path(run["cwd"]) == tmp_path / "work"
     image, text = run["message"]["message"]["content"]
     assert image["type"] == "image" and image["source"]["media_type"] == "image/png"
     assert "### [근거 2] 캡션 · " in text["text"] and "이 메시지에 붙인 이미지 가운데 1번째입니다" in text["text"]
     assert "## 이번 질문" not in text["text"]  # 첫 질문이 packet의 질문과 같다
+    # 그 논문의 번호 붙은 그림은 캡션만 알린다(그림 이미지는 고른 영역의 것뿐이다)
+    assert "## 이 논문의 그림" in text["text"]
+    assert "- paperloom-figure:1 · p.1 · Figure 1. Synthetic bar chart with three bars." in text["text"]
+
+
+def test_a_conversation_without_the_figure_list_gets_it_once_on_its_next_follow_up(core, bridge, fake_log, monkeypatch):
+    """2026-11-09 사용자 보고: 그림 기능 전에 시작한 대화에서 "이제 그림도 될텐데 다시 만들어줘"라고 이어 물었는데, 목록은 대화의
+    첫 질문에만 붙어 Claude가 그림 번호를 몰랐다. 목록을 받지 않은 대화는 이어묻기에 한 번 붙인다."""
+
+    def refused(self, version_id):
+        raise CoreRefused(404, "NOT_FOUND", "없음")
+
+    packet_id = core["packet"](core["figure"])
+    with monkeypatch.context() as patch:
+        patch.setattr(CoreClient, "figures", refused)  # 이 기능 전의 Core: 목록 없이 묻는다
+        status, events = chat(bridge, packet_id=packet_id, question="이 그림이 무엇을 보여 주나요?")
+    assert status == 200 and events[-1]["type"] == "done"
+    session_id = events[-1]["answer"]["session_id"]
+    assert "## 이 논문의 그림" not in runs(fake_log)[-1]["message"]["message"]["content"][-1]["text"]
+
+    chat(bridge, packet_id=packet_id, question="그림을 넣어 다시 만들어 주세요.", session_id=session_id)
+    [message] = runs(fake_log)[-1]["message"]["message"]["content"]
+    assert message["text"].startswith("## 이 논문의 그림\n\n") and "- paperloom-figure:1 · p.1 · " in message["text"]
+    assert message["text"].endswith("\n\n## 이번 질문\n\n그림을 넣어 다시 만들어 주세요.")
+
+    chat(bridge, packet_id=packet_id, question="한 번 더요.", session_id=session_id)  # 이제는 받은 대화다
+    assert runs(fake_log)[-1]["message"]["message"]["content"] == [{"type": "text", "text": "한 번 더요."}]
 
 
 def test_conversation_continues_with_follow_ups_and_new_passages(core, bridge, fake_log):

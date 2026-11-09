@@ -51,6 +51,7 @@ DEFAULT_MODEL = "sonnet"
 # 생각의 깊이(--effort, 2026-10-04 사용자 요청): 대화는 깊게, 쪽 번역은 빠르게. 넘기지 않으면 medium이었다
 CHAT_EFFORT = "high"
 TRANSLATION_EFFORT = "low"
+MAX_FIGURES = 60  # 대화 첫 메시지에 알리는 번호 붙은 그림 수(_figure_list)
 # 동시에 띄운 Claude Code들이 로그인 토큰 갱신에 겹치면, 갱신하지 못한 실행은 몇 초 기다린 뒤 이 글로 끝난다(2026-10-13 기록:
 # 묶음 하나가 이렇게 끝나 나머지를 멈추면 갱신하던 실행도 끊겨 1분 가까이 다시 번역해도 모두 실패했다). 그 묶음은 쪽 실패로
 # 보지 않고 다른 묶음을 그대로 둔 채 잠시 뒤 다시 실행한다(2026-10-16 사용자 요청).
@@ -111,6 +112,7 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
     busy = threading.Lock()  # 대화
     translating = threading.Lock()  # 쪽 번역
     running = _Running()  # 지금 실행 중인 차례들(중단용)
+    informed: set[str] = set()  # 그림 목록을 보낸 대화(_content)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
@@ -143,7 +145,7 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         if not busy.acquire(blocking=False):
             return _error(409, "BUSY", "앞 질문의 답을 만드는 중입니다. 끝난 뒤 다시 보내세요.")
         try:
-            content, resume_at, intent = _content(core, body)
+            content, resume_at, intent, listed = _content(core, body, informed)
             preferences = _preferences(core)
             core.hand_off(body.packet_id)
         except CoreUnavailable:
@@ -159,7 +161,9 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         run_id, cancel = running.begin()
         # 대화창에서 모델을 고르지 않으면 설정의 기본 모델(D7). 답 언어·개인화는 기본 규칙 뒤에 붙인다(A3).
         model = body.model or preferences.get("default_model") or DEFAULT_MODEL
-        turn = (cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent))
+        # 그림 목록을 붙인 차례가 답을 저장하면 그 대화는 목록을 받았다
+        informs = informed if listed else None
+        turn = (cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent), informs)
         threading.Thread(target=_turn, args=turn, daemon=True).start()
         return StreamingResponse(_stream(events), media_type="application/x-ndjson")
 
@@ -352,12 +356,16 @@ def _preferences(core: CoreClient) -> dict:
         return {}
 
 
-def _content(core: CoreClient, body: ChatIn) -> tuple[list[dict], str | None, str | None]:
-    """(모델에 보낼 메시지, 갈래가 이어받을 마지막 메시지 ID, packet 요청 종류). 그 대화(갈래면 이어받는 차례)에 처음
-    보내는 packet이면 근거 글과 영역 이미지를 붙이고, 아니면 질문만."""
+def _content(core: CoreClient, body: ChatIn, informed: set[str]) -> tuple[list[dict], str | None, str | None, bool]:
+    """(모델에 보낼 메시지, 갈래가 이어받을 마지막 메시지 ID, packet 요청 종류, 그림 목록을 붙였는지). 그 대화(갈래면 이어받는
+    차례)에 처음 보내는 packet이면 근거 글과 영역 이미지를 붙이고, 아니면 질문만.
+    informed는 이 브리지가 그림 목록을 보낸 대화다. 아직 받지 않은 대화면 이어묻기에도 목록을 한 번 붙인다(2026-11-09 사용자
+    보고: 그림 기능 전에 시작한 대화에서 이어 물으니 목록이 가지 않았다). 갈래는 이어받는 대화를 본다(첫 질문에 목록이 있다).
+    브리지를 다시 켜면 대화마다 한 번 더 보낸다."""
     packet = core.packet(body.packet_id)
     if packet is None:
         raise _Refused(404, "PACKET_NOT_FOUND", "문맥을 찾을 수 없습니다.")
+    figures = _figure_list(core, packet) if body.session_id not in informed else ""
     resume_at = None
     if body.session_id is not None:
         turns = core.session_answers(body.session_id)  # 최근 것부터
@@ -372,8 +380,9 @@ def _content(core: CoreClient, body: ChatIn) -> tuple[list[dict], str | None, st
                 raise _Refused(409, "NO_FORK_POINT", "이 답은 갈라질 자리를 모릅니다(이 기능 전에 저장한 답). 대화 전체를 이어받는 갈래를 쓰세요.")
             turns = turns[index:]  # 갈래가 이어받는 차례(그 답과 그 전)
         if any(item["packet_id"] == body.packet_id for item in turns):
-            return [{"type": "text", "text": body.question}], resume_at, packet.get("intent")
-    text = core.markdown(body.packet_id)
+            text = f"{figures.lstrip()}\n\n## 이번 질문\n\n{body.question}" if figures else body.question
+            return [{"type": "text", "text": text}], resume_at, packet.get("intent"), bool(figures)
+    text = core.markdown(body.packet_id) + figures
     if body.question != packet["question"].strip():
         text += f"\n\n## 이번 질문\n\n{body.question}"
     images = [
@@ -381,13 +390,40 @@ def _content(core: CoreClient, body: ChatIn) -> tuple[list[dict], str | None, st
         for item in packet["evidence"]
         if item["image"]
     ]
-    return [*images, {"type": "text", "text": text}], resume_at, packet.get("intent")
+    return [*images, {"type": "text", "text": text}], resume_at, packet.get("intent"), bool(figures)
+
+
+def _figure_list(core: CoreClient, packet: dict) -> str:
+    """packet 논문의 번호 붙은 그림 목록: 아티팩트에 원본 그림을 넣을 번호다(시스템 프롬프트의 paperloom-figure 규칙,
+    2026-11-09 사용자 요청). 그림은 붙이지 않고 캡션만 알린다. 여러 논문의 packet이거나 그림이 없거나 읽지 못하면(이 기능
+    전의 Core) 빈 글이다."""
+    versions = {source["version_id"] for source in packet["sources"]}
+    if len(versions) != 1:
+        return ""
+    try:
+        figures = core.figures(versions.pop())
+    except (CoreRefused, CoreUnavailable):
+        return ""
+    if not figures:
+        return ""
+    lines = [
+        "",
+        "",
+        "## 이 논문의 그림",
+        "",
+        "아티팩트에 원본 그림을 넣을 때 쓰는 번호입니다. 그림 이미지는 이 목록과 함께 오지 않았습니다. 캡션은 PDF에서 뽑은 글입니다.",
+        "",
+    ]
+    lines += [f"- paperloom-figure:{figure['label']} · p.{figure['page_index'] + 1} · {figure['caption']}" for figure in figures[:MAX_FIGURES]]
+    return "\n".join(lines)
 
 
 def _turn(
     cli: ClaudeCli, core: CoreClient, body: ChatIn, content: list[dict], resume_at: str | None, events: queue.Queue,
     busy: threading.Lock, running: "_Running", run_id: str, cancel: threading.Event, model: str | None, system_extra: str,
+    informs: set[str] | None,
 ) -> None:
+    """informs: 이 차례가 그림 목록을 붙였으면 브리지의 목록 받은 대화(build_app의 informed). 답을 저장하면 그 대화를 더한다."""
     started, outcome = time.monotonic(), "error"
     try:
         events.put({"type": "start", "run_id": run_id})
@@ -407,6 +443,8 @@ def _turn(
             else:
                 context = (event["context_tokens"], event["context_window"])
                 answer = core.save_answer(body.packet_id, body.question, event["text"], event["session_id"], context, event["message_id"])
+                if informs is not None:
+                    informs.add(event["session_id"])
                 events.put({"type": "done", "answer": answer})
                 outcome = "ok"
     except (CoreUnavailable, CoreRefused) as failure:
