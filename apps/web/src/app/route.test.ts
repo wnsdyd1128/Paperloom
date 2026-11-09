@@ -69,6 +69,13 @@ describe("Reader 주소 (IMPL §4.3)", () => {
     expect(parseRoute("/reader/p/translation", "")).toEqual({ kind: "translation", paperId: "p", versionId: null, page: 1 });
   });
 
+  it("별도 탭의 Claude와 대화 (2026-11-09)", () => {
+    const route = parseRoute("/reader/p%2F1/chat", "?version=v1&page=4&session=s-1");
+    expect(route).toEqual({ kind: "chat", paperId: "p/1", versionId: "v1", page: 4, session: "s-1" });
+    expect(formatRoute(route)).toBe("/reader/p%2F1/chat?version=v1&page=4&session=s-1");
+    expect(parseRoute("/reader/p/chat/", "?page=0")).toEqual({ kind: "chat", paperId: "p", versionId: null, page: 1, session: null });
+  });
+
   it("그 밖의 주소는 Library", () => {
     expect(parseRoute("/", "")).toEqual({ kind: "library" });
     expect(parseRoute("/reader", "")).toEqual({ kind: "library" });

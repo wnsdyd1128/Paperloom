@@ -29,6 +29,8 @@ import type { TranslationMode } from "../translation/TranslationControls";
 import { useTranslation } from "../translation/useTranslation";
 import { formatRoute } from "../../app/route";
 import { ChatPanel, type ChatRequest } from "../chat/ChatPanel";
+import { DetachedChat } from "../chat/DetachedChat";
+import { useChatTab } from "../chat/useChatTab";
 import { DEFAULT_QUESTIONS } from "../context/api";
 import { type Paper, sourcePdfUrl, type Version } from "../library/api";
 import { type Draft, InlineLayer, type Placed, type Spot } from "../threads/InlineLayer";
@@ -148,6 +150,8 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   const [regionMode, setRegionMode] = useState(false);
   const [{ panel, open: panelOpen }, setPanelState] = useState(storedPanel);
   const [chatRequest, setChatRequest] = useState<ChatRequest | null>(null);
+  // 대화를 새 탭으로 분리했는지 (2026-11-09 사용자 요청). 그 탭이 열리고 닫힐 때 알린다(useChatTab)
+  const [chatDetached, setChatDetached] = useState(false);
   // 본문 위에 연 아티팩트(답의 카드나 아티팩트 탭의 목록에서). 다시 열면 nonce가 바뀌어 창을 새로 만든다
   const [openArtifact, setOpenArtifact] = useState<Readonly<{ artifact: Artifact; nonce: number }> | null>(null);
   const showArtifact = (artifact: Artifact) => setOpenArtifact({ artifact, nonce: Date.now() });
@@ -497,25 +501,41 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
     }
   }
 
+  /**
+   * 대화에 맡길 일을 보낼 곳. 사이드바 대화면 보낼 때 그 칸을 열고, 새 탭으로 분리했으면 그 탭을 지금 앞으로 가져온다
+   * (사용자가 누른 동안에 불러야 브라우저가 막지 않는다. 그래서 저장을 기다리기 전에 부른다). 보낼 수 없으면 null
+   */
+  function chatTarget(): ((request: ChatRequest) => void) | null {
+    if (!chatDetached) {
+      return (request) => {
+        setChatRequest(request);
+        openPanel("chat");
+      };
+    }
+    return chatTab.show() ? chatTab.send : null;
+  }
+
   async function draftToSidebar(text: string) {
     if (!draft) return;
+    const deliver = chatTarget();
+    if (!deliver) return;
     try {
       const anchor = await createAnchor(draft.newAnchor);
       setDraft(null);
       clearSelection();
-      setChatRequest({ kind: "attach", anchor, text: text.trim() || undefined, nonce: Date.now() });
-      openPanel("chat");
+      deliver({ kind: "attach", anchor, text: text.trim() || undefined, nonce: Date.now() });
     } catch {
       setNotice({ tone: "error", text: "고른 위치를 저장하지 못했습니다. 백엔드 연결을 확인하세요." });
     }
   }
 
   async function moveToSidebar(key: string) {
+    const deliver = chatTarget();
+    if (!deliver) return;
     try {
       const thread = await inline.moveToSidebar(key);
       if (!thread) return;
-      setChatRequest({ kind: "open", sessionId: thread.session_id, nonce: Date.now() });
-      openPanel("chat");
+      deliver({ kind: "open", sessionId: thread.session_id, nonce: Date.now() });
     } catch {
       setNotice({ tone: "error", text: "사이드바로 옮기지 못했습니다." });
     }
@@ -523,8 +543,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
 
   function openThread(item: InlineThread) {
     if (item.thread?.placement === "sidebar") {
-      setChatRequest({ kind: "open", sessionId: item.thread.session_id, nonce: Date.now() });
-      openPanel("chat");
+      chatTarget()?.({ kind: "open", sessionId: item.thread.session_id, nonce: Date.now() });
       return;
     }
     scrollToAnchor(item.anchor);
@@ -1008,6 +1027,21 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
       ]),
     [inline.items, inline.removed],
   );
+  // 새 탭으로 분리한 대화와 이어진다 (2026-11-09 사용자 요청)
+  const chatTab = useChatTab({
+    paperId: paper.paper_id,
+    versionId,
+    pageIndex: pageNumber - 1,
+    hiddenSessions,
+    onDetached: setChatDetached,
+    onShowCitation: showCitation,
+    onShowAnchor: showAnchor,
+    onShowPage: goToPage,
+    onDiscarded: inline.answerDiscarded,
+    onSessionRenamed: inline.sessionRenamed,
+    onSessionDeleted: inline.sessionDeleted,
+    onBlocked: () => setNotice({ tone: "error", text: "브라우저가 새 탭을 막았습니다. 이 사이트의 팝업을 허용하세요." }),
+  });
   const counts: Readonly<Record<Panel, number>> = {
     chat: 0,
     artifacts: 0, // 목록은 탭을 열 때 받으므로 수를 미리 알지 못한다
@@ -1048,11 +1082,8 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         onToggleRegion={() => setRegionMode((active) => !active)}
         translationOn={translationView.on}
         onToggleTranslation={toggleTranslation}
-        onOpenChat={() => openPanel("chat")}
-        onSummary={() => {
-          setChatRequest({ kind: "summary", nonce: Date.now() });
-          openPanel("chat");
-        }}
+        onOpenChat={() => (chatDetached ? void chatTab.show() : openPanel("chat"))}
+        onSummary={() => chatTarget()?.({ kind: "summary", nonce: Date.now() })}
         onCopyLink={() => void copyLink()}
         exportProblem={outbox.problem}
         onExport={() => setExportOpen(true)}
@@ -1225,22 +1256,28 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         <aside className="reader-side" hidden={!panelOpen} aria-label="사이드바" style={{ width: side.width }}>
           {side.handle}
           <div className="side-panel side-chat" hidden={panel !== "chat"}>
-            <ChatPanel
-              paperId={paper.paper_id}
-              versionId={versionId}
-              pageIndex={pageNumber - 1}
-              bridge={bridge}
-              request={chatRequest}
-              visible={panelOpen && panel === "chat"}
-              hiddenSessions={hiddenSessions}
-              onShowCitation={showCitation}
-              onShowAnchor={showAnchor}
-              onShowPage={goToPage}
-              onOpenArtifact={showArtifact}
-              onDiscarded={inline.answerDiscarded}
-              onSessionRenamed={inline.sessionRenamed}
-              onSessionDeleted={inline.sessionDeleted}
-            />
+            {/* 새 탭으로 분리한 동안에는 대화를 그 탭에서만 한다(두 곳에서 같은 대화를 묻지 않게) */}
+            {chatDetached ? (
+              <DetachedChat onShow={() => void chatTab.show()} onReturn={chatTab.close} />
+            ) : (
+              <ChatPanel
+                paperId={paper.paper_id}
+                versionId={versionId}
+                pageIndex={pageNumber - 1}
+                bridge={bridge}
+                request={chatRequest}
+                visible={panelOpen && panel === "chat"}
+                hiddenSessions={hiddenSessions}
+                onShowCitation={showCitation}
+                onShowAnchor={showAnchor}
+                onShowPage={goToPage}
+                onOpenArtifact={showArtifact}
+                onDiscarded={inline.answerDiscarded}
+                onSessionRenamed={inline.sessionRenamed}
+                onSessionDeleted={inline.sessionDeleted}
+                onDetach={(sessionId) => void chatTab.show(sessionId)}
+              />
+            )}
           </div>
           <div className="side-panel" hidden={panel !== "artifacts"}>
             <ArtifactPanel paperId={paper.paper_id} visible={panelOpen && panel === "artifacts"} onOpen={showArtifact} />

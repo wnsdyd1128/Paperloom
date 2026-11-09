@@ -1,0 +1,79 @@
+/* 별도 탭의 Claude와 대화 (ChatTab.tsx). 대화 칸은 Reader 사이드바에 있던 모양 그대로, 읽기 좋은 폭으로 가운데 둔다 */
+.chat-tab {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.chat-tab-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 10px var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.chat-tab-paper {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-tab-link {
+  flex: none;
+  font-size: 13px;
+}
+
+.chat-tab-returned {
+  margin: 0;
+  padding: var(--space-6);
+}
+
+.chat-tab-body {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+}
+
+.chat-tab-body > .chat-panel {
+  width: 100%;
+  max-width: 880px;
+  border-right: 1px solid var(--color-divider);
+  border-left: 1px solid var(--color-divider);
+}
+
+/* 아티팩트를 열면 대화 옆에 나란히 둔다(claude.ai처럼): 대화를 읽으면서 다른 아티팩트를 누를 수 있다.
+   Reader에서는 본문을 덮는 창(.artifact-window)이라 여기서 자리를 바꾼다 */
+.chat-tab-body.has-artifact {
+  justify-content: flex-start;
+}
+
+.chat-tab-body.has-artifact > .chat-panel {
+  flex: 0 0 min(560px, 42%);
+  border-left: 0;
+}
+
+.chat-tab-body > .artifact-window {
+  position: relative;
+  inset: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: var(--space-3);
+}
+
+/* 좁은 창에서는 나란히 둘 자리가 없어 대화 위에 겹친다 */
+@media (max-width: 900px) {
+  .chat-tab-body > .artifact-window {
+    position: absolute;
+    inset: var(--space-3);
+    margin: 0;
+  }
+}

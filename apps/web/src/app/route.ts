@@ -6,11 +6,13 @@
  *   /answers                                      답변 화면: 모든 논문의 대화 (U6, 사용자 결정 D8)
  *   /bundles                                      내보낸 bundle 기록 (W09)
  *   /reader/{paper_id}/translation?version=&page= 별도 탭의 쪽 번역 (U7). 원문 탭과 쪽 이동을 맞춘다
+ *   /reader/{paper_id}/chat?version=&page=&session= 별도 탭의 Claude와 대화 (2026-11-09 사용자 요청). 원문 탭과 이어진다
  *   /reader/{paper_id}?version={version_id}&anchor={anchor_id}
  *   /reader/{paper_id}?version={version_id}&page={쪽 번호}&block={block_id}   검색 결과에서 연 문단 (W05)
  *
  * page는 화면의 쪽 번호(page_index + 1)다. block은 그 버전의 마지막 추출에서만 유효하므로, 다시 추출해
- * 사라졌으면 쪽만 연다. 영구 출처는 anchor다. session은 답변 화면에서 연 대화(U6)다. 그 대화를 사이드바나 원문 위에서 연다.
+ * 사라졌으면 쪽만 연다. 영구 출처는 anchor다. session은 답변 화면에서 연 대화(U6)다. Reader 주소면 원문 위 대화를 열고,
+ * 대화 탭 주소면 그 대화를 연다. 대화 탭의 version·page는 원문 탭이 없을 때 범위(논문 본문·현재 쪽)에 쓴다.
  */
 
 export type Route =
@@ -26,7 +28,8 @@ export type Route =
       blockId: string | null;
       session: string | null;
     }>
-  | Readonly<{ kind: "translation"; paperId: string; versionId: string | null; page: number }>;
+  | Readonly<{ kind: "translation"; paperId: string; versionId: string | null; page: number }>
+  | Readonly<{ kind: "chat"; paperId: string; versionId: string | null; page: number; session: string | null }>;
 
 export function parseRoute(pathname: string, search: string): Route {
   if (/^\/answers\/?$/.test(pathname)) return { kind: "answers" };
@@ -36,6 +39,16 @@ export function parseRoute(pathname: string, search: string): Route {
   const translation = /^\/reader\/([^/]+)\/translation\/?$/.exec(pathname);
   if (translation) {
     return { kind: "translation", paperId: decodeURIComponent(translation[1]), versionId: params.get("version") || null, page: Number.isInteger(page) && page >= 1 ? page : 1 };
+  }
+  const chat = /^\/reader\/([^/]+)\/chat\/?$/.exec(pathname);
+  if (chat) {
+    return {
+      kind: "chat",
+      paperId: decodeURIComponent(chat[1]),
+      versionId: params.get("version") || null,
+      page: Number.isInteger(page) && page >= 1 ? page : 1,
+      session: params.get("session") || null,
+    };
   }
   const match = /^\/reader\/([^/]+)\/?$/.exec(pathname);
   if (!match) return { kind: "library" };
@@ -59,6 +72,12 @@ export function formatRoute(route: Route): string {
     if (route.versionId) params.set("version", route.versionId);
     params.set("page", String(route.page));
     return `/reader/${encodeURIComponent(route.paperId)}/translation?${params}`;
+  }
+  if (route.kind === "chat") {
+    if (route.versionId) params.set("version", route.versionId);
+    params.set("page", String(route.page));
+    if (route.session) params.set("session", route.session);
+    return `/reader/${encodeURIComponent(route.paperId)}/chat?${params}`;
   }
   if (route.versionId) params.set("version", route.versionId);
   if (route.anchorId) params.set("anchor", route.anchorId);

@@ -8,6 +8,8 @@ import { formatRoute, parseRoute, type Route, readerRoute } from "./route";
 
 // 별도 탭의 쪽 번역(U7)은 PDF.js를 쓰므로 그 탭을 열 때만 불러온다.
 const TranslationTab = lazy(() => import("../features/translation/TranslationTab").then((module) => ({ default: module.TranslationTab })));
+// 사이드바에서 분리한 Claude와 대화 탭(2026-11-09 사용자 요청)도 그 탭을 열 때만 불러온다.
+const ChatTab = lazy(() => import("../features/chat/ChatTab").then((module) => ({ default: module.ChatTab })));
 
 export function App() {
   // 화면은 주소가 정한다. 새로고침·뒤로 가기·링크로 열어도 같은 화면이 된다 (IMPL §4.3).
@@ -41,6 +43,10 @@ export function App() {
       ) : route.kind === "translation" ? (
         <Suspense fallback={<p className="status pending">번역 탭을 불러오는 중…</p>}>
           <TranslationTab route={route} navigate={navigate} />
+        </Suspense>
+      ) : route.kind === "chat" ? (
+        <Suspense fallback={<p className="status pending">대화 탭을 불러오는 중…</p>}>
+          <ChatTab route={route} />
         </Suspense>
       ) : (
         <LibraryShell

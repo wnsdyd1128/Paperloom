@@ -28,7 +28,7 @@ import {
 import { type ChatScope, planTurn } from "./turnPlan";
 
 /**
- * Reader가 대화 칸에 넘기는 일. nonce가 바뀔 때마다 한 번 처리한다.
+ * Reader가 대화 칸에 넘기는 일. nonce가 바뀔 때마다 한 번 처리하고, 대화 목록을 받은 뒤에 처리한다.
  * - ask: 이 packet으로 바로 묻는다.
  * - attach: 고른 위치를 입력칸에 붙인다. text가 있으면 입력칸에 넣는다(원문 위 질문 창을 옮긴 경우).
  * - open: 그 대화를 연다(원문 위 대화를 사이드바로 옮긴 경우).
@@ -80,6 +80,8 @@ type Props = Readonly<{
   /** 대화 이름을 바꿨을 때·대화를 지웠을 때 (원문 위에서 옮겨 온 대화면 선택 설명·질문 목록도 맞춘다) */
   onSessionRenamed: (sessionId: string, title: string) => void;
   onSessionDeleted: (sessionId: string) => void;
+  /** 이 대화를 새 탭으로 분리한다(지금 대화의 ID, 새 대화면 null). 없으면 분리 단추가 없다(이미 분리한 탭) */
+  onDetach?: (sessionId: string | null) => void;
 }>;
 
 const LIST_LIMIT = 200;
@@ -91,8 +93,9 @@ const LIST_LIMIT = 200;
  * 답을 만드는 중에는 보내기 단추가 중단 단추다. 만드는 중인 차례는 runningTurn.ts가 들고 있어, 서재로 나갔다 돌아와도
  * 그 대화에서 이어 보인다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
  * 보인다. 지금 대화의 컨텍스트 길이(마지막 차례 끝 기준)를 제목 아래에 보인다 (2026-10-02 사용자 요청).
+ * 머리의 "새 탭으로 분리"는 지금 대화를 별도 탭(ChatTab.tsx)으로 옮긴다 (2026-11-09 사용자 요청). 그 탭도 이 칸을 쓴다.
  */
-export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted }: Props) {
+export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted, onDetach }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
   // 답을 처음 받는 동안은 지금 대화(가장 최근 대화)를 아직 모른다. 그동안 패널을 aria-busy로 둔다.
   const [loading, setLoading] = useState(true);
@@ -170,7 +173,8 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   forkRef.current = fork;
 
   useEffect(() => {
-    if (!request || handled.current === request.nonce) return;
+    // 대화 목록을 받기 전에는 지금 대화를 모른다(막 연 대화 탭이면 요약을 새 대화에 묻게 된다). 받은 뒤에 처리한다.
+    if (!request || loading || handled.current === request.nonce) return;
     handled.current = request.nonce;
     if (request.kind === "ask") {
       void send(request.packet.packet_id, request.packet.question, packetQuote(request.packet));
@@ -188,7 +192,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         .then(() => setChosen(request.sessionId))
         .catch(() => setError("대화를 불러오지 못했습니다."));
     }
-  }, [request]);
+  }, [request, loading]);
 
   // 사용자가 패널을 열 때만 입력칸에 포커스를 둔다. Reader를 처음 열 때는 본문이 포커스를 가진다(키보드 쪽 이동·선택 단축키).
   const wasVisible = useRef(visible);
@@ -396,6 +400,19 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         >
           <Icon name="plus" size={16} />
         </button>
+        {onDetach && (
+          // 답을 만드는 중이면 분리하지 않는다: 만드는 중인 차례는 이 탭에만 있다(runningTurn.ts)
+          <button
+            type="button"
+            className="btn btn-icon side-tool"
+            aria-label="새 탭으로 분리"
+            title="이 대화를 별도 탭으로 분리합니다. 원문 탭과 이어지고, 그 탭을 닫으면 사이드바로 돌아옵니다"
+            onClick={() => onDetach(fork ? null : session)}
+            disabled={pending !== null}
+          >
+            <Icon name="popOut" size={16} />
+          </button>
+        )}
       </header>
       <button type="button" className="chat-title-row" onClick={() => setHistoryOpen((open) => !open)} disabled={pending !== null} aria-label={`지금 대화: ${title}. 대화 기록 열기`}>
         <span className="chat-title">{title}</span>

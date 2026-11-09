@@ -1447,6 +1447,20 @@ body.is-resizing-side {
   text-align: center;
 }
 
+/* 대화를 새 탭으로 분리한 동안의 자리 (chat/DetachedChat.tsx) */
+.chat-detached-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  font-size: 13px;
+}
+
+.chat-detached-body p {
+  margin: 0;
+}
+
 /* ── Claude와 대화 ── */
 .chat-panel {
   display: flex;

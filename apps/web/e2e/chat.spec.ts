@@ -497,6 +497,62 @@ test("사이드바 대화마다 이름을 바꾸고(Enter 저장·Esc 취소, �
   expect(answers).toEqual([]);
 });
 
+test("대화를 새 탭으로 분리하면 원문 탭과 이어지고, 그 탭을 닫거나 되돌리면 사이드바로 돌아온다", async ({ page }, testInfo) => {
+  // 2026-11-09 사용자 요청: 대화를 별도 탭으로 바로 옮기지 말고 분리하는 단추를 둔다. 처음에는 사이드바에 있다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const side = page.locator(CHAT);
+  await startNewChat(side);
+  const question = `분리할 대화 ${Date.now()}`;
+  await side.getByRole("textbox", { name: "질문" }).fill(question);
+  await side.getByRole("textbox", { name: "질문" }).press("Enter");
+  await expect(side.locator(".chat-turn:not(.is-pending) .chat-prompt").last()).toHaveText(question, { timeout: 15_000 });
+  const detach = async (click: () => Promise<void>) => {
+    const opened = page.waitForEvent("popup");
+    await click();
+    const tab = await opened;
+    await tab.waitForURL(/\/reader\/[^/]+\/chat\?/);
+    return tab;
+  };
+
+  // 1) 분리: 지금 대화가 새 탭에서 이어지고, 사이드바는 그 탭을 가리킨다(두 곳에서 묻지 않는다)
+  const chatTab = await detach(() => side.getByRole("button", { name: "새 탭으로 분리" }).click());
+  const chat = chatTab.locator(CHAT);
+  await expect(chat.locator(".chat-turn .chat-prompt").last()).toHaveText(question);
+  await expect(chat.getByRole("button", { name: "새 탭으로 분리" })).toHaveCount(0);
+  await expect(page.locator(".chat-detached")).toContainText("대화를 별도 탭에서 하고 있습니다");
+  await expect(page.locator(CHAT)).toHaveCount(0);
+
+  // 2) 대화 탭은 원문 탭의 쪽을 알고, 원문에서 고른 위치는 대화 탭의 입력칸에 붙는다
+  await expect(chatTab.locator(".chat-tab-link")).toHaveText("원문 탭과 이어짐 · p.1");
+  await dragLine(page, 1, "epsilonword");
+  await expect(chatTab.locator(".chat-tab-link")).toHaveText("원문 탭과 이어짐 · p.2");
+  await page.keyboard.press("Enter");
+  await page.getByRole("form", { name: "AI에게 질문" }).getByRole("textbox", { name: "질문" }).fill("고른 줄은 무슨 뜻인가요?");
+  await page.getByRole("button", { name: "사이드바 대화로 옮기기" }).click();
+  await expect(chat.locator(".chat-attachments li")).toContainText(["선택 · p.2"]);
+  await expect(chat.getByRole("textbox", { name: "질문" })).toHaveValue("고른 줄은 무슨 뜻인가요?");
+  expect(page.context().pages()).toHaveLength(2); // 열린 대화 탭을 썼다
+
+  // 3) 대화 탭에서 근거를 누르면 원문 탭이 그 위치로 간다
+  await chat.locator(".chat-turn:not(.is-pending)").last().getByRole("button", { name: "근거 1", exact: true }).click();
+  await expect(page).toHaveURL(/page=1&block=/);
+
+  // 4) 대화 탭을 닫으면 사이드바 대화로 돌아온다
+  await chatTab.close();
+  await expect(page.locator(".chat-detached")).toHaveCount(0);
+  await expect(page.locator(CHAT).locator(".chat-turn .chat-prompt").last()).toHaveText(question);
+
+  // 5) 다시 분리하고, 사이드바의 "사이드바로 되돌리기"를 누르면 대화 탭이 닫히고 사이드바로 돌아온다
+  const again = await detach(() => page.locator(CHAT).getByRole("button", { name: "새 탭으로 분리" }).click());
+  await expect(page.locator(".chat-detached")).toBeVisible();
+  const closed = again.waitForEvent("close");
+  await page.locator(".chat-detached").getByRole("button", { name: "사이드바로 되돌리기" }).click();
+  await closed;
+  await expect(page.locator(CHAT)).toBeVisible();
+});
+
 test("답을 만드는 중에 중단하면 답을 저장하지 않고 질문을 입력칸에 돌려 둔다 (사이드바·원문 위 창)", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
   await openPaper(page, "text-digital.pdf");

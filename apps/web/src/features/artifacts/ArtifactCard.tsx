@@ -3,7 +3,7 @@ import { type Artifact, ARTIFACT_LABELS } from "./artifact";
 import "./artifacts.css";
 
 /**
- * 답 안의 아티팩트 자리. 누르면 Reader 본문 위 창에서 연다. 답을 만드는 중(onOpen이 null)이면 열지 않는다(글이 아직 덜 왔다).
+ * 답 안의 아티팩트 자리. 누르면 Reader 본문 위 창(분리한 대화 탭이면 대화 옆 창)에서 연다. 답을 만드는 중(onOpen이 null)이면 열지 않는다(글이 아직 덜 왔다).
  */
 export function ArtifactCard({ artifact, onOpen }: Readonly<{ artifact: Artifact; onOpen: ((artifact: Artifact) => void) | null }>) {
   const kind = ARTIFACT_LABELS[artifact.type] + (artifact.language ? ` · ${artifact.language}` : "");
