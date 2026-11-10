@@ -1,4 +1,4 @@
-import { type FormEvent, Fragment, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type ClipboardEvent, type DragEvent, type FormEvent, Fragment, type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { formatTime, relativeTime } from "../../shared/time";
@@ -13,6 +13,7 @@ import { approxPages } from "../settings/api";
 import { usePreferences } from "../settings/PreferencesProvider";
 import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
+import { type AttachedImage, imageFiles, MAX_CHAT_IMAGES, prepareImage } from "./chatImages";
 import { finishTurn, onTurnFinished, runningTurn, startTurn, type TurnOutcome, updateTurn, useRunningTurn } from "./runningTurn";
 import {
   conversationTurns,
@@ -94,6 +95,7 @@ const LIST_LIMIT = 200;
  * 그 대화에서 이어 보인다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
  * 보인다. 지금 대화의 컨텍스트 길이(마지막 차례 끝 기준)를 제목 아래에 보인다 (2026-10-02 사용자 요청).
  * 머리의 "새 탭으로 분리"는 지금 대화를 별도 탭(ChatTab.tsx)으로 옮긴다 (2026-11-09 사용자 요청). 그 탭도 이 칸을 쓴다.
+ * 질문에 이미지를 붙일 수 있다: 입력칸에 붙여 넣기, 이 칸에 끌어 놓기, 이미지 단추 (2026-11-10 사용자 요청, chatImages.ts).
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted, onDetach }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
@@ -111,6 +113,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const [renaming, setRenaming] = useState<string | null>(null);
   const pending = useRunningTurn(paperId);
   const [attachments, setAttachments] = useState<readonly Anchor[]>([]);
+  const [images, setImages] = useState<readonly AttachedImage[]>([]); // 질문에 붙인 이미지
   const [question, setQuestion] = useState("");
   const [scope, setScope] = useState<ChatScope>(storedScope);
   const [model, setModel] = useState<ChatModel | null>(null);
@@ -119,6 +122,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const handled = useRef<number | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const reload = () =>
     listAnswers({ paperId, origin: "claude_code", limit: LIST_LIMIT }).then((list) => {
@@ -156,6 +160,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         } else if (outcome.kind === "cancelled") {
           setNotice("답 만들기를 중단했습니다. 질문은 입력칸에 돌려 두었습니다.");
           setQuestion((current) => current || turn.prompt);
+          setImages((current) => (current.length > 0 ? current : turn.images));
         } else {
           setError(outcome.message);
         }
@@ -215,7 +220,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
    * 차례 하나를 브리지에 보낸다. 만드는 중인 차례와 그 결과는 runningTurn.ts를 거친다: 답을 받는 중에 이 칸이 사라져도
    * (서재로 나감) 답을 계속 받고, 돌아온 칸이 이어 보인다. 갈래 기록은 칸이 없어도 남긴다.
    */
-  async function send(packetId: string, prompt: string, quote: readonly AnswerContext[]) {
+  async function send(packetId: string, prompt: string, quote: readonly AnswerContext[], attached: readonly AttachedImage[] = []) {
     if (runningTurn(paperId)) {
       setError("앞 질문의 답을 만드는 중입니다. 끝난 뒤 다시 보내세요.");
       return;
@@ -224,12 +229,13 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     setNotice(null);
     const draft = forkRef.current; // 갈래면 원래 대화를 이어받은 새 대화로 묻는다
     const session = sessionRef.current;
-    startTurn(paperId, { prompt, quote, text: "", runId: null, session, fork: draft });
+    startTurn(paperId, { prompt, quote, images: attached, text: "", runId: null, session, fork: draft });
     let outcome = null as TurnOutcome | null;
     try {
       const url = await bridge.resolveUrl();
       const forking = draft ? { fork: true, ...(draft.at ? { fork_at: draft.at } : {}) } : {};
-      const body = { packet_id: packetId, question: prompt, session_id: draft?.parent ?? session, model, ...forking };
+      const sending = attached.length > 0 ? { images: attached.map(({ media_type, data }) => ({ media_type, data })) } : {};
+      const body = { packet_id: packetId, question: prompt, session_id: draft?.parent ?? session, model, ...forking, ...sending };
       await askClaude(url, body, (event) => {
         if (event.type === "start") updateTurn(paperId, (turn) => ({ ...turn, runId: event.run_id }));
         if (event.type === "delta") updateTurn(paperId, (turn) => ({ ...turn, text: turn.text + event.text }));
@@ -289,10 +295,46 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         return false;
       }
     }
-    if (withAttachments) setAttachments([]);
-    await send(packetId, prompt, quote);
+    const attached = withAttachments ? images : [];
+    if (withAttachments) {
+      setAttachments([]);
+      setImages([]);
+    }
+    await send(packetId, prompt, quote, attached);
     return true;
   }
+
+  /** 그림 파일을 질문에 붙인다(MAX_CHAT_IMAGES장까지). 읽지 못한 그림·넘친 그림은 알린다. */
+  async function attachImages(files: readonly File[]) {
+    if (files.length === 0) return;
+    const room = MAX_CHAT_IMAGES - images.length;
+    const results = await Promise.allSettled(files.slice(0, Math.max(0, room)).map(prepareImage));
+    const prepared = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    setImages((current) => [...current, ...prepared].slice(0, MAX_CHAT_IMAGES));
+    if (prepared.length < results.length) setError("읽지 못한 그림이 있습니다. PNG·JPEG 같은 이미지 파일을 붙이세요.");
+    else if (files.length > room) setError(`이미지는 질문 하나에 ${MAX_CHAT_IMAGES}장까지 붙일 수 있습니다.`);
+    inputRef.current?.focus();
+  }
+
+  // 화면 캡처처럼 그림만 복사했을 때만 붙인다. 글도 함께 복사했으면(표 칸·문서 조각) 글로 붙여 넣는다
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = imageFiles(event.clipboardData.files);
+    if (files.length === 0 || event.clipboardData.getData("text/plain")) return;
+    event.preventDefault();
+    void attachImages(files);
+  };
+
+  const onDragOver = (event: DragEvent) => {
+    if (event.dataTransfer.types.includes("Files")) event.preventDefault(); // 놓기를 받는다(브라우저가 그림을 열지 않게)
+  };
+
+  const onDrop = (event: DragEvent) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    const files = imageFiles(event.dataTransfer.files);
+    if (files.length > 0) void attachImages(files);
+    else setError("이미지 파일만 질문에 붙일 수 있습니다.");
+  };
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -364,7 +406,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const title = fork?.title ?? sessions.find((item) => item.id === session)?.title ?? "새 대화";
   const measured = [...turns].reverse().find((answer) => answer.context_tokens !== null);
   return (
-    <section className="chat-panel" aria-labelledby="chat-heading" aria-busy={loading}>
+    <section className="chat-panel" aria-labelledby="chat-heading" aria-busy={loading} onDragOver={onDragOver} onDrop={onDrop}>
       <header className="side-head is-strong">
         <h2 id="chat-heading" className="side-title">
           Claude와 대화
@@ -469,7 +511,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         {inherited.length > 0 && own.length === 0 && <ForkDivider />}
         {pending && (
           <div className="chat-turn is-pending">
-            <UserBubble prompt={pending.prompt} quote={pending.quote} onShowAnchor={onShowAnchor} />
+            <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} onShowAnchor={onShowAnchor} />
             <div className="chat-answer">
               {pending.text ? (
                 <AnswerMarkdown markdown={pending.text} canCite={() => false} onCite={() => undefined} streaming />
@@ -512,6 +554,23 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
             ))}
           </ul>
         )}
+        {images.length > 0 && (
+          <ul className="chat-images" aria-label="질문에 붙인 이미지">
+            {images.map((image, index) => (
+              <li key={image.id} className="chat-image-chip">
+                <img src={image.url} alt={`붙인 이미지 ${index + 1}`} />
+                <button
+                  type="button"
+                  aria-label={`붙인 이미지 ${index + 1} 빼기`}
+                  title="빼기"
+                  onClick={() => setImages((current) => current.filter((item) => item.id !== image.id))}
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <textarea
           ref={inputRef}
           className="input chat-input"
@@ -521,8 +580,31 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
           placeholder="무엇이든 질문하세요"
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
         />
         <div className="chat-composer-bar">
+          <button
+            type="button"
+            className="btn btn-icon chat-attach"
+            aria-label="이미지 붙이기"
+            title={`이미지 붙이기 (${MAX_CHAT_IMAGES}장까지). 입력칸에 붙여 넣거나 이 칸에 끌어 놓아도 됩니다`}
+            onClick={() => fileRef.current?.click()}
+            disabled={images.length >= MAX_CHAT_IMAGES}
+          >
+            <Icon name="image" size={16} />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            aria-label="붙일 이미지 파일"
+            onChange={(event) => {
+              void attachImages(imageFiles(event.target.files));
+              event.target.value = ""; // 같은 파일을 다시 골라도 붙는다
+            }}
+          />
           <label className="chip-select" title={SCOPES.find((item) => item.value === scope)?.title(preferences.paper_text_chars)}>
             <span className="chip-select-label">범위:</span>
             <select aria-label="범위" value={scope} onChange={(event) => chooseScope(event.target.value as ChatScope)}>
@@ -555,7 +637,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
             </button>
           )}
         </div>
-        <p className="chat-note">이 PC의 Claude Code · 구독 사용량. 고른 근거와 질문이 Anthropic으로 전송됩니다.</p>
+        <p className="chat-note">이 PC의 Claude Code · 구독 사용량. 고른 근거와 질문, 붙인 이미지가 Anthropic으로 전송됩니다.</p>
       </form>
     </section>
   );
@@ -622,7 +704,7 @@ function Turn({
   const { preferences } = usePreferences();
   return (
     <div className={inherited ? "chat-turn is-inherited" : "chat-turn"} data-answer-id={answer.answer_id}>
-      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} onShowAnchor={onShowAnchor} />
+      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} images={answer.images ?? []} onShowAnchor={onShowAnchor} />
       <div className="chat-answer">
         <AnswerMarkdown
           markdown={answer.markdown}
@@ -676,9 +758,27 @@ function Turn({
   );
 }
 
-function UserBubble({ prompt, quote, onShowAnchor }: { prompt: string; quote: readonly AnswerContext[]; onShowAnchor: (anchorId: string) => void }) {
+function UserBubble({
+  prompt,
+  quote,
+  images,
+  onShowAnchor,
+}: {
+  prompt: string;
+  quote: readonly AnswerContext[];
+  /** 질문에 붙인 이미지의 주소 */
+  images: readonly string[];
+  onShowAnchor: (anchorId: string) => void;
+}) {
   return (
     <div className="chat-user">
+      {images.length > 0 && (
+        <div className="chat-user-images">
+          {images.map((url, index) => (
+            <img key={url} src={url} alt={`붙인 이미지 ${index + 1}`} loading="lazy" />
+          ))}
+        </div>
+      )}
       {quote.map((item) => (
         <button key={item.anchor_id} type="button" className="chat-quote" onClick={() => onShowAnchor(item.anchor_id)} title="원문에서 보기">
           {item.image_url ? <img src={item.image_url} alt={`${item.page_index + 1}쪽 영역`} loading="lazy" /> : <span>{excerpt(item.text, 160)}</span>}
@@ -705,6 +805,10 @@ function ChatGuide() {
         <li>
           <strong>설명</strong>·<strong>번역</strong>·<strong>AI에게 질문</strong>은 고른 자리 위의 창에서 답합니다. 창의 <strong>사이드바로 옮기기</strong>로
           여기서 이어 갈 수 있습니다.
+        </li>
+        <li>
+          질문에 <strong>Figure 3</strong>·<strong>그림 3</strong>처럼 그림 번호를 쓰면 그 원본 그림을 함께 보냅니다. 캡처한 이미지는 입력칸에 붙여 넣거나
+          끌어 놓아 붙입니다.
         </li>
         <li>답의 "근거 1" 같은 근거 표시나 p.19 같은 쪽 표기를 누르면 원문 위치로 갑니다. [12] 같은 번호는 논문의 참고문헌입니다.</li>
       </ul>

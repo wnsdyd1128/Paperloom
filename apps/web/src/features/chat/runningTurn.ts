@@ -8,11 +8,14 @@
 import { useSyncExternalStore } from "react";
 
 import type { Answer, AnswerContext } from "../answers/api";
+import type { AttachedImage } from "./chatImages";
 import type { ForkDraft } from "./sessions";
 
 export type RunningTurn = Readonly<{
   prompt: string;
   quote: readonly AnswerContext[];
+  /** 질문에 붙인 이미지. 중단하면 입력칸에 돌려 둔다 */
+  images: readonly AttachedImage[];
   /** 지금까지 받은 답 */
   text: string;
   /** 중단에 쓰는 실행 ID. 브리지가 주기 전에는 null */

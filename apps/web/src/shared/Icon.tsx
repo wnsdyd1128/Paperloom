@@ -68,6 +68,8 @@ const ICONS = {
   // Lucide git-fork (갈래), square (중단)
   fork: [{ circle: [12, 18, 3] }, { circle: [6, 6, 3] }, { circle: [18, 6, 3] }, "M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9", "M12 12v3"],
   stop: [{ rect: [6, 6, 12, 12] }],
+  // Lucide image (대화 질문에 이미지 붙이기)
+  image: [{ rect: [3, 3, 18, 18] }, { circle: [9, 9, 2] }, "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"],
 } satisfies Record<string, readonly Shape[]>;
 
 export type IconName = keyof typeof ICONS;

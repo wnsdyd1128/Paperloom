@@ -774,6 +774,57 @@ test("아티팩트의 논문 그림: 그림 번호(paperloom-figure:N)를 원문
   await expect.poll(() => docFigure.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(100);
 });
 
+// 8×6 한 색 PNG (tests/conftest.py build_png)
+const SHOT = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQiDqBFTEMpAQABEQ94WnIgDsAAAAASUVORK5CYII=", "base64");
+
+test("질문에 그림: 붙여 넣거나 이미지 단추로 고른 그림과 질문에 쓴 번호의 원본 그림을 함께 보내고, 붙인 그림은 대화 기록에 남는다", async ({ page }, testInfo) => {
+  // 2026-11-10 사용자 요청: Claude가 "그림 이미지를 받지 못해" 축 글자와 본문으로만 답했다. 그림을 보게 하고, 입력에 그림을 첨부한다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "figures.pdf"); // "Figure 1. Synthetic bar chart with three bars."
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  const chips = chat.getByRole("list", { name: "질문에 붙인 이미지" }).getByRole("listitem");
+
+  // 이미지 단추(파일 고르기)로 둘을 붙이고 하나를 빼고, 화면 캡처를 입력칸에 붙여 넣는다
+  await chat.getByLabel("붙일 이미지 파일").setInputFiles([
+    { name: "first.png", mimeType: "image/png", buffer: SHOT },
+    { name: "dropped.png", mimeType: "image/png", buffer: SHOT },
+  ]);
+  await expect(chips).toHaveCount(2);
+  await chat.getByRole("button", { name: "붙인 이미지 2 빼기" }).click();
+  await expect(chips).toHaveCount(1);
+  await input.evaluate((element, bytes) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array(bytes)], "capture.png", { type: "image/png" }));
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, [...SHOT]);
+  await expect(chips).toHaveCount(2);
+  await expect(input).toHaveValue(""); // 그림만 복사했으면 글은 붙지 않는다
+
+  const runsBefore = fakeRuns().length;
+  await input.fill("Figure 1의 막대는 몇 개인가요?");
+  await input.press("Enter");
+  await expect(chips).toHaveCount(0); // 보낸 그림은 입력칸에서 빠진다
+  const turn = chat.locator(".chat-turn:not(.is-pending)").last();
+  // 가짜 CLI가 받은 이미지: 질문에 쓴 번호의 원본 그림 하나와 붙인 그림 둘
+  await expect(turn.locator(".chat-answer")).toContainText("이미지 3개를 받았습니다", { timeout: 15_000 });
+  const content = fakeRuns().slice(runsBefore)[0].message.message.content;
+  expect(content.map((block) => block.type)).toEqual(["image", "image", "image", "text"]);
+  expect(content.at(-1)!.text).toContain("1번째: 이 논문의 Figure 1(p.1) 원본 그림");
+  expect(content.at(-1)!.text).toContain("3번째: 사용자가 붙인 이미지 2");
+
+  // 붙인 그림은 답과 함께 저장되어 새로고침 뒤에도 질문 위에 보인다(원본 그림은 보이지 않는다: 질문의 번호로 브리지가 붙였다)
+  const shown = () => chat.locator(".chat-turn:not(.is-pending)").last().locator(".chat-user-images img");
+  await expect(shown()).toHaveCount(2);
+  await page.reload();
+  await openPanel(page, "Claude와 대화");
+  await expect(shown()).toHaveCount(2);
+  await expect(shown().first()).toHaveAttribute("src", /^\/api\/v1\/answers\/.+\/images\/0$/);
+  await expect.poll(() => shown().last().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(8);
+});
+
 test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {
   // 2026-11-08 사용자 요청: claude.ai 링크를 못 만들면 파일을 만들고 경로를 주면 된다. 결정: 링크+파일 경로
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");

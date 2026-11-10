@@ -1820,6 +1820,70 @@ body.is-resizing-side {
   cursor: pointer;
 }
 
+/* 질문에 붙인 이미지 (2026-11-10 사용자 요청): 입력칸 위의 작은 그림과 빼기 단추 */
+.chat-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-image-chip {
+  position: relative;
+  border: 1px solid var(--color-divider);
+  background: #fff;
+}
+
+.chat-image-chip img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.chat-image-chip button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: var(--color-text);
+  color: var(--color-bg);
+  cursor: pointer;
+}
+
+.chat-composer-bar .chat-attach {
+  width: 26px;
+  height: 26px;
+  color: var(--color-neutral-700);
+}
+
+.chat-composer-bar .chat-attach:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+/* 대화 기록의 질문 위에 붙인 이미지 */
+.chat-user-images {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 86%;
+}
+
+.chat-user-images img {
+  max-width: 100%;
+  max-height: 160px;
+  border: 1px solid var(--color-divider);
+  background: #fff;
+}
+
 /* 좁은 창(A14): 사이드바를 본문 위로 겹친다. */
 /* ── 탐색 (U4) ── */
 /* 머리 왼쪽의 목차 단추 (시안 36px) */

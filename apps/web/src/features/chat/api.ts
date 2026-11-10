@@ -1,10 +1,11 @@
 /**
  * Reader "Claude와 대화" 탭이 부르는 이 PC의 Claude Code 브리지 (backend/src/paperloom/integrations/claude_code, ADR 0003).
- * 브리지 주소는 Paperloom health(claude_code_url)로 받는다. 브리지는 packet ID와 질문만 받고, 근거 글·이미지는
- * Paperloom에서 직접 읽는다. 답은 생성되는 대로 줄 단위 JSON(NDJSON)으로 온다.
+ * 브리지 주소는 Paperloom health(claude_code_url)로 받는다. 브리지는 packet ID와 질문, 질문에 붙인 이미지만 받고, 근거
+ * 글·이미지와 질문에 쓴 번호의 논문 그림은 Paperloom에서 직접 읽는다. 답은 생성되는 대로 줄 단위 JSON(NDJSON)으로 온다.
  */
 
 import type { Answer } from "../answers/api";
+import type { ChatImage } from "./chatImages";
 
 export type BridgeHealth = Readonly<{
   ready: boolean;
@@ -35,6 +36,8 @@ export type ChatRequest = Readonly<{
   model: ChatModel | null;
   fork?: boolean;
   fork_at?: string;
+  /** 사용자가 질문에 붙인 이미지 (2026-11-10 사용자 요청). 없으면 보내지 않는다(이 기능 전 브리지는 모르는 칸을 거부한다) */
+  images?: readonly ChatImage[];
 }>;
 
 /** 브리지를 켜는 명령 (Windows PowerShell). <Paperloom 폴더>는 사용자 PC의 저장소 폴더다. */

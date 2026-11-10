@@ -59,6 +59,8 @@ export type Answer = Readonly<{
   context_window: number | null;
   /** claude_code: 이 답에서 갈라질 자리(차례 끝 Claude Code 메시지 ID). 이 기능 전 답은 null */
   message_id: string | null;
+  /** claude_code: 사용자가 질문에 붙인 이미지의 주소, 붙인 차례대로 (2026-11-10. 그 전 Core는 주지 않는다) */
+  images?: readonly string[];
 }>;
 
 export type AnswerQuery = Readonly<{ packetId?: string; paperId?: string; sessionId?: string; origin?: Answer["origin"]; limit?: number }>;

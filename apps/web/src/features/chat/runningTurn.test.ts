@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Answer } from "../answers/api";
 import { finishTurn, onAnswerSaved, onTurnFinished, type RunningTurn, runningTurn, startTurn, updateTurn } from "./runningTurn";
 
-const turn: RunningTurn = { prompt: "질문", quote: [], text: "", runId: null, session: "s1", fork: null };
+const turn: RunningTurn = { prompt: "질문", quote: [], images: [], text: "", runId: null, session: "s1", fork: null };
 
 describe("runningTurn", () => {
   it("대화 칸이 사라져도 논문마다 만드는 중인 차례가 남아, 돌아온 칸이 이어 본다 (2026-11-08 사용자 보고)", () => {
