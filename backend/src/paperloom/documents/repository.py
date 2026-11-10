@@ -149,7 +149,7 @@ def extracting(connection: sqlite3.Connection, paper_id: str) -> bool:
 def delete_paper(connection: sqlite3.Connection, paper_id: str) -> list[str] | None:
     """논문과 그 논문의 모든 기록을 지우고 원본 파일 자리(storage_ref)를 돌려준다. 논문이 없으면 None (2026-10-05 서재 지우기).
     외래 키가 연쇄 삭제를 하지 않으므로 다른 모듈의 표도 여기서 딸린 것부터 지운다: 문맥(출처에 그 논문이 든 packet)과
-    그 답변·예전 공유 허락, 대화·대화 이름, 원문 위치와 주석, 쪽 번역, 추출한 본문(검색 색인은 트리거가 지운다)·추출 작업,
+    그 답변(질문에 붙인 이미지 포함)·예전 공유 허락, 대화·대화 이름, 원문 위치와 주석, 쪽 번역, 추출한 본문(검색 색인은 트리거가 지운다)·추출 작업,
     태그(다른 논문에 없는 태그는 함께). 본문 추출 중(RUNNING)인지는 호출자가 먼저 본다."""
     if connection.execute("SELECT 1 FROM papers WHERE paper_id = ? AND owner_id = ?", (paper_id, LOCAL_OWNER_ID)).fetchone() is None:
         return None
@@ -163,6 +163,7 @@ def delete_paper(connection: sqlite3.Connection, paper_id: str) -> list[str] | N
         )
     ]
     for packet_id in packets:
+        connection.execute("DELETE FROM answer_images WHERE answer_id IN (SELECT answer_id FROM answers WHERE packet_id = ?)", (packet_id,))
         connection.execute("DELETE FROM answers WHERE packet_id = ?", (packet_id,))
         connection.execute("DELETE FROM share_grants WHERE resource_type = 'packet' AND resource_id = ?", (packet_id,))
         connection.execute("DELETE FROM context_packets WHERE packet_id = ?", (packet_id,))

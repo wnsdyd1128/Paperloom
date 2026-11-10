@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 import uuid
+from collections.abc import Sequence
 from contextlib import closing
 from pathlib import Path
 
@@ -58,8 +59,10 @@ class AnswerService:
         chat_session: str | None = None,
         context: tuple[int | None, int | None] = (None, None),
         message_id: str | None = None,
+        images: Sequence[tuple[str, bytes]] = (),
     ) -> tuple[AnswerOut, bool]:
-        """(답변, 새로 만들었는지). packet은 IMPORTED가 된다. packet이 있고 전달된 상태인지는 호출자가 확인한다."""
+        """(답변, 새로 만들었는지). packet은 IMPORTED가 된다. packet이 있고 전달된 상태인지는 호출자가 확인한다.
+        images: 질문에 붙인 (media_type, 이미지). 앞의 답변을 주면 그 답변의 이미지를 그대로 둔다."""
         digest = hashlib.sha256(markdown.encode()).hexdigest()
         with closing(connect(self._db_path)) as connection, connection:
             existing = repository.find_answer(connection, packet_id, digest, prompt)
@@ -74,8 +77,15 @@ class AnswerService:
                     context,
                     message_id,
                 )
+                repository.insert_images(connection, answer_id, images)
                 packets.import_answer(connection, packet_id, now)
         return self.get(answer_id), created
+
+    def image(self, answer_id: str, position: int) -> tuple[str, bytes] | None:
+        """답의 질문에 붙인 이미지 (media_type, 이미지). 없으면 None."""
+        with closing(connect(self._db_path)) as connection:
+            row = repository.get_image(connection, answer_id, position)
+        return (row["media_type"], row["data"]) if row else None
 
     def packet_status(self, packet_id: str) -> str | None:
         """답변을 받을 packet의 상태. 없으면 None."""
@@ -181,4 +191,5 @@ def _answer_out(row) -> AnswerOut:
         context_tokens=row["context_tokens"],
         context_window=row["context_window"],
         message_id=row["cc_message_id"],
+        images=[f"/api/v1/answers/{row['answer_id']}/images/{position}" for position in range(row["image_count"])],
     )

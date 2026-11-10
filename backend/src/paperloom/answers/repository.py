@@ -1,11 +1,13 @@
 """answers SQL. 호출자가 트랜잭션 경계를 정한다."""
 
 import sqlite3
+from collections.abc import Sequence
 
 from paperloom.documents.repository import LOCAL_OWNER_ID
 
 _ANSWERS = (
-    "SELECT a.*, c.name AS connection_name, p.content_json FROM answers AS a"
+    "SELECT a.*, c.name AS connection_name, p.content_json,"
+    " (SELECT COUNT(*) FROM answer_images AS i WHERE i.answer_id = a.answer_id) AS image_count FROM answers AS a"
     " JOIN context_packets AS p ON p.packet_id = a.packet_id"
     " LEFT JOIN host_connections AS c ON c.connection_id = a.connection_id"
 )
@@ -35,6 +37,22 @@ def insert_answer(
             created_at, *context, message_id,
         ),
     )
+
+
+def insert_images(connection: sqlite3.Connection, answer_id: str, images: Sequence[tuple[str, bytes]]) -> None:
+    """답의 질문에 붙인 (media_type, 이미지), 붙인 차례대로."""
+    connection.executemany(
+        "INSERT INTO answer_images (answer_id, position, media_type, data) VALUES (?, ?, ?, ?)",
+        [(answer_id, position, media_type, data) for position, (media_type, data) in enumerate(images)],
+    )
+
+
+def get_image(connection: sqlite3.Connection, answer_id: str, position: int) -> sqlite3.Row | None:
+    return connection.execute(
+        "SELECT i.media_type, i.data FROM answer_images AS i JOIN answers AS a ON a.answer_id = i.answer_id"
+        " WHERE i.answer_id = ? AND i.position = ? AND a.owner_id = ?",
+        (answer_id, position, LOCAL_OWNER_ID),
+    ).fetchone()
 
 
 def find_answer(connection: sqlite3.Connection, packet_id: str, content_sha256: str, prompt: str | None) -> sqlite3.Row | None:

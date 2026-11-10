@@ -1,4 +1,4 @@
-"""웹앱이 쓰는 답변 REST (IMPL §8, §11.1): 답변 목록과 버리기, Claude Code 대화 답변 저장(ADR 0003).
+"""웹앱이 쓰는 답변 REST (IMPL §8, §11.1): 답변 목록과 버리기, Claude Code 대화 답변 저장(ADR 0003)과 그 질문에 붙인 이미지.
 
 대화 답변은 이 PC의 브리지가 loopback 웹 REST로 보낸다(다른 웹 REST와
 같은 로컬 경계, IMPL §3). 전달하지 않은(PREPARED)·버린(CANCELLED) packet에는 저장하지 않는다.
@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query, Response
 
 from paperloom.answers.models import AnswerList, AnswerOut, ChatAnswerIn, Origin
 from paperloom.answers.service import MAX_LIST, AnswerService
-from paperloom.api.docs import errors
+from paperloom.api.docs import errors, file_response
 from paperloom.api.errors import NOT_FOUND_MESSAGE, ApiError
 
 
@@ -40,9 +40,22 @@ def build_router(service: AnswerService) -> APIRouter:
             packet_id, body.markdown, origin="claude_code", prompt=body.prompt, chat_session=body.session_id,
             context=(body.context_tokens, body.context_window),
             message_id=body.message_id,
+            images=[(image.media_type, image.raw()) for image in body.images],
         )
         response.status_code = 201 if created else 200
         return answer
+
+    @router.get(
+        "/answers/{answer_id}/images/{position}", summary="질문에 붙인 이미지", response_class=Response,
+        responses=file_response("image/png", "PNG 또는 JPEG", "NOT_FOUND"),
+    )
+    def answer_image(answer_id: str, position: int) -> Response:
+        """대화 차례의 질문에 사용자가 붙인 이미지(붙인 차례, 0부터). 답변의 images가 이 주소다."""
+        image = service.image(answer_id, position)
+        if image is None:
+            raise ApiError(404, "NOT_FOUND", NOT_FOUND_MESSAGE)
+        media_type, data = image
+        return Response(data, media_type=media_type, headers={"Cache-Control": "private, max-age=86400"})
 
     @router.delete("/answers/{answer_id}", summary="답변 버리기", responses=errors("NOT_FOUND"))
     def discard_answer(answer_id: str) -> AnswerOut:

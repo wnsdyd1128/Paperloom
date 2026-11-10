@@ -54,6 +54,22 @@ def decode_png():
     return _decode_png
 
 
+def build_png(width: int = 2, height: int = 2, rgb: tuple[int, int, int] = (200, 30, 30)) -> bytes:
+    """한 색 PNG(8비트 RGB). 대화 질문에 붙이는 이미지 시험용."""
+
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+
+    rows = b"".join(b"\x00" + bytes(rgb) * width for _ in range(height))
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+
+
+@pytest.fixture
+def make_png():
+    return build_png
+
+
 _BUNDLE_NAME = re.compile(r"bundle_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _BUNDLE_FOLDERS = {"proposals": (".json",), "artifacts": (".md",), "assets": (".png",), "texts": (".json",)}
 _BUNDLE_TOP = {"manifest.json", "sources.json", "anchors.json"}

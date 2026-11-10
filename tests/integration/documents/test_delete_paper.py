@@ -4,6 +4,7 @@
 사라지고, 다른 논문은 그대로다. 본문을 추출하는 중(RUNNING)이면 거절하고, 대기 중(QUEUED)이면 그 작업도 함께 지운다.
 """
 
+import base64
 import sqlite3
 import uuid
 from contextlib import closing
@@ -51,17 +52,19 @@ def drain(app) -> None:
         pass
 
 
-def answered(client: TestClient, anchor_id: str) -> str:
-    """브리지가 한 차례를 끝낸 것처럼 packet을 보내고 답을 저장한 대화 ID"""
+def answered(client: TestClient, anchor_id: str, images: tuple[bytes, ...] = ()) -> str:
+    """브리지가 한 차례를 끝낸 것처럼 packet을 보내고 답(질문에 붙인 이미지 images)을 저장한 대화 ID"""
     packet_id = client.post("/api/v1/context-packets", json={"intent": "explain", "question": "q", "anchors": [{"anchor_id": anchor_id}]}).json()["packet_id"]
     client.patch(f"/api/v1/context-packets/{packet_id}", json={"status": "HANDED_OFF", "handoff_method": "claude_code"})
     session = str(uuid.uuid4())
-    assert client.post(f"/api/v1/context-packets/{packet_id}/answers", json={"markdown": "답 [근거 1]", "prompt": "q", "session_id": session}).status_code == 201
+    body = {"markdown": "답 [근거 1]", "prompt": "q", "session_id": session}
+    body["images"] = [{"media_type": "image/png", "data": base64.b64encode(image).decode()} for image in images]
+    assert client.post(f"/api/v1/context-packets/{packet_id}/answers", json=body).status_code == 201
     return session
 
 
-def fill(client: TestClient, paper: dict, tags: list[str]) -> None:
-    """사용자가 논문 하나에 남길 수 있는 기록을 모두 만든다."""
+def fill(client: TestClient, paper: dict, tags: list[str], image: bytes) -> None:
+    """사용자가 논문 하나에 남길 수 있는 기록을 모두 만든다. image는 사이드바 대화 질문에 붙인 이미지다."""
     paper_id, version_id = paper["paper_id"], paper["current_version"]["version_id"]
     blocks = client.get(f"/api/v1/versions/{version_id}/pages/0").json()["blocks"]
     u0, v0, u1, v1 = blocks[0]["regions"][0]
@@ -73,7 +76,7 @@ def fill(client: TestClient, paper: dict, tags: list[str]) -> None:
     inline = answered(client, anchor_id)
     thread = {"session_id": inline, "paper_id": paper_id, "anchor_id": anchor_id, "kind": "explain", "title": "설명"}
     assert client.post("/api/v1/chat-threads", json=thread).status_code == 201
-    sidebar = answered(client, anchor_id)
+    sidebar = answered(client, anchor_id, (image,))
     assert client.put(f"/api/v1/chat-sessions/{sidebar}/title", json={"paper_id": paper_id, "title": "이름"}).status_code == 200
     translation = {"model": "sonnet", "blocks": [  # 번역할 문단만(쪽 번호 같은 본문 밖 문단은 번역하지 않는다)
         {"block_id": block["block_id"], "sentences": [f"번역 {index}" for index in range(len(sentence_spans(block["text"])))]}
@@ -96,7 +99,9 @@ def ids(data_dir: Path, paper_id: str) -> dict[str, list]:
             "SELECT packet_id FROM context_packets AS p WHERE EXISTS (SELECT 1 FROM json_each(p.content_json, '$.sources') AS s"
             " WHERE json_extract(s.value, '$.paper_id') = ?)", paper_id,
         )
-        return {"versions": versions, "anchors": anchors, "packets": packets, "blocks": column(f"SELECT id FROM text_blocks WHERE version_id IN ({marks})", *versions)}
+        answers = column(f"SELECT answer_id FROM answers WHERE packet_id IN ({','.join('?' * len(packets))})", *packets)
+        blocks = column(f"SELECT id FROM text_blocks WHERE version_id IN ({marks})", *versions)
+        return {"versions": versions, "anchors": anchors, "packets": packets, "answers": answers, "blocks": blocks}
 
 
 def counts(data_dir: Path, paper_id: str, owned: dict[str, list]) -> dict[str, int]:
@@ -112,6 +117,7 @@ def counts(data_dir: Path, paper_id: str, owned: dict[str, list]) -> dict[str, i
         ("source_versions", "version_id", "versions"), ("parse_runs", "version_id", "versions"), ("pages", "version_id", "versions"),
         ("text_blocks", "version_id", "versions"), ("page_translations", "version_id", "versions"), ("anchors", "version_id", "versions"),
         ("annotations", "anchor_id", "anchors"), ("context_packets", "packet_id", "packets"), ("answers", "packet_id", "packets"),
+        ("answer_images", "answer_id", "answers"),
     ]:
         queries[table] = (f"SELECT count(*) FROM {table} WHERE {column} IN ({','.join('?' * len(owned[key]))})", owned[key])
     with closing(sqlite3.connect(data_dir / "paperloom.sqlite3")) as connection:
@@ -128,11 +134,11 @@ def tags(data_dir: Path) -> set[str]:
         return {row[0] for row in connection.execute("SELECT name FROM tags")}
 
 
-def test_deleting_a_paper_removes_its_file_and_every_record_but_keeps_other_papers(app, client, data_dir):
+def test_deleting_a_paper_removes_its_file_and_every_record_but_keeps_other_papers(app, client, data_dir, make_png):
     gone, kept = upload(client, "text-navigation.pdf"), upload(client, "text-digital.pdf")
     drain(app)
-    fill(client, gone, ["공유", "지울 논문만"])
-    fill(client, kept, ["공유"])
+    fill(client, gone, ["공유", "지울 논문만"], make_png())
+    fill(client, kept, ["공유"], make_png())
     gone_ids, kept_ids = ids(data_dir, gone["paper_id"]), ids(data_dir, kept["paper_id"])
     kept_before = counts(data_dir, kept["paper_id"], kept_ids)
     assert all(counts(data_dir, gone["paper_id"], gone_ids).values())  # 지울 논문은 표마다 기록이 있다

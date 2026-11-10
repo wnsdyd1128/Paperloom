@@ -339,9 +339,20 @@ CREATE TABLE evidence_bundles (
 CREATE INDEX evidence_bundles_by_time ON evidence_bundles (owner_id, created_at);
 """
 
+# 대화 질문에 사용자가 붙인 이미지(2026-11-10 사용자 요청). 브리지가 답을 저장할 때 함께 보내고, 대화 기록이 질문 곁에 보인다.
+_SCHEMA_V19 = """
+CREATE TABLE answer_images (
+    answer_id  TEXT NOT NULL REFERENCES answers (answer_id),
+    position   INTEGER NOT NULL,
+    media_type TEXT NOT NULL,
+    data       BLOB NOT NULL,
+    PRIMARY KEY (answer_id, position)
+);
+"""
+
 MIGRATIONS = [
     _SCHEMA_V1, _SCHEMA_V2, _SCHEMA_V3, _SCHEMA_V4, _SCHEMA_V5, _SCHEMA_V6, _SCHEMA_V7, _SCHEMA_V8, _SCHEMA_V9, _SCHEMA_V10, _SCHEMA_V11,
-    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17, _SCHEMA_V18,
+    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17, _SCHEMA_V18, _SCHEMA_V19,
 ]
 
 

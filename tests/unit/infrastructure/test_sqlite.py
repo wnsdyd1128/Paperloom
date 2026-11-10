@@ -16,7 +16,7 @@ def test_migrate_is_idempotent_and_records_schema_version(tmp_path):
         tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {
         "papers", "source_versions", "anchors", "annotations", "parse_runs", "pages", "text_blocks", "context_packets",
-        "idempotency_keys", "host_connections", "share_grants", "answers", "chat_threads",
+        "idempotency_keys", "host_connections", "share_grants", "answers", "chat_threads", "answer_images",
     } <= tables
 
 
@@ -35,7 +35,7 @@ def test_migrate_v6_adds_answers_and_chat_columns_and_keeps_shared_packets(tmp_p
     migrate(db_path)
 
     with closing(connect(db_path)) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 18
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS) == 19
         assert connection.execute("SELECT status FROM context_packets").fetchone()[0] == "HANDED_OFF"
         assert connection.execute("SELECT resource_id FROM share_grants").fetchone()[0] == "k1"
         assert connection.execute("SELECT COUNT(*) FROM answers").fetchone()[0] == 0

@@ -8,9 +8,11 @@
 번호가 맞는다는 것은 주장이 그 근거로 뒷받침된다는 뜻이 아니다.
 """
 
+import base64
+import binascii
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from paperloom.context.models import Role, Scope
 
@@ -18,6 +20,33 @@ MAX_ANSWER_CHARS = 50_000
 MAX_PROMPT_CHARS = 4000
 Origin = Literal["host_mcp", "claude_code"]
 UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+MAX_CHAT_IMAGES = 4  # 질문 하나에 붙이는 이미지 수
+# 한 장의 base64 글 길이. 모델 API의 이미지 한도(5MB)를 base64로 재도 넘지 않는다. 웹은 긴 변 1568px로 줄여 보낸다
+MAX_CHAT_IMAGE_CHARS = 5_000_000
+_IMAGE_SIGNATURES = {"image/png": b"\x89PNG\r\n\x1a\n", "image/jpeg": b"\xff\xd8\xff"}
+
+
+class ChatImage(BaseModel):
+    """대화 질문에 사용자가 붙인 이미지 한 장 (2026-11-10 사용자 요청). 웹이 PNG나 JPEG로 다시 그려 base64로 보내고,
+    브리지가 Claude에 질문과 함께 보낸 뒤 답과 함께 저장한다. 형식은 첫 바이트로 확인한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    media_type: Literal["image/png", "image/jpeg"]
+    data: str = Field(min_length=1, max_length=MAX_CHAT_IMAGE_CHARS)  # base64
+
+    @model_validator(mode="after")
+    def _is_that_image(self) -> "ChatImage":
+        try:
+            raw = base64.b64decode(self.data, validate=True)
+        except (binascii.Error, ValueError):
+            raise ValueError("이미지가 base64 글이 아닙니다.") from None
+        if not raw.startswith(_IMAGE_SIGNATURES[self.media_type]):
+            raise ValueError(f"이미지가 {self.media_type} 형식이 아닙니다.")
+        return self
+
+    def raw(self) -> bytes:
+        return base64.b64decode(self.data)
 
 
 class AnswerIn(BaseModel):
@@ -46,6 +75,7 @@ class ChatAnswerIn(AnswerIn):
     context_window: int | None = Field(default=None, ge=1)
     # 차례 끝 Claude Code 메시지 ID. 이 답에서 갈라질 때 --resume-session-at에 쓴다
     message_id: str | None = Field(default=None, min_length=1, max_length=100)
+    images: list[ChatImage] = Field(default_factory=list, max_length=MAX_CHAT_IMAGES)  # 사용자가 질문에 붙인 이미지
 
 
 class Citation(BaseModel):
@@ -99,6 +129,7 @@ class AnswerOut(BaseModel):
     context_tokens: int | None = None
     context_window: int | None = None
     message_id: str | None = None  # claude_code: 이 답에서 갈라질 자리(그 전 답은 None)
+    images: list[str] = Field(default_factory=list)  # claude_code: 사용자가 질문에 붙인 이미지의 주소, 붙인 차례대로
 
 
 class AnswerList(BaseModel):
