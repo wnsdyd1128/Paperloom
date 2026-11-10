@@ -24,6 +24,7 @@
   (missing-once 등) 처음 답만 그 모드로 틀리고 다시 답할 때는 맞게 답한다. 아니면 다시 답해도 같은 모드다.
 """
 
+import base64
 import contextlib
 import json
 import os
@@ -206,7 +207,7 @@ def main() -> int:
         return 1
     content = message["message"]["content"]
     texts = [block["text"] for block in content if block["type"] == "text"]
-    images = sum(1 for block in content if block["type"] == "image")
+    images = sum(1 for block in content if block["type"] == "image" and base64.b64decode(block["source"]["data"], validate=True))
     question = texts[-1].strip().splitlines()[-1][:60]
     if "## 번역할 쪽 (JSON)" in texts[-1]:
         with open(f"fake-translation-{session}.txt", "w", encoding="utf-8") as saved:

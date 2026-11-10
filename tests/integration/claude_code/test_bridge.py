@@ -1,6 +1,7 @@
 """Reader 대화 탭의 Claude Code 브리지 (ADR 0003). Core는 같은 프로세스의 uvicorn(127.0.0.1 임의 포트)으로 띄우고,
 브리지는 가짜 Claude Code CLI(tests/fixtures/fake_claude)를 하위 프로세스로 실행한다. 실제 모델·사용량은 쓰지 않는다."""
 
+import base64
 import json
 import socket
 import sys
@@ -183,6 +184,78 @@ def test_a_conversation_without_the_figure_list_gets_it_once_on_its_next_follow_
 
     chat(bridge, packet_id=packet_id, question="한 번 더요.", session_id=session_id)  # 이제는 받은 대화다
     assert runs(fake_log)[-1]["message"]["message"]["content"] == [{"type": "text", "text": "한 번 더요."}]
+
+
+def test_a_figure_named_in_the_question_is_sent_as_its_original_image_once_per_conversation(core, bridge, fake_log, decode_png):
+    """2026-11-10 사용자 보고: Claude가 "그림 이미지를 받지 못해" 축 글자와 본문으로만 답했다. 질문에 그림 번호를 쓰면 그 원본
+    그림을 근거 이미지 뒤에 붙이고 몇 번째 이미지인지 알린다. 같은 대화에 붙인 그림은 다시 붙이지 않는다."""
+    packet_id = core["packet"](core["figure"])
+    status, events = chat(bridge, packet_id=packet_id, question="Figure 1의 막대는 몇 개인가요? 그림 9도요.")
+    assert status == 200 and "이미지 2개를 받았습니다" in events[-1]["answer"]["markdown"]
+    session_id = events[-1]["answer"]["session_id"]
+    evidence, figure, text = runs(fake_log)[-1]["message"]["message"]["content"]
+    assert evidence["type"] == figure["type"] == "image" and figure["source"]["media_type"] == "image/png"
+    width, height, _ = decode_png(base64.b64decode(figure["source"]["data"]))  # 원문에서 잘라 낸 그림
+    assert width > 50 and height > 50
+    assert "이 메시지에 붙인 이미지 가운데 1번째입니다" in text["text"]  # 근거 영역 이미지가 먼저다
+    assert "## 이 질문에 붙인 그림\n\n- 이 메시지에 붙인 이미지 가운데 2번째: 이 논문의 Figure 1(p.1) 원본 그림." in text["text"]
+    assert "- Figure 9: 이 논문의 그림 목록에 없어 붙이지 못했습니다." in text["text"]
+    assert text["text"].endswith("## 이번 질문\n\nFigure 1의 막대는 몇 개인가요? 그림 9도요.")  # 질문은 맨 끝
+
+    chat(bridge, packet_id=packet_id, question="figure 1을 다시 봐 주세요.", session_id=session_id)
+    [text] = runs(fake_log)[-1]["message"]["message"]["content"]
+    assert "- Figure 1: 이 대화의 앞 메시지에 이미 붙였습니다." in text["text"]
+
+    other = chat(bridge, packet_id=packet_id, question="Figure 1은요?")[1][-1]["answer"]  # 새 대화에는 다시 붙인다
+    assert "이미지 2개를 받았습니다" in other["markdown"]
+
+
+def test_a_figure_that_cannot_be_cut_does_not_stop_the_question(core, bridge, fake_log, monkeypatch):
+    def failed(self, version_id, label):
+        raise CoreRefused(500, "RENDER_FAILED", "그리지 못했습니다")
+
+    monkeypatch.setattr(CoreClient, "figure_image", failed)
+    status, events = chat(bridge, packet_id=core["packet"](core["text"]), question="Figure 1을 설명해 주세요.")
+    assert status == 200 and events[-1]["type"] == "done"
+    [text] = runs(fake_log)[-1]["message"]["message"]["content"]
+    assert "- Figure 1: 원문에서 그림 영역을 찾지 못해 붙이지 못했습니다." in text["text"]
+
+
+def test_images_the_user_attaches_are_sent_with_the_question_and_saved_with_the_answer(core, bridge, fake_log, make_png):
+    """2026-11-10 사용자 요청: 대화 입력에 그림을 첨부한다. 붙인 이미지는 질문 앞에 붙이고, 답과 함께 저장해 대화 기록에 보인다."""
+    red, blue = make_png(rgb=(200, 30, 30)), make_png(3, 1, (30, 30, 200))
+    images = [{"media_type": "image/png", "data": base64.b64encode(data).decode()} for data in (red, blue)]
+    packet_id = core["packet"](core["text"])
+    status, events = chat(bridge, packet_id=packet_id, question="이 캡처와 무엇이 다른가요?", images=images)
+
+    assert status == 200 and "이미지 2개를 받았습니다" in events[-1]["answer"]["markdown"]
+    first, second, text = runs(fake_log)[-1]["message"]["message"]["content"]
+    assert [first["source"]["data"], second["source"]["data"]] == [image["data"] for image in images]
+    assert "- 이 메시지에 붙인 이미지 가운데 1번째: 사용자가 붙인 이미지 1\n- 이 메시지에 붙인 이미지 가운데 2번째: 사용자가 붙인 이미지 2" in text["text"]
+    answer = events[-1]["answer"]
+    assert answer["images"] == [f"/api/v1/answers/{answer['answer_id']}/images/{position}" for position in (0, 1)]
+    saved = core["client"].get(answer["images"][1])
+    assert (saved.status_code, saved.headers["content-type"], saved.content) == (200, "image/png", blue)
+    assert core["client"].get(f"/api/v1/answers/{answer['answer_id']}/images/2").status_code == 404
+    listed = core["client"].get("/api/v1/answers", params={"session_id": answer["session_id"]}).json()["answers"]
+    assert listed[0]["images"] == answer["images"]
+
+    follow = chat(bridge, packet_id=packet_id, question="더 짧게요.", session_id=answer["session_id"])[1][-1]["answer"]
+    assert follow["images"] == [] and runs(fake_log)[-1]["message"]["message"]["content"] == [{"type": "text", "text": "더 짧게요."}]
+
+
+@pytest.mark.parametrize(
+    "images",
+    [
+        [{"media_type": "image/png", "data": "이미지 아님"}],  # base64가 아니다
+        [{"media_type": "image/jpeg", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n...").decode()}],  # 형식이 다르다
+        [{"media_type": "image/gif", "data": base64.b64encode(b"GIF89a").decode()}],  # 웹은 PNG·JPEG로 다시 그려 보낸다
+        [{"media_type": "image/png", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()}] * 5,  # 한 질문에 넷까지
+    ],
+)
+def test_images_that_are_not_png_or_jpeg_or_too_many_are_refused_before_running(core, bridge, fake_log, images):
+    status, _ = chat(bridge, packet_id=core["packet"](core["text"]), question="이건요?", images=images)
+    assert status == 422 and runs(fake_log) == []
 
 
 def test_conversation_continues_with_follow_ups_and_new_passages(core, bridge, fake_log):

@@ -2,7 +2,8 @@
 
 - 127.0.0.1에서만 열고, Host가 이 주소가 아니면 거부한다(DNS rebinding 방지).
 - Paperloom 웹 주소(origins)에서 온 요청만 받는다. 다른 웹 페이지가 사용자의 구독 사용량을 쓰지 못하게 한다.
-- 받는 것은 packet ID와 질문뿐이다. 근거 글·이미지는 브리지가 Core에서 직접 읽는다(임의의 글을 모델에 보내는 통로가 아니다).
+- 받는 것은 packet ID와 질문, 사용자가 질문에 붙인 이미지(2026-11-10 사용자 요청)뿐이다. 근거 글·이미지와 질문에 쓴 번호의
+  논문 그림은 브리지가 Core에서 직접 읽는다(웹이 보낸 글을 근거로 보내지 않는다). 붙인 이미지는 답과 함께 Core에 저장한다.
 - 대화는 논문마다 이어질 수 있다. 이어 묻기는 이 브리지가 답을 저장한 대화 ID로만 한다(다른 Claude Code 세션을
   열지 못한다). 그 대화에 처음 보내는 packet이면 그 근거 글·이미지를 함께 보내고, 이미 보낸 packet이면 질문만 보낸다.
 - 한 번에 한 차례만 실행한다(일반적인 개인 사용). 브라우저가 끊겨도 차례를 끝까지 실행해 답을 저장한다.
@@ -22,7 +23,7 @@ import queue
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from typing import Literal
 
@@ -31,7 +32,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from paperloom.answers.models import MAX_PROMPT_CHARS, UUID_PATTERN
+from paperloom.answers.models import MAX_CHAT_IMAGES, MAX_PROMPT_CHARS, UUID_PATTERN, ChatImage
+from paperloom.integrations.claude_code.attachments import MAX_FIGURE_IMAGES, attachment_note, figure_refs, image_block
 from paperloom.integrations.claude_code.cli import RUN_TIMEOUT_SECONDS, ClaudeCli, ClaudeNotReady
 from paperloom.integrations.claude_code.core import CoreClient, CoreRefused, CoreUnavailable
 from paperloom.integrations.claude_code.page_translation import (
@@ -71,6 +73,7 @@ class ChatIn(BaseModel):
     model: Literal["sonnet", "opus", "haiku"] | None = None  # 없으면 Claude Code 계정 기본값
     fork: bool = False  # session_id 대화를 이어받은 새 대화(갈래)로 묻는다
     fork_at: str | None = Field(default=None, min_length=1, max_length=100)  # 갈래가 이 답까지만 이어받는다(답 ID)
+    images: list[ChatImage] = Field(default_factory=list, max_length=MAX_CHAT_IMAGES)  # 사용자가 질문에 붙인 이미지
 
     @field_validator("question")
     @classmethod
@@ -113,6 +116,7 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
     translating = threading.Lock()  # 쪽 번역
     running = _Running()  # 지금 실행 중인 차례들(중단용)
     informed: set[str] = set()  # 그림 목록을 보낸 대화(_content)
+    shown: dict[str, set[tuple[str, str]]] = {}  # 대화마다 원본 그림을 붙인 (판본, 그림 번호)(_content)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
@@ -145,7 +149,7 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         if not busy.acquire(blocking=False):
             return _error(409, "BUSY", "앞 질문의 답을 만드는 중입니다. 끝난 뒤 다시 보내세요.")
         try:
-            content, resume_at, intent, listed = _content(core, body, informed)
+            content, resume_at, intent, sent = _content(core, body, informed, shown)
             preferences = _preferences(core)
             core.hand_off(body.packet_id)
         except CoreUnavailable:
@@ -161,9 +165,15 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         run_id, cancel = running.begin()
         # 대화창에서 모델을 고르지 않으면 설정의 기본 모델(D7). 답 언어·개인화는 기본 규칙 뒤에 붙인다(A3).
         model = body.model or preferences.get("default_model") or DEFAULT_MODEL
-        # 그림 목록을 붙인 차례가 답을 저장하면 그 대화는 목록을 받았다
-        informs = informed if listed else None
-        turn = (cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent), informs)
+        listed, figures = sent
+
+        def remember(session_id: str) -> None:
+            """답을 저장한 차례가 붙인 것: 그 대화는 그림 목록과 이 원본 그림들을 받았다."""
+            if listed:
+                informed.add(session_id)
+            shown.setdefault(session_id, set()).update(figures)
+
+        turn = (cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent), remember)
         threading.Thread(target=_turn, args=turn, daemon=True).start()
         return StreamingResponse(_stream(events), media_type="application/x-ndjson")
 
@@ -356,17 +366,26 @@ def _preferences(core: CoreClient) -> dict:
         return {}
 
 
-def _content(core: CoreClient, body: ChatIn, informed: set[str]) -> tuple[list[dict], str | None, str | None, bool]:
-    """(모델에 보낼 메시지, 갈래가 이어받을 마지막 메시지 ID, packet 요청 종류, 그림 목록을 붙였는지). 그 대화(갈래면 이어받는
-    차례)에 처음 보내는 packet이면 근거 글과 영역 이미지를 붙이고, 아니면 질문만.
+def _content(
+    core: CoreClient, body: ChatIn, informed: set[str], shown: dict[str, set[tuple[str, str]]]
+) -> tuple[list[dict], str | None, str | None, tuple[bool, set[tuple[str, str]]]]:
+    """(모델에 보낼 메시지, 갈래가 이어받을 마지막 메시지 ID, packet 요청 종류, (그림 목록을 붙였는지, 붙인 원본 그림)). 그 대화
+    (갈래면 이어받는 차례)에 처음 보내는 packet이면 근거 글과 영역 이미지를 붙이고, 아니면 질문만.
     informed는 이 브리지가 그림 목록을 보낸 대화다. 아직 받지 않은 대화면 이어묻기에도 목록을 한 번 붙인다(2026-11-09 사용자
     보고: 그림 기능 전에 시작한 대화에서 이어 물으니 목록이 가지 않았다). 갈래는 이어받는 대화를 본다(첫 질문에 목록이 있다).
-    브리지를 다시 켜면 대화마다 한 번 더 보낸다."""
+    브리지를 다시 켜면 대화마다 한 번 더 보낸다.
+    질문에 쓴 그림 번호의 원본 그림과 사용자가 붙인 이미지는 근거 영역 이미지 뒤에 붙이고, 몇 번째 이미지인지 글로 알린다
+    (2026-11-10 사용자 요청). shown은 대화마다 원본 그림을 붙인 (판본, 번호)다. 이미 붙인 그림은 다시 붙이지 않는다(갈래는
+    이어받은 차례에 그 그림이 없을 수 있어 다시 붙인다)."""
     packet = core.packet(body.packet_id)
     if packet is None:
         raise _Refused(404, "PACKET_NOT_FOUND", "문맥을 찾을 수 없습니다.")
-    figures = _figure_list(core, packet) if body.session_id not in informed else ""
-    resume_at = None
+    version = _paper_version(packet)
+    wanted = figure_refs(body.question)
+    listing = body.session_id not in informed
+    figures = _figures(core, version) if version is not None and (listing or wanted) else []
+    figure_list = _figure_list(figures) if listing else ""
+    resume_at, again = None, False  # again: 그 대화에 이미 보낸 packet이다(질문만 보낸다)
     if body.session_id is not None:
         turns = core.session_answers(body.session_id)  # 최근 것부터
         if not turns:
@@ -379,31 +398,73 @@ def _content(core: CoreClient, body: ChatIn, informed: set[str]) -> tuple[list[d
             if not resume_at:
                 raise _Refused(409, "NO_FORK_POINT", "이 답은 갈라질 자리를 모릅니다(이 기능 전에 저장한 답). 대화 전체를 이어받는 갈래를 쓰세요.")
             turns = turns[index:]  # 갈래가 이어받는 차례(그 답과 그 전)
-        if any(item["packet_id"] == body.packet_id for item in turns):
-            text = f"{figures.lstrip()}\n\n## 이번 질문\n\n{body.question}" if figures else body.question
-            return [{"type": "text", "text": text}], resume_at, packet.get("intent"), bool(figures)
-    text = core.markdown(body.packet_id) + figures
-    if body.question != packet["question"].strip():
+        again = any(item["packet_id"] == body.packet_id for item in turns)
+    before = set() if body.fork or body.session_id is None else shown.get(body.session_id, set())
+    attached, skipped = _figure_images(core, version, figures, wanted, before)
+    added = [*(image_block("image/png", data) for _, data in attached), *(image_block(image.media_type, image.data) for image in body.images)]
+    sent = (bool(figure_list), {(version, figure["label"]) for figure, _ in attached})
+    if again:
+        note = attachment_note(1, [figure for figure, _ in attached], len(body.images), skipped)
+        head = "\n\n".join(part for part in (figure_list.lstrip(), note) if part)
+        text = f"{head}\n\n## 이번 질문\n\n{body.question}" if head else body.question
+        return [*added, {"type": "text", "text": text}], resume_at, packet.get("intent"), sent
+    evidence = [image_block("image/png", base64.b64encode(core.image(item["image"]["url"])).decode()) for item in packet["evidence"] if item["image"]]
+    note = attachment_note(len(evidence) + 1, [figure for figure, _ in attached], len(body.images), skipped)
+    text = core.markdown(body.packet_id) + figure_list + (f"\n\n{note}" if note else "")
+    if body.question != packet["question"].strip() or note:  # 붙인 그림을 알렸으면 질문을 맨 끝에 다시 둔다
         text += f"\n\n## 이번 질문\n\n{body.question}"
-    images = [
-        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64.b64encode(core.image(item["image"]["url"])).decode()}}
-        for item in packet["evidence"]
-        if item["image"]
-    ]
-    return [*images, {"type": "text", "text": text}], resume_at, packet.get("intent"), bool(figures)
+    return [*evidence, *added, {"type": "text", "text": text}], resume_at, packet.get("intent"), sent
 
 
-def _figure_list(core: CoreClient, packet: dict) -> str:
-    """packet 논문의 번호 붙은 그림 목록: 아티팩트에 원본 그림을 넣을 번호다(시스템 프롬프트의 paperloom-figure 규칙,
-    2026-11-09 사용자 요청). 그림은 붙이지 않고 캡션만 알린다. 여러 논문의 packet이거나 그림이 없거나 읽지 못하면(이 기능
-    전의 Core) 빈 글이다."""
+def _paper_version(packet: dict) -> str | None:
+    """packet이 한 논문 판본의 것이면 그 판본. 여러 논문의 packet이면 None(그림 번호가 어느 논문의 것인지 모른다)."""
     versions = {source["version_id"] for source in packet["sources"]}
-    if len(versions) != 1:
-        return ""
+    return versions.pop() if len(versions) == 1 else None
+
+
+def _figures(core: CoreClient, version: str) -> list[dict]:
+    """판본의 번호 붙은 그림. 읽지 못하면(이 기능 전의 Core) 없다."""
     try:
-        figures = core.figures(versions.pop())
+        return core.figures(version)
     except (CoreRefused, CoreUnavailable):
-        return ""
+        return []
+
+
+def _figure_images(
+    core: CoreClient, version: str | None, figures: list[dict], wanted: list[str], before: set[tuple[str, str]]
+) -> tuple[list[tuple[dict, str]], list[tuple[str, str]]]:
+    """질문에 쓴 번호(wanted)의 원본 그림: ([(그림, base64 PNG)], [(붙이지 않은 번호, 이유)]). 한 차례에 MAX_FIGURE_IMAGES장까지."""
+    if version is None:
+        return [], [(label, "여러 논문의 근거라 어느 논문의 그림인지 몰라 붙이지 못했습니다.") for label in wanted]
+    known = {figure["label"]: figure for figure in figures}
+    attached: list[tuple[dict, str]] = []
+    skipped: list[tuple[str, str]] = []
+    for label in wanted:
+        if label not in known:
+            skipped.append((label, "이 논문의 그림 목록에 없어 붙이지 못했습니다."))
+        elif (version, label) in before:
+            skipped.append((label, "이 대화의 앞 메시지에 이미 붙였습니다."))
+        elif len(attached) == MAX_FIGURE_IMAGES:
+            skipped.append((label, f"한 번에 {MAX_FIGURE_IMAGES}장까지만 붙여 붙이지 못했습니다."))
+        elif (data := _figure_image(core, version, label)) is None:
+            skipped.append((label, "원문에서 그림 영역을 찾지 못해 붙이지 못했습니다."))
+        else:
+            attached.append((known[label], base64.b64encode(data).decode()))
+    return attached, skipped
+
+
+def _figure_image(core: CoreClient, version: str, label: str) -> bytes | None:
+    """그림 하나를 그리지 못해도(다시 추출 중·그리기 실패) 질문은 보낸다."""
+    try:
+        return core.figure_image(version, label)
+    except (CoreRefused, CoreUnavailable):
+        return None
+
+
+def _figure_list(figures: list[dict]) -> str:
+    """packet 논문의 번호 붙은 그림 목록: 아티팩트에 원본 그림을 넣을 번호다(시스템 프롬프트의 paperloom-figure 규칙,
+    2026-11-09 사용자 요청). 그림은 질문에 그 번호를 쓴 것만 붙이고 나머지는 캡션만 알린다. 여러 논문의 packet이거나 그림이
+    없거나 읽지 못하면(이 기능 전의 Core) 빈 글이다."""
     if not figures:
         return ""
     lines = [
@@ -411,7 +472,8 @@ def _figure_list(core: CoreClient, packet: dict) -> str:
         "",
         "## 이 논문의 그림",
         "",
-        "아티팩트에 원본 그림을 넣을 때 쓰는 번호입니다. 그림 이미지는 이 목록과 함께 오지 않았습니다. 캡션은 PDF에서 뽑은 글입니다.",
+        "아티팩트에 원본 그림을 넣을 때 쓰는 번호입니다. 그림 이미지는 이 목록과 함께 오지 않고, 사용자가 질문에 그림 번호를 쓴 그림만"
+        " 붙습니다. 캡션은 PDF에서 뽑은 글입니다.",
         "",
     ]
     lines += [f"- paperloom-figure:{figure['label']} · p.{figure['page_index'] + 1} · {figure['caption']}" for figure in figures[:MAX_FIGURES]]
@@ -421,9 +483,10 @@ def _figure_list(core: CoreClient, packet: dict) -> str:
 def _turn(
     cli: ClaudeCli, core: CoreClient, body: ChatIn, content: list[dict], resume_at: str | None, events: queue.Queue,
     busy: threading.Lock, running: "_Running", run_id: str, cancel: threading.Event, model: str | None, system_extra: str,
-    informs: set[str] | None,
+    remember: Callable[[str], None],
 ) -> None:
-    """informs: 이 차례가 그림 목록을 붙였으면 브리지의 목록 받은 대화(build_app의 informed). 답을 저장하면 그 대화를 더한다."""
+    """답을 저장하면 그 대화 ID로 remember를 부른다(이 차례가 붙인 그림 목록·원본 그림을 그 대화가 받았다, build_app). 사용자가
+    질문에 붙인 이미지는 답과 함께 저장한다."""
     started, outcome = time.monotonic(), "error"
     try:
         events.put({"type": "start", "run_id": run_id})
@@ -442,9 +505,9 @@ def _turn(
                 events.put({"type": "error", "code": "CLAUDE_FAILED", "message": event["error"] or "Claude Code가 답하지 못했습니다."})
             else:
                 context = (event["context_tokens"], event["context_window"])
-                answer = core.save_answer(body.packet_id, body.question, event["text"], event["session_id"], context, event["message_id"])
-                if informs is not None:
-                    informs.add(event["session_id"])
+                images = [image.model_dump() for image in body.images]
+                answer = core.save_answer(body.packet_id, body.question, event["text"], event["session_id"], context, event["message_id"], images)
+                remember(event["session_id"])
                 events.put({"type": "done", "answer": answer})
                 outcome = "ok"
     except (CoreUnavailable, CoreRefused) as failure:

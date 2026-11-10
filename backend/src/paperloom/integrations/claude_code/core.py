@@ -51,8 +51,13 @@ class CoreClient:
         return self._request("GET", path)
 
     def figures(self, version_id: str) -> list[dict]:
-        """판본의 번호 붙은 그림(label·page_index·caption, 문서 차례). 대화 첫 메시지에 목록을 붙인다(아티팩트에 원본 그림 넣기)."""
+        """판본의 번호 붙은 그림(label·page_index·caption, 문서 차례). 대화 첫 메시지에 목록을 붙이고(아티팩트에 원본 그림 넣기),
+        질문에 쓴 그림 번호를 이 목록에서 찾는다."""
         return json.loads(self._request("GET", f"/api/v1/versions/{quote(version_id, safe='')}/figures"))["figures"]
+
+    def figure_image(self, version_id: str, label: str) -> bytes:
+        """번호 붙은 그림의 PNG(원문에서 잘라 낸 그림). 질문에 그 번호를 쓰면 붙인다. 번호가 없거나 영역을 찾지 못하면 404다."""
+        return self._request("GET", f"/api/v1/versions/{quote(version_id, safe='')}/figures/{quote(label, safe='')}/image")
 
     def hand_off(self, packet_id: str) -> dict:
         body = {"status": "HANDED_OFF", "handoff_method": "claude_code"}
@@ -95,11 +100,13 @@ class CoreClient:
         session_id: str,
         context: tuple[int | None, int | None] = (None, None),
         message_id: str | None = None,
+        images: list[dict] | None = None,
     ) -> dict:
-        """context: 차례 끝의 컨텍스트 길이와 모델의 창 크기, message_id: 차례 끝 Claude Code 메시지 ID(모르면 None)."""
+        """context: 차례 끝의 컨텍스트 길이와 모델의 창 크기, message_id: 차례 끝 Claude Code 메시지 ID(모르면 None),
+        images: 사용자가 질문에 붙인 이미지({media_type, data}). 없으면 보내지 않는다(이 기능 전의 Core에도 저장된다)."""
         tokens, window = context
         body = {"markdown": markdown, "prompt": prompt, "session_id": session_id}
-        optional = (("context_tokens", tokens), ("context_window", window), ("message_id", message_id))
+        optional = (("context_tokens", tokens), ("context_window", window), ("message_id", message_id), ("images", images or None))
         body |= {key: value for key, value in optional if value is not None}
         return json.loads(self._request("POST", f"/api/v1/context-packets/{quote(packet_id, safe='')}/answers", body))
 
