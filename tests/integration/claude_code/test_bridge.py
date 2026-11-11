@@ -245,17 +245,32 @@ def test_images_the_user_attaches_are_sent_with_the_question_and_saved_with_the_
 
 
 @pytest.mark.parametrize(
-    "images",
+    ("images", "message"),
     [
-        [{"media_type": "image/png", "data": "이미지 아님"}],  # base64가 아니다
-        [{"media_type": "image/jpeg", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n...").decode()}],  # 형식이 다르다
-        [{"media_type": "image/gif", "data": base64.b64encode(b"GIF89a").decode()}],  # 웹은 PNG·JPEG로 다시 그려 보낸다
-        [{"media_type": "image/png", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()}] * 5,  # 한 질문에 넷까지
+        ([{"media_type": "image/png", "data": "이미지 아님"}], "이미지가 base64 글이 아닙니다."),
+        ([{"media_type": "image/jpeg", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n...").decode()}], "이미지가 image/jpeg 형식이 아닙니다."),
+        # 웹은 PNG·JPEG로 다시 그려 보낸다
+        ([{"media_type": "image/gif", "data": base64.b64encode(b"GIF89a").decode()}], "요청 형식이 맞지 않습니다(images.0.media_type)."),
+        ([{"media_type": "image/png", "data": base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()}] * 5, "이미지는 질문 하나에 4장까지 붙일 수 있습니다."),
     ],
 )
-def test_images_that_are_not_png_or_jpeg_or_too_many_are_refused_before_running(core, bridge, fake_log, images):
-    status, _ = chat(bridge, packet_id=core["packet"](core["text"]), question="이건요?", images=images)
-    assert status == 422 and runs(fake_log) == []
+def test_images_that_are_not_png_or_jpeg_or_too_many_are_refused_before_running(core, bridge, fake_log, images, message):
+    status, [error] = chat(bridge, packet_id=core["packet"](core["text"]), question="이건요?", images=images)
+    assert (status, error) == (422, {"code": "INVALID_REQUEST", "message": message}) and runs(fake_log) == []
+
+
+def test_a_refused_request_says_why_instead_of_a_bare_validation_error(core, bridge, fake_log):
+    """2026-11-11: FastAPI 기본 422(detail)는 웹에 이유 없이 "질문을 보내지 못했습니다."로 보였다. 웹이 보이는 message에 이유를 싣는다."""
+    packet_id = core["packet"](core["text"])
+    cases = [
+        ({"question": "   "}, "질문이 비어 있습니다."),
+        ({"question": "q", "fork": True}, "갈래는 이어받을 대화(session_id)가 있어야 합니다."),
+        ({"question": "q", "attachments": []}, "이 브리지가 모르는 칸이 요청에 있습니다. 브리지를 최신 코드로 다시 켜 주세요."),
+    ]
+    for change, message in cases:
+        status, [error] = chat(bridge, packet_id=packet_id, **change)
+        assert (status, error) == (422, {"code": "INVALID_REQUEST", "message": message})
+    assert runs(fake_log) == []
 
 
 def test_conversation_continues_with_follow_ups_and_new_passages(core, bridge, fake_log):

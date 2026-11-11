@@ -23,11 +23,12 @@ import queue
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -129,6 +130,11 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
 
     # 나중에 더한 CORS가 바깥이다. preflight(OPTIONS)는 CORS가 직접 답하고(허락한 origin만), 실제 요청은 guard를 거친다.
     app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid(_: Request, error: RequestValidationError) -> JSONResponse:
+        # 웹은 message만 보인다. FastAPI 기본 응답(detail)이면 이유 없이 "질문을 보내지 못했습니다."로 보였다(2026-11-11)
+        return _error(422, "INVALID_REQUEST", _invalid_message(error.errors()))
 
     @app.get("/health")
     def health() -> dict:
@@ -532,3 +538,21 @@ def _stream(events: queue.Queue) -> Iterator[bytes]:
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse({"code": code, "message": message}, status_code=status)
+
+
+def _invalid_message(problems: Sequence[Any]) -> str:
+    """요청 검증 실패를 웹에 보일 한 문장으로 (첫 문제만). 우리 검증기가 쓴 이유(value_error)는 그대로 쓴다."""
+    problem = problems[0]
+    field = [part for part in problem["loc"] if part != "body"]
+    kind = problem["type"]
+    if kind == "value_error":
+        return str(problem["ctx"]["error"])
+    if field == ["question"] and kind == "string_too_long":
+        return f"질문이 너무 깁니다. {MAX_PROMPT_CHARS:,}자까지 보낼 수 있습니다."
+    if field == ["images"] and kind == "too_long":
+        return f"이미지는 질문 하나에 {MAX_CHAT_IMAGES}장까지 붙일 수 있습니다."
+    if field[:1] == ["images"] and kind == "string_too_long":
+        return "붙인 이미지가 너무 큽니다."
+    if kind == "extra_forbidden":  # 웹이 브리지보다 새 코드다
+        return "이 브리지가 모르는 칸이 요청에 있습니다. 브리지를 최신 코드로 다시 켜 주세요."
+    return f"요청 형식이 맞지 않습니다({'.'.join(map(str, field))})."
