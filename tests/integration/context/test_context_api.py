@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
+from paperloom.context.models import MAX_QUESTION_CHARS
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "pdf-layout"
 E_LINE = "epsilonword paragraph that a reader"  # text-digital.pdf 2쪽 오른쪽 단 첫 문단의 셋째 줄
@@ -211,7 +212,7 @@ def test_handoff_and_cancel_states(client, digital):
     [
         {"anchors": []},
         {"question": "   "},
-        {"question": "x" * 4001},
+        {"question": "x" * (MAX_QUESTION_CHARS + 1)},
         {"intent": "generate"},
         {"extra": True},
         {"anchors": [{"anchor_id": f"a{n}"} for n in range(11)]},

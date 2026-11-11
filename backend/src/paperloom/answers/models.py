@@ -14,10 +14,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from paperloom.context.models import Role, Scope
+from paperloom.context.models import MAX_QUESTION_CHARS, Role, Scope
 
 MAX_ANSWER_CHARS = 50_000
-MAX_PROMPT_CHARS = 4000
+MAX_PROMPT_CHARS = MAX_QUESTION_CHARS  # packet 질문과 같은 한도라, 브리지가 받은 질문은 답을 저장할 때 막히지 않는다
 Origin = Literal["host_mcp", "claude_code"]
 UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 MAX_CHAT_IMAGES = 4  # 질문 하나에 붙이는 이미지 수

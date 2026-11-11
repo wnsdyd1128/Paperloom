@@ -28,6 +28,9 @@ export type ChatEvent =
   | Readonly<{ type: "error"; code: string; message: string }>
   | Readonly<{ type: "cancelled" }>; // 중단했다. 답은 저장하지 않았다
 
+/** 질문 글자 한도. Core packet·브리지의 MAX_QUESTION_CHARS와 같다(2026-11-11 사용자 결정) */
+export const MAX_QUESTION_CHARS = 50_000;
+
 /** fork: session_id 대화를 이어받은 새 대화(갈래)로 묻는다. fork_at: 그 대화의 이 답까지만 이어받는다(2026-10-02 사용자 요청) */
 export type ChatRequest = Readonly<{
   packet_id: string;

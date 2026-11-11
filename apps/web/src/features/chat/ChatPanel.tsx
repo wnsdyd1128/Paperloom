@@ -11,7 +11,7 @@ import { type ContextPacket, createPacket, EVIDENCE_ROLE_LABELS, type Intent } f
 import { formatMathForCopy } from "../../shared/mathCopy";
 import { approxPages } from "../settings/api";
 import { usePreferences } from "../settings/PreferencesProvider";
-import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel } from "./api";
+import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, MAX_QUESTION_CHARS } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
 import { type AttachedImage, imageFiles, MAX_CHAT_IMAGES, prepareImage } from "./chatImages";
 import { finishTurn, onTurnFinished, runningTurn, startTurn, type TurnOutcome, updateTurn, useRunningTurn } from "./runningTurn";
@@ -340,6 +340,11 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     event?.preventDefault();
     const prompt = question.trim();
     if (!prompt || pending) return;
+    if (prompt.length > MAX_QUESTION_CHARS) {
+      // 그대로 보내면 packet을 만들 때 막혀 "백엔드 연결을 확인하세요"로 보였다
+      setError(`질문이 너무 깁니다. ${MAX_QUESTION_CHARS.toLocaleString("ko-KR")}자까지 보낼 수 있습니다(지금 ${prompt.length.toLocaleString("ko-KR")}자).`);
+      return;
+    }
     const sent = question;
     setQuestion("");
     if (!(await ask(prompt, scope))) setQuestion(sent);

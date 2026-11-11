@@ -31,6 +31,9 @@ Scope = Literal["selection", "page", "paper", "until_page", "around_page"]
 # 논문 본문 범위의 글자 한도. 설정에서 고른다(D2). 120,000자면 보통 20–30쪽 논문이 거의 다 들어간다.
 PaperTextChars = Literal[12_000, 40_000, 120_000, 300_000]
 DEFAULT_PAPER_TEXT_CHARS = 120_000
+# 질문 글자 한도. 브리지가 받는 질문과 답변에 남기는 질문(answers MAX_PROMPT_CHARS)도 같은 값이다. 처음의 4000자는 근거 없이
+# 정한 값이라 긴 글을 붙여 넣은 질문이 막혔다(2026-11-11 사용자 결정: 답변 본문 한도와 같은 50,000자).
+MAX_QUESTION_CHARS = 50_000
 
 
 class _Strict(BaseModel):
@@ -45,7 +48,7 @@ class PacketAnchor(_Strict):
 
 class ContextPacketIn(_Strict):
     intent: Intent
-    question: str = Field(max_length=4000)
+    question: str = Field(max_length=MAX_QUESTION_CHARS)
     anchors: list[PacketAnchor] = Field(default_factory=list, max_length=10)
     # 범위. 적지 않으면 예전 요청과 같다: 고른 위치만 주면 selection, 논문 버전만 주면 paper.
     scope: Scope | None = None

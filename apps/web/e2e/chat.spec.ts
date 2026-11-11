@@ -825,6 +825,29 @@ test("질문에 그림: 붙여 넣거나 이미지 단추로 고른 그림과 �
   await expect.poll(() => shown().last().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(8);
 });
 
+test("한도(50,000자)를 넘는 질문은 보내지 않고 그 이유를 알리며, 입력칸 글은 그대로 둔다", async ({ page }, testInfo) => {
+  // 2026-11-11: 4000자를 넘는 질문이 "백엔드 연결을 확인하세요"나 "질문을 보내지 못했습니다."로만 보였다. 한도를 50,000자로 올렸다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "figures.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  const input = chat.getByRole("textbox", { name: "질문" });
+  await startNewChat(chat);
+  const packets: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/api/v1/context-packets")) packets.push(request.url());
+  });
+
+  const runsBefore = fakeRuns().length;
+  const tooLong = "가".repeat(50_001);
+  await input.fill(tooLong);
+  await input.press("Enter");
+  await expect(chat.locator(".chat-error")).toHaveText("질문이 너무 깁니다. 50,000자까지 보낼 수 있습니다(지금 50,001자).");
+  await expect(input).toHaveValue(tooLong);
+  expect(packets).toEqual([]);
+  expect(fakeRuns().length).toBe(runsBefore);
+});
+
 test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {
   // 2026-11-08 사용자 요청: claude.ai 링크를 못 만들면 파일을 만들고 경로를 주면 된다. 결정: 링크+파일 경로
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");

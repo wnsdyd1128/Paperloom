@@ -15,6 +15,7 @@ import pytest
 import uvicorn
 from fastapi.testclient import TestClient
 
+from paperloom.answers.models import MAX_PROMPT_CHARS
 from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
 from paperloom.integrations.claude_code.__main__ import web_origins
@@ -271,6 +272,17 @@ def test_a_refused_request_says_why_instead_of_a_bare_validation_error(core, bri
         status, [error] = chat(bridge, packet_id=packet_id, **change)
         assert (status, error) == (422, {"code": "INVALID_REQUEST", "message": message})
     assert runs(fake_log) == []
+
+
+def test_a_long_question_up_to_the_limit_is_asked_and_saved_and_a_longer_one_is_refused(core, bridge, fake_log):
+    """2026-11-11 사용자 결정: 질문 한도를 4000자에서 답변 본문과 같은 50,000자로. packet·브리지·답변 저장이 같은 한도다."""
+    longest = "가" * MAX_PROMPT_CHARS
+    status, events = chat(bridge, packet_id=core["packet"](core["text"], longest), question=longest)
+    assert status == 200 and events[-1]["answer"]["prompt"] == longest
+
+    status, [error] = chat(bridge, packet_id=core["packet"](core["text"]), question=longest + "가")
+    assert (status, error) == (422, {"code": "INVALID_REQUEST", "message": "질문이 너무 깁니다. 50,000자까지 보낼 수 있습니다."})
+    assert len(runs(fake_log)) == 1
 
 
 def test_an_unexpected_error_while_preparing_a_question_does_not_lock_the_conversation(core, bridge, fake_log, monkeypatch):
