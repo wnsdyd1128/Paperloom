@@ -273,6 +273,19 @@ def test_a_refused_request_says_why_instead_of_a_bare_validation_error(core, bri
     assert runs(fake_log) == []
 
 
+def test_an_unexpected_error_while_preparing_a_question_does_not_lock_the_conversation(core, bridge, fake_log, monkeypatch):
+    """2026-11-11: 질문을 준비하다 예상하지 못한 오류가 나면 자물쇠가 풀리지 않아, 브리지를 다시 켤 때까지 모든 질문이 BUSY였다."""
+    def broken(self, packet_id):
+        raise KeyError("evidence")
+
+    packet_id = core["packet"](core["text"])
+    with monkeypatch.context() as patch:
+        patch.setattr(CoreClient, "packet", broken)
+        status, [error] = chat(bridge, packet_id=packet_id, question="q")
+    assert (status, error["code"]) == (500, "BRIDGE_ERROR") and "브리지 창의 로그" in error["message"]
+    assert chat(bridge, packet_id=packet_id, question="q")[1][-1]["type"] == "done"
+
+
 def test_conversation_continues_with_follow_ups_and_new_passages(core, bridge, fake_log):
     """한 대화(세션)에서 이어 묻기는 질문만, 새로 고른 근거(새 packet)는 그 근거를 함께 보낸다."""
     packet_id, next_id = core["packet"](core["text"]), core["packet"](core["figure"], "이 그림은요?")

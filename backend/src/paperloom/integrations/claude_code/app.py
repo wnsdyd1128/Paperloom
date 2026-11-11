@@ -167,6 +167,11 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
         except _Refused as refused:
             busy.release()
             return _error(refused.status, refused.code, refused.message)
+        except Exception:
+            # 예상하지 못한 오류에도 자물쇠를 푼다. 안 풀면 브리지를 다시 켤 때까지 모든 질문이 BUSY였다(2026-11-11)
+            busy.release()
+            log.exception("질문을 준비하지 못했습니다 packet=%s", body.packet_id)
+            return _error(500, "BRIDGE_ERROR", "브리지가 질문을 준비하다 오류가 났습니다. 브리지 창의 로그를 확인하세요.")
         events: queue.Queue = queue.Queue()
         run_id, cancel = running.begin()
         # 대화창에서 모델을 고르지 않으면 설정의 기본 모델(D7). 답 언어·개인화는 기본 규칙 뒤에 붙인다(A3).
