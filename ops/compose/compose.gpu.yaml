@@ -6,7 +6,7 @@ services:
     build:
       args:
         RUNTIME: gpu
-    image: paperloom-app:0.10.0-gpu
+    image: paperloom-app:0.10.1-gpu
     deploy:
       resources:
         reservations:
