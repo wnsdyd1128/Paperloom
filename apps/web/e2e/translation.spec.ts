@@ -40,7 +40,8 @@ async function prepare(page: Page, file = FILE) {
 
 async function openReader(page: Page, { paperId, versionId }: { paperId: string; versionId: string }) {
   await page.goto(`/reader/${paperId}?version=${versionId}`);
-  await expect(page.locator('.page[data-page-number="1"] .textLayer span').first()).toBeAttached();
+  // 기본 5초로는 CI Windows 러너에서 한 번 넘쳤다(v0.10.0 Release, 같은 커밋 CI는 통과). PDF.js가 쪽을 그리는 시간만 기다린다
+  await expect(page.locator('.page[data-page-number="1"] .textLayer span').first()).toBeAttached({ timeout: 15_000 });
 }
 
 /** 쪽 번역 차례로 가짜 CLI가 받은 실행들 (쪽마다 하나) */
