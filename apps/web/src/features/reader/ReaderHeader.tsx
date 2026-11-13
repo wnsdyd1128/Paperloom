@@ -35,6 +35,8 @@ type Props = Readonly<{
   /** 사이드바 대화에서 논문 본문으로 3줄 요약을 묻는다 (A9) */
   onSummary: () => void;
   onCopyLink: () => void;
+  /** PDF로 내보내기 단추와 창 (PdfExportMenu) */
+  pdfExport: ReactNode;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
   exportProblem: string | null;
   onExport: () => void;
@@ -42,7 +44,7 @@ type Props = Readonly<{
 
 /**
  * Reader 머리 56px (시안 Reader v3). 왼쪽: 목차 토글·로고(서재로)·제목, 가운데: 논문 정보·찾기·배율·축소·확대·쪽 번호·영역 설명·3줄 요약,
- * 오른쪽: 쪽 추출 상태·Claude Code 상태·Wiki로 내보내기·위치 링크 복사.
+ * 오른쪽: 쪽 추출 상태·Claude Code 상태·설정·PDF로 내보내기·Wiki로 내보내기·위치 링크 복사.
  */
 export function ReaderHeader(props: Props) {
   const { title, ready, zoom, regionMode, bridge } = props;
@@ -138,6 +140,7 @@ export function ReaderHeader(props: Props) {
         <button type="button" className="btn btn-icon head-icon" aria-label="설정" title="설정" onClick={props.onOpenSettings}>
           <Icon name="settings" size={17} />
         </button>
+        {props.pdfExport}
         <button
           type="button"
           className="btn btn-icon head-icon"

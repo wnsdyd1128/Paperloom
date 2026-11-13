@@ -1897,6 +1897,69 @@ body.is-resizing-side {
   position: relative;
 }
 
+/* PDF로 내보내기 창: 머리 오른쪽 단추 아래, 오른쪽 끝을 맞춰 연다 */
+.pdf-export-menu {
+  position: relative;
+}
+
+.pdf-export {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 45; /* 좁은 창에서 본문 위로 겹치는 사이드 패널(40)보다 위 */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 280px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-divider);
+  border-top: 2px solid var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+}
+
+.pdf-export-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.pdf-export-hint {
+  margin: 0;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pdf-export-parts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pdf-export-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.pdf-export-label {
+  flex: 1;
+}
+
+.pdf-export-count {
+  color: var(--color-neutral-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-export .btn-primary {
+  justify-content: center;
+}
+
 .paper-info {
   width: 360px;
   padding: var(--space-3);

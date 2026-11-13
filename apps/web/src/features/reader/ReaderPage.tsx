@@ -44,6 +44,8 @@ import { navigationKeyAction } from "./navigationKeys";
 import type { ReadingLine, TocEntry } from "./outline";
 import { PageTextStatus, usePageTexts } from "./PageTextStatus";
 import { PaperInfoMenu } from "./PaperInfo";
+import { pdfPartCounts } from "./pdfExport";
+import { PdfExportMenu } from "./PdfExportMenu";
 import { loadPdfJs } from "./pdfjs";
 import { ReaderHeader } from "./ReaderHeader";
 import { useReferenceLinks } from "./referenceLinks";
@@ -1085,6 +1087,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         onOpenChat={() => (chatDetached ? void chatTab.show() : openPanel("chat"))}
         onSummary={() => chatTarget()?.({ kind: "summary", nonce: Date.now() })}
         onCopyLink={() => void copyLink()}
+        pdfExport={<PdfExportMenu versionId={versionId} title={paper.title} disabled={!ready} counts={pdfPartCounts(annotationItems, inline.items, versionId)} />}
         exportProblem={outbox.problem}
         onExport={() => setExportOpen(true)}
         tocOpen={toc.open}
