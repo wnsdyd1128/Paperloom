@@ -1,6 +1,6 @@
 """답 Markdown 안의 아티팩트 찾기 (paperloom.artifacts.blocks). 웹이 답을 그릴 때의 규칙(apps/web/src/features/artifacts/artifact.test.ts)과 같다."""
 
-from paperloom.artifacts.blocks import Block, artifacts_in
+from paperloom.artifacts.blocks import Block, artifacts_in, without_artifacts
 
 
 def test_artifact_blocks_are_read_in_order_with_their_fields():
@@ -62,3 +62,16 @@ def test_fences_follow_commonmark():
         Block("code", "코드", "c", "int x;\n  y;"),
         Block("html", "끝까지", None, "<p>닫지 않음"),
     ]
+
+
+def test_without_artifacts_leaves_one_line_per_artifact_and_keeps_other_code():
+    markdown = (
+        "앞 글\n\n"
+        '```artifact type="html" title="캐시 그림"\n<html>\n```\n\n'
+        "```python\nprint(1)\n```\n"
+        '````artifact type="markdown"\n```\n안\n```\n````\n'
+        "뒤 글\n"
+    )
+
+    assert without_artifacts(markdown) == "앞 글\n\n[아티팩트: 캐시 그림]\n\n```python\nprint(1)\n```\n[아티팩트: 문서]\n뒤 글"
+    assert without_artifacts("아티팩트 없음") == "아티팩트 없음"

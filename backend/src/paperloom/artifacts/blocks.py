@@ -8,6 +8,7 @@
 """
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
 
@@ -40,10 +41,29 @@ class Block:
 
 def artifacts_in(markdown: str) -> list[Block]:
     """답에 나온 순서대로. 아티팩트가 아닌 울타리 블록은 건너뛴다."""
-    found: list[Block] = []
-    lines = markdown.removesuffix("\n").split("\n")  # 끝 줄바꿈 뒤는 줄이 아니다
+    return [block for _, _, block in _artifact_lines(_lines(markdown))]
+
+
+def without_artifacts(markdown: str) -> str:
+    """아티팩트 블록을 `[아티팩트: 제목]` 한 줄로 바꾼 답. 코드를 펼쳐 둘 수 없는 곳(PDF 메모)에 쓴다."""
+    lines = _lines(markdown)
+    kept: list[str] = []
+    last = 0
+    for start, end, block in _artifact_lines(lines):
+        kept += [*lines[last:start], f"[아티팩트: {block.title}]"]
+        last = end
+    return "\n".join([*kept, *lines[last:]])
+
+
+def _lines(markdown: str) -> list[str]:
+    return markdown.removesuffix("\n").split("\n")  # 끝 줄바꿈 뒤는 줄이 아니다
+
+
+def _artifact_lines(lines: list[str]) -> Iterator[tuple[int, int, Block]]:
+    """(여는 줄, 닫는 줄 다음 줄, 아티팩트)를 나온 순서대로."""
     index = 0
     while index < len(lines):
+        start = index
         opening = _OPENING.fullmatch(lines[index])
         index += 1
         if not opening or (opening.group(2)[0] == "`" and "`" in opening.group(3)):
@@ -59,8 +79,7 @@ def artifacts_in(markdown: str) -> list[Block]:
             body.append(line[min(indent, len(line) - len(line.lstrip(" "))) :])
         language, *meta = re.split(r"[ \t]+", opening.group(3).strip(), maxsplit=1)  # 첫 낱말이 언어, 나머지가 meta
         if artifact := _artifact(language, meta[0] if meta else "", "\n".join(body)):
-            found.append(artifact)
-    return found
+            yield start, index, artifact
 
 
 def _artifact(language: str, meta: str, content: str) -> Block | None:

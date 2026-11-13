@@ -32,6 +32,8 @@ from paperloom.evidence_bundles.routes import build_router as build_evidence_bun
 from paperloom.evidence_bundles.service import EvidenceBundleService
 from paperloom.infrastructure.database.sqlite import migrate
 from paperloom.infrastructure.files.source_store import SourceStore
+from paperloom.pdf_export.routes import build_router as build_pdf_export_router
+from paperloom.pdf_export.service import PdfExportService
 from paperloom.reading.routes import build_router as build_reading_router
 from paperloom.reading.service import AnchorService
 from paperloom.retrieval.routes import build_router as build_retrieval_router
@@ -112,6 +114,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     anchors = AnchorService(db_path, store)
     app.include_router(build_reading_router(anchors, keys))
     app.include_router(build_annotations_router(AnnotationService(db_path, anchors), keys))
+    app.include_router(build_pdf_export_router(PdfExportService(db_path, store)))
     preferences = PreferenceService(db_path)
     app.include_router(build_preferences_router(preferences))
     contexts = ContextService(db_path, anchors, preferences)

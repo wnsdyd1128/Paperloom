@@ -23,7 +23,7 @@ Paperloom 웹이 쓰는 로컬 REST API다. 인증이 없으므로 이 PC(loopba
 
 TAGS = [
     {"name": "서재", "description": "논문 등록·목록·지우기, 논문 정보, 태그"},
-    {"name": "판본", "description": "논문의 PDF 판본: 원본, 쪽별 본문, 목차, 본문 다시 추출"},
+    {"name": "판본", "description": "논문의 PDF 판본: 원본, 주석을 넣은 PDF, 쪽별 본문, 목차, 본문 다시 추출"},
     {"name": "위치", "description": "원문 위치(Anchor)와 영역 이미지, 쪽의 그림 후보"},
     {"name": "주석", "description": "위치에 붙인 메모. 고치거나 지울 때 revision을 확인한다"},
     {"name": "문맥", "description": "모델에게 줄 문맥(Context Packet) 만들기와 내보내기"},
@@ -45,6 +45,7 @@ _ERRORS = {
     "BUNDLE_TOO_LARGE": (413, "내보낼 내용이 한도(파일 64개·합계 32 MiB·파일당 8 MiB)를 넘는다. `details`에 넘은 한도가 있다"),
     "BUNDLE_WRITE_FAILED": (500, "bundle을 쓰다 실패했다. 남은 파일은 없다"),
     "DUPLICATE_SOURCE": (409, "같은 내용의 PDF가 이미 있다. `details.paper_id`가 그 논문이다"),
+    "EXPORT_FAILED": (500, "주석을 넣은 PDF를 만들지 못했다"),
     "IDEMPOTENCY_IN_PROGRESS": (409, "같은 키의 요청을 처리하고 있다"),
     "IDEMPOTENCY_KEY_REUSED": (422, "같은 키를 다른 요청에 썼다"),
     "INVALID_ANCHOR": (422, "위치의 좌표·쪽·종류가 맞지 않는다. `details.field`가 그 칸이다"),

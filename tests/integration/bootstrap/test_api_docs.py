@@ -33,7 +33,7 @@ def _operations(schema: dict):
 def test_every_operation_has_a_known_tag_and_a_written_summary(schema):
     known = {tag["name"] for tag in schema["tags"]}
     operations = dict(_operations(schema))
-    assert len(operations) == 60
+    assert len(operations) == 61
     for name, operation in operations.items():
         assert len(operation["tags"]) == 1 and operation["tags"][0] in known, name
         # 쓰지 않으면 FastAPI가 함수 이름으로 영어 제목을 만든다
