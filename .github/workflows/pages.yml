@@ -1,0 +1,47 @@
+# 소개 페이지(site/)를 GitHub Pages(https://wnsdyd1128.github.io/Paperloom/)에 올린다.
+# 저장소 Settings → Pages의 Source가 "GitHub Actions"여야 한다(한 번만 바꾼다).
+# 로고·예시 그림(.github/assets)과 앱의 글꼴(apps/web)은 두 벌 두지 않고 여기서 복사한다.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/assets/**"
+      - "apps/web/src/shared/theme/fonts/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site/assets
+          cp -R site/. _site/
+          cp .github/assets/logo.svg .github/assets/image.png _site/assets/
+          cp apps/web/src/shared/theme/fonts/WantedSansVariable.woff2 apps/web/src/shared/theme/fonts/OFL.txt _site/assets/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
