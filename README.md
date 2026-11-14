@@ -52,7 +52,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 | Claude와 대화 | 논문 본문 또는 현재 쪽을 근거로 대화, 3줄 요약, 대화 기록·이름 바꾸기, 답마다 갈래 만들기, 모델(Sonnet·Opus·Haiku) 고르기 |
 | 쪽 번역 | 레이아웃 유지·글로 읽기·별도 탭 세 가지 보기, 보는 쪽 바로 번역, 모든 쪽 번역, 원문 ↔ 번역 문장 강조. 수식·표·그림 속 글자·알고리즘 의사코드·머리글·참고문헌은 원문 그대로 두고 캡션은 번역 |
 | 기록 | 하이라이트·주석 패널(검색, 색·종류 거르기, Markdown으로 모두 복사), 모든 논문의 대화를 모은 답변 화면 |
-| Wiki로 내보내기 | 고른 위치·메모·Claude Code 답변·노트 제안을 Evidence Bundle로 내보내 LLM Wiki가 받게 하기. 쓸 파일 미리보기, 내보낸 기록 |
+| PDF로 내보내기 | 하이라이트·주석·설명·AI 질문 가운데 고른 것을 PDF 표준 주석(색칠·메모)으로 넣은 원문 PDF 내려받기 |
 | 설정 | 답변·번역 언어(한국어·English), 기본 모델, 논문 본문 한도(약 4–100쪽), 다크 모드, 글꼴 크기, 수식 구분 기호, 설명·번역·요약 프롬프트 개인화 |
 
 ## 동작 방식
@@ -199,37 +199,13 @@ backend/.venv/bin/python -m paperloom.integrations.claude_code
 - `모든 쪽` 시작·멈춤, `다시 번역`, `번역 모두 지우기`, `A−`/`A+` 글꼴 크기
 - 번역 문장에 마우스를 올리면 원문 문장이, 원문 문장에 올리면 번역 문장이 강조됩니다.
 
-### Wiki로 내보내기
+### PDF로 내보내기
 
-읽으며 남긴 근거를 LLM Wiki로 넘깁니다. Paperloom은 outbox 폴더에 Evidence Bundle을 쓰기만 합니다. LLM Wiki를 부르지 않고, Wiki를 바꾸지 않고, 모델을 부르지 않습니다. 원본 PDF는 넣지 않습니다.
+Reader 머리의 내려받기 단추(`PDF로 내보내기`)를 눌러 넣을 것을 고르고 `PDF 내려받기`를 누릅니다. 원문 쪽은 그대로 두고 고른 것을 PDF 표준 주석으로 붙인 파일을 받습니다. 파일 이름은 논문 제목입니다.
 
-1. Reader 머리의 내보내기 단추를 누르거나, 서재에서 논문을 고른 뒤(20편까지) `Wiki로 내보내기`를 누릅니다.
-2. 논문마다 넣을 위치, 주석 메모, 영역 이미지, Claude Code 답변을 고릅니다. 위치는 논문마다 200개까지입니다. `제안 추가`로 Wiki 노트 후보(제목·Markdown 본문·근거 위치)를 쓸 수 있습니다. 제안이 없으면 LLM Wiki는 근거만 보관합니다.
-3. `미리보기`에서 쓸 파일과 크기, 경고를 확인하고 `내보내기`를 누릅니다. 한도는 파일 64개, 파일당 8 MiB, 합계 32 MiB입니다.
-4. 서재 머리의 `내보낸 bundle`에서 기록을 봅니다. LLM Wiki의 `Paperloom 수신`에서 받을지, 어떤 후보를 승인할지 다시 고릅니다.
-
-- **원문 추출문**: 기본으로 `고른 위치가 있는 쪽`의 추출문(`texts/`)을 함께 넣습니다. `전체`·`쪽 범위`로 넓히거나 `싣지 않음`으로 끌 수 있고, 고른 쪽이 모두 추출 전이면 내보내지 않습니다. LLM Wiki 수신기는 2026-11-02 버전부터 추출문을 받으니, 그보다 오래된 LLM Wiki로 보낼 때는 `싣지 않음`을 고르세요.
-- **논문 본문 범위 대화의 근거**: 대화 범위가 `논문 본문`·`현재 쪽`이면 근거에 저장된 위치가 없어, 답변 머리에 `풀지 못함`과 쪽 번호로 적힙니다. 글을 골라 물은 근거는 위치로 풀립니다.
-
-**outbox 폴더 연결**
-
-| 실행 방법 | outbox | 할 일 |
-|---|---|---|
-| Docker | 저장소의 `var/outbox` | 다시 빌드하면 Compose가 폴더를 붙입니다 |
-| Windows 압축본 | `%USERPROFILE%\.paperloom\outbox` | 폴더를 직접 만듭니다 |
-| 소스에서 실행 | 저장소의 `var/outbox` | 폴더를 직접 만듭니다 |
-
-LLM Wiki에는 같은 폴더를 읽기 전용으로 붙입니다. LLM Wiki의 `.env`에 경로를 적고 `compose.paperloom.yaml`을 더해 띄웁니다.
-
-```bash
-LLM_WIKI_PAPERLOOM_OUTBOX_PATH="/run/desktop/mnt/host/c/Users/<사용자>/Desktop/IESW/05_Paperloom/var/outbox"
-```
-
-```bash
-docker compose -f compose.yaml -f compose.paperloom.yaml up -d --build
-```
-
-폴더 상태는 내보내기 창 머리와 <http://127.0.0.1:8000/api/v1/health>의 `wiki_outbox`로 봅니다. outbox가 없어도 Paperloom은 그대로 켜지고 내보내기만 막힙니다.
+- `하이라이트`는 원문 위에 같은 색으로 칠합니다. 하이라이트에 단 메모는 `주석`도 고르면 그 하이라이트의 메모가 됩니다.
+- `주석`·`설명`·`AI 질문`은 그 줄 높이의 쪽 여백에 메모 아이콘으로 넣습니다. 메모 첫 줄에는 고른 글을 인용하고(영역이면 `[그림]`·`[표]`·`[수식]`), 설명은 Claude의 답을, AI 질문은 물은 말과 답을 그 아래에 적습니다.
+- 사이드바의 `Claude와 대화`와 번역은 넣지 않습니다.
 
 ### 단축키
 
@@ -249,7 +225,6 @@ docker compose -f compose.yaml -f compose.paperloom.yaml up -d --build
 - **저장 위치**: Windows 압축본은 `%USERPROFILE%\.paperloom\data`, Docker는 볼륨 `paperloom_paperloom-data`. `docker compose ... down -v`는 이 볼륨까지 지우므로 서재가 사라집니다. 대화의 Claude Code 세션은 `%USERPROFILE%\.paperloom\claude-chat`에 남습니다.
 - **접속 범위**: 서버와 브리지는 `127.0.0.1`에만 열려 같은 PC에서만 접속할 수 있습니다.
 - **Anthropic으로 가는 것**: 질문과 그 근거(고른 글·앞뒤 문단, 범위에 따른 논문 본문, 고른 영역 이미지), 번역할 쪽의 문단. claude.ai 구독 사용량으로 처리되며 그 밖의 외부 서비스는 부르지 않습니다. 문서 레이아웃 모델과 글줄 인식 모델은 압축본·이미지를 만들 때 Hugging Face에서 받아 넣습니다(논문은 보내지 않습니다).
-- **Wiki로 내보내기**: 고른 인용·메모·답변·제안을 이 PC의 outbox 폴더에 파일로 씁니다. 네트워크로 보내지 않습니다. 내보낸 bundle은 Paperloom이 지우지 않으므로 필요 없으면 탐색기에서 지웁니다(기록은 남고 `outbox에 없음`으로 보입니다).
 - **API 키**: 쓰지 않습니다. 환경 변수에 API 키가 있어도 브리지가 Claude Code에 넘기지 않습니다.
 
 ## 업데이트
@@ -295,7 +270,6 @@ docker run --rm -v paperloom_paperloom-data:/from -v "${HOME}\.paperloom:/to" al
 | 압축을 풀 때 경로가 너무 길다는 오류 | `C:\Paperloom`처럼 짧은 경로에 풉니다 |
 | 본문 추출이 `검색 불가 · 글자 층 없음(스캔·이미지)` | 스캔 PDF는 글자를 읽지 못해 검색·근거·번역을 쓸 수 없습니다 |
 | 화면이 예전 모습 그대로 | 다시 빌드하기 전에 열어 둔 탭을 새로고침 |
-| `Wiki로 내보내기`가 꺼져 있음 | 단추의 툴팁에 이유가 있습니다. 폴더가 없으면 위 [outbox 폴더 연결](#wiki로-내보내기)을 보고, 리눅스 Docker에서 쓸 수 없다면 `var/outbox`를 컨테이너 사용자(uid 10001)가 쓸 수 있게 바꿉니다 |
 | 8000번 포트를 이미 쓰는 중 | `ops/compose/compose.yaml`의 포트를 바꾸고 브리지에는 `PAPERLOOM_URL` 환경 변수로 새 주소를 알려 줍니다 |
 
 ## 개발
