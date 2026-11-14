@@ -7,6 +7,8 @@
  */
 import { type RefObject, useEffect, useRef } from "react";
 
+import { inSelectPicker } from "../../shared/selectPicker";
+
 import { boxToQuad, type Quad } from "./geometry";
 import { clientRectToPageBox, contentFrame, type PageTarget } from "./selection";
 
@@ -99,7 +101,7 @@ export function useRegionDrawing(containerRef: RefObject<HTMLDivElement | null>,
       latest.current.onRegion({ pageIndex: target.pageIndex, quad: boxToQuad(clientRectToPageBox(target, client)) });
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || inSelectPicker(event)) return;
       stop();
       if (activeRef.current) latest.current.onExit();
     };

@@ -8,6 +8,7 @@ import "./export.css";
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
+import { inSelectPicker } from "../../shared/selectPicker";
 import type { Paper } from "../library/api";
 import { type Bundle, type BundlePreview, type BundleRequest, createBundle, describeError, previewBundle } from "./api";
 import { type DraftProblems, EMPTY_DRAFT, findProblems, formatBytes, hasProblems, MAX_ANCHORS, type PaperDraft, toRequest } from "./draft";
@@ -48,7 +49,7 @@ export function ExportDialog({ papers, onClose, onShowHistory }: Props) {
     const opener = document.activeElement as HTMLElement | null;
     ref.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.isComposing) closeRef.current();
+      if (event.key === "Escape" && !event.isComposing && !inSelectPicker(event)) closeRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => {

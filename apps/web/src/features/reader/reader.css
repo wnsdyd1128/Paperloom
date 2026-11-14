@@ -1822,7 +1822,7 @@ body.is-resizing-side {
 
 .chip-select select {
   height: 100%;
-  padding: 0 20px 0 9px;
+  padding: 0 24px 0 9px;
   border: 0;
   outline: none;
   background: transparent;
@@ -1835,9 +1835,10 @@ body.is-resizing-side {
 
 .chip-select svg {
   position: absolute;
-  right: 7px;
+  right: 8px;
   color: var(--color-neutral-700);
   pointer-events: none;
+  transition: rotate 0.15s ease;
 }
 
 .chip-select-label {
@@ -1848,6 +1849,22 @@ body.is-resizing-side {
 
 .chip-select-label + select {
   padding-left: 4px;
+}
+
+/* 펼친 목록의 둥근 창은 공통 스타일(shared/theme/components.css)이다. 칩은 기본 꺾쇠 대신 제 꺾쇠를 돌린다. */
+@supports (appearance: base-select) {
+  .chip-select select {
+    appearance: base-select;
+    align-items: center; /* base-select는 고른 글을 칸 위쪽에 붙인다 */
+  }
+
+  .chip-select select::picker-icon {
+    display: none;
+  }
+
+  .chip-select:has(select:open) svg {
+    rotate: 180deg;
+  }
 }
 
 @container (max-width: 380px) {

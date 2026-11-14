@@ -620,7 +620,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
                   </option>
                 ))}
               </select>
-              <Icon name="chevronDown" size={12} />
+              <Icon name="chevronDown" size={14} />
             </label>
             <label className="chip-select">
               <select aria-label="모델" value={model ?? ""} onChange={(event) => setModel((event.target.value || null) as ChatModel | null)}>
@@ -630,7 +630,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
                   </option>
                 ))}
               </select>
-              <Icon name="chevronDown" size={12} />
+              <Icon name="chevronDown" size={14} />
             </label>
             <div className="chat-composer-send">
               {measured?.context_tokens != null && <ContextRing tokens={measured.context_tokens} window={measured.context_window} />}

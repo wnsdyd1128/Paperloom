@@ -65,6 +65,104 @@ optgroup {
   color: var(--color-text);
 }
 
+/*
+ * 대화창 칩(.chip-select)과 입력칸(select.input)의 펼친 목록은 둥근 창으로 그린다 (2026-11-13 사용자 요청). 고칠 수 있는
+ * select(appearance: base-select)를 아는 Chromium(Edge·Chrome)만 바뀌고, 다른 브라우저는 운영체제 목록 그대로다.
+ * select 요소와 키보드 조작은 그대로라 시험(selectOption)도 같다. 칩 자체의 appearance와 꺾쇠는 reader.css가 정한다
+ * (이 파일보다 뒤에 읽혀 칩의 appearance: none이 여기를 덮기 때문).
+ */
+@supports (appearance: base-select) {
+  .chip-select select::picker(select),
+  select.input,
+  select.input::picker(select) {
+    appearance: base-select;
+  }
+
+  .chip-select select::picker(select),
+  select.input::picker(select) {
+    min-width: max(anchor-size(width), 150px);
+    margin-block: 6px;
+    padding: 4px;
+    border: 1px solid var(--color-divider);
+    border-radius: 12px;
+    background: var(--color-bg);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transition:
+      opacity 0.12s ease,
+      overlay 0.12s allow-discrete,
+      display 0.12s allow-discrete;
+  }
+
+  .chip-select select:open::picker(select),
+  select.input:open::picker(select) {
+    opacity: 1;
+  }
+
+  @starting-style {
+    .chip-select select:open::picker(select),
+    select.input:open::picker(select) {
+      opacity: 0;
+    }
+  }
+
+  .chip-select option,
+  select.input option {
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: var(--color-text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .chip-select option:hover,
+  .chip-select option:focus-visible,
+  select.input option:hover,
+  select.input option:focus-visible {
+    outline: none;
+    background: var(--color-surface);
+  }
+
+  .chip-select option:checked,
+  select.input option:checked {
+    font-weight: 600;
+  }
+
+  .chip-select option::checkmark,
+  select.input option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--color-accent);
+  }
+
+  select.input {
+    align-items: center; /* base-select는 고른 글을 칸 위쪽에 붙인다 */
+    cursor: pointer;
+  }
+
+  select.input:disabled {
+    color: var(--color-neutral-600);
+    cursor: not-allowed;
+  }
+
+  /* 기본 삼각형 대신 칩과 같은 꺾쇠(Icon의 chevronDown) */
+  select.input::picker-icon {
+    content: "";
+    width: 12px;
+    height: 12px;
+    background: currentColor;
+    color: var(--color-neutral-700);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    transition: rotate 0.15s ease;
+  }
+
+  select.input:open::picker-icon {
+    rotate: 180deg;
+  }
+}
+
 /* — 버튼: 글자는 왼쪽 정렬, 모서리 없음 — */
 .btn {
   display: inline-flex;

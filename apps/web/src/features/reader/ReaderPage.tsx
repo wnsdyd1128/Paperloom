@@ -6,6 +6,7 @@ import type { EventBus, PDFPageView, PDFViewer } from "pdfjs-dist/web/pdf_viewer
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon, type IconName } from "../../shared/Icon";
+import { inSelectPicker } from "../../shared/selectPicker";
 import { type Anchor, type Annotation, createAnchor, getAnchor, type NewAnchor, type RegionKind } from "../annotations/api";
 import type { HighlightColor } from "../annotations/api";
 import { rememberHighlightColor, storedHighlightColor } from "../annotations/highlights";
@@ -955,7 +956,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
     };
     // 확대 단축키는 Reader가 열려 있는 동안 포커스 위치와 무관하게 받는다. 키에는 위치가 없고 Reader가 화면 전체다.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.isComposing && !isEditable(document.activeElement)) {
+      if (event.key === "Escape" && !event.isComposing && !isEditable(document.activeElement) && !inSelectPicker(event)) {
         dismissRef.current();
         return;
       }

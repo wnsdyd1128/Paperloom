@@ -97,6 +97,15 @@ test("기본 설정·프롬프트 개인화를 저장하면 다음 차례부터 
   await expect.poll(async () => (await settings(page)).answer_language).toBe("en");
   await expect.poll(async () => (await settings(page)).paper_text_chars).toBe(40000);
 
+  // 펼친 목록(appearance: base-select)은 Esc를 페이지에도 보낸다. 목록만 닫히고 설정 창은 남는다(2026-11-13)
+  const language = dialog.getByRole("combobox", { name: /답변 · 번역/ });
+  await language.click();
+  await expect(dialog.getByRole("option", { name: "English" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByRole("option", { name: "English" })).toBeHidden();
+  await expect(dialog).toBeVisible();
+  await expect(language).toHaveValue("en");
+
   // 2) 프롬프트 개인화: 저장을 눌러야 저장한다. 바뀐 개수를 보이고, 기본값으로는 입력만 비운다
   await dialog.getByRole("tab", { name: "프롬프트 개인화" }).click();
   await dialog.getByRole("textbox", { name: /^시스템 프롬프트/ }).fill("E2E 개인화: 짧게 답하세요");

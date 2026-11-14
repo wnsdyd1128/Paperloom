@@ -9,6 +9,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Icon, type IconName } from "../../shared/Icon";
 import type { MathDelimiters } from "../../shared/mathCopy";
+import { inSelectPicker } from "../../shared/selectPicker";
 import { type Bridge, BridgeStatus } from "../chat/BridgeStatus";
 import { approxPages, type ChatModelName, CHARS_PER_PAGE, DEFAULT_PREFERENCES, type Preferences, type PromptKey } from "./api";
 import { usePreferences } from "./PreferencesProvider";
@@ -52,7 +53,7 @@ export function SettingsDialog({ bridge, onClose }: Props) {
     const opener = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>("[aria-selected='true']")?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.isComposing) onCloseRef.current();
+      if (event.key === "Escape" && !event.isComposing && !inSelectPicker(event)) onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => {
