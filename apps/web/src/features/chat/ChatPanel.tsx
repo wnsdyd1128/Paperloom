@@ -93,7 +93,7 @@ const LIST_LIMIT = 200;
  * 모델은 이 PC의 Claude Code가 사용자의 Claude 구독 사용량으로 실행한다. 질문과 답은 검토 전 답변으로 남는다.
  * 답을 만드는 중에는 보내기 단추가 중단 단추다. 만드는 중인 차례는 runningTurn.ts가 들고 있어, 서재로 나갔다 돌아와도
  * 그 대화에서 이어 보인다. 갈래는 지금 대화를 이어받은 새 대화이고, 이어받은 차례를 흐리게
- * 보인다. 지금 대화의 컨텍스트 길이(마지막 차례 끝 기준)를 제목 아래에 보인다 (2026-10-02 사용자 요청).
+ * 보인다.
  * 머리의 "새 탭으로 분리"는 지금 대화를 별도 탭(ChatTab.tsx)으로 옮긴다 (2026-11-09 사용자 요청). 그 탭도 이 칸을 쓴다.
  * 질문에 이미지를 붙일 수 있다: 입력칸에 붙여 넣기, 이 칸에 끌어 놓기, 이미지 단추 (2026-11-10 사용자 요청, chatImages.ts).
  */
@@ -409,7 +409,6 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const health = bridge.health === "checking" ? null : bridge.health;
   const ready = health?.ready === true;
   const title = fork?.title ?? sessions.find((item) => item.id === session)?.title ?? "새 대화";
-  const measured = [...turns].reverse().find((answer) => answer.context_tokens !== null);
   return (
     <section className="chat-panel" aria-labelledby="chat-heading" aria-busy={loading} onDragOver={onDragOver} onDrop={onDrop}>
       <header className="side-head is-strong">
@@ -633,7 +632,6 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               <Icon name="chevronDown" size={14} />
             </label>
             <div className="chat-composer-send">
-              {measured?.context_tokens != null && <ContextRing tokens={measured.context_tokens} window={measured.context_window} />}
               {pending ? (
                 <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={pending.runId === null}>
                   <Icon name="stop" size={14} />
@@ -655,35 +653,6 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
 /** 갈래가 이어받은 차례와 그 뒤 차례 사이 */
 function ForkDivider() {
   return <p className="chat-fork-divider">여기서 갈라짐 · 위 차례는 원래 대화에서 이어받았습니다</p>;
-}
-
-const RING_RADIUS = 8;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
-
-/**
- * 지금 대화의 컨텍스트 길이 (마지막 차례 끝 기준). 입력칸 도구줄의 원형 아이콘으로, 채운 만큼이 창 크기에 대한 비율이다.
- * 숫자는 마우스를 올리면(title) 보이고 화면 낭독기는 이름으로 읽는다. 창 크기를 모르면 빈 원이다.
- */
-function ContextRing({ tokens, window }: { tokens: number; window: number | null }) {
-  const share = window ? Math.min(1, tokens / window) : 0;
-  const label = `컨텍스트 ${tokens.toLocaleString()}${window ? ` / ${window.toLocaleString()}` : ""} 토큰${window ? ` · ${Math.round(share * 100)}%` : ""}`;
-  return (
-    <span className="context-ring" role="img" aria-label={label} title={label}>
-      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-        <circle className="context-ring-track" cx="10" cy="10" r={RING_RADIUS} />
-        {share > 0 && (
-          <circle
-            className="context-ring-value"
-            cx="10"
-            cy="10"
-            r={RING_RADIUS}
-            strokeDasharray={`${Math.max(share * RING_LENGTH, 1.5)} ${RING_LENGTH}`}
-            transform="rotate(-90 10 10)"
-          />
-        )}
-      </svg>
-    </span>
-  );
 }
 
 function Turn({

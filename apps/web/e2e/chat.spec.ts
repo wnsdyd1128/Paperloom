@@ -922,7 +922,7 @@ test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와
   await expect(view.locator(".artifact-link a")).toHaveCount(0);
 });
 
-test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화는 그대로다. 컨텍스트 길이를 보인다", async ({ page }, testInfo) => {
+test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화는 그대로다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
   const { paperId } = await openPaper(page, "text-digital.pdf");
   await openPanel(page, "Claude와 대화");
@@ -936,17 +936,6 @@ test("갈래: 지금 대화를 이어받은 새 대화로 묻고, 원래 대화�
   await expect(lastPrompt()).toHaveText(`원래 질문 ${stamp}`, { timeout: 15_000 });
   const latest = await (await page.request.get(`/api/v1/answers?paper_id=${paperId}&origin=claude_code&limit=1`)).json();
   const original: string = latest.answers[0].session_id;
-  // 컨텍스트 길이: 가짜 CLI는 3 + 1,200 + 800 + 50 토큰, 창 200,000
-  // 입력칸 도구줄의 원형 아이콘. 숫자는 마우스를 올리면(title) 보이고 화면 낭독기는 이름으로 읽는다
-  const ring = chat.locator(".chat-composer-bar").getByRole("img", { name: "컨텍스트 2,053 / 200,000 토큰 · 1%" });
-  await expect(ring).toBeVisible();
-  await expect(ring).toHaveAttribute("title", "컨텍스트 2,053 / 200,000 토큰 · 1%");
-  // 한쪽(오른쪽 끝)으로: 범위·모델 칩 뒤, 보내기 단추 바로 왼쪽
-  const ringBox = (await ring.boundingBox())!;
-  const modelBox = (await chat.getByLabel("모델").boundingBox())!;
-  const sendBox = (await chat.getByRole("button", { name: "보내기" }).boundingBox())!;
-  expect(ringBox.x).toBeGreaterThan(modelBox.x + modelBox.width + 24);
-  expect(sendBox.x - (ringBox.x + ringBox.width)).toBeLessThan(16);
   const originalTitle = (await chat.locator(".chat-title").textContent())!;
 
   // 1) 갈래 만들기: 원래 대화의 차례를 흐리게 이어받고, 이름은 "(갈래)"다

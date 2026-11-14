@@ -712,7 +712,7 @@
   font-size: 12px;
 }
 
-/* 갈래가 이어받은 차례와 그 뒤의 경계, 지금 대화의 컨텍스트 길이 */
+/* 갈래가 이어받은 차례와 그 뒤의 경계 */
 .chat-turn.is-inherited {
   opacity: 0.6;
 }
@@ -732,30 +732,6 @@
   height: 1px;
   background: var(--color-divider);
   content: "";
-}
-
-/* 입력칸 도구줄의 컨텍스트 원형 아이콘: 채운 만큼이 쓴 비율, 마우스를 올리면 숫자 (2026-10-02 사용자 요청) */
-.context-ring {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  cursor: help;
-}
-
-.context-ring circle {
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.context-ring-track {
-  stroke: var(--color-divider);
-}
-
-.context-ring-value {
-  stroke: var(--color-accent);
-  stroke-linecap: round;
 }
 
 .ask-input {
@@ -1763,7 +1739,7 @@ body.is-resizing-side {
   color: var(--color-neutral-600);
 }
 
-/* 칸이 모자라면 칩을 줄이지 않고 컨텍스트 원·보내기 단추를 다음 줄 오른쪽으로 내린다 */
+/* 칸이 모자라면 칩을 줄이지 않고 보내기 단추를 다음 줄 오른쪽으로 내린다 */
 .chat-composer-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1790,11 +1766,10 @@ body.is-resizing-side {
   color: var(--color-neutral-500);
 }
 
-/* 컨텍스트 아이콘은 보내기 단추 바로 왼쪽(오른쪽 끝 묶음) (2026-10-02 사용자 요청). 줄을 바꿔도 둘이 함께 간다 */
+/* 보내기·중단 단추는 도구줄 오른쪽 끝 */
 .chat-composer-send {
   display: flex;
   align-items: center;
-  gap: 4px;
   margin-left: auto;
 }
 
