@@ -538,109 +538,113 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         </p>
       )}
       <form className="chat-composer" onSubmit={(event) => void submit(event)}>
-        {attachments.length > 0 && (
-          <ul className="chat-attachments" aria-label="질문에 붙인 위치">
-            {attachments.map((anchor) => (
-              <li key={anchor.anchor_id} className="chat-chip">
-                <span>
-                  <b>
-                    {anchor.kind === "text" ? "선택" : (REGION_LABELS[anchor.kind] ?? "영역")} · p.{anchor.page_index + 1}
-                  </b>{" "}
-                  {anchor.kind === "text" ? excerpt(anchor.display_quote ?? anchor.quote, 80) : ""}
-                </span>
-                <button
-                  type="button"
-                  aria-label="붙인 위치 빼기"
-                  onClick={() => setAttachments((current) => current.filter((item) => item.anchor_id !== anchor.anchor_id))}
-                >
-                  <Icon name="x" size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {images.length > 0 && (
-          <ul className="chat-images" aria-label="질문에 붙인 이미지">
-            {images.map((image, index) => (
-              <li key={image.id} className="chat-image-chip">
-                <img src={image.url} alt={`붙인 이미지 ${index + 1}`} />
-                <button
-                  type="button"
-                  aria-label={`붙인 이미지 ${index + 1} 빼기`}
-                  title="빼기"
-                  onClick={() => setImages((current) => current.filter((item) => item.id !== image.id))}
-                >
-                  <Icon name="x" size={12} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <textarea
-          ref={inputRef}
-          className="input chat-input"
-          aria-label="질문"
-          rows={3}
-          value={question}
-          placeholder="무엇이든 질문하세요"
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
-        <div className="chat-composer-bar">
-          <button
-            type="button"
-            className="btn btn-icon chat-attach"
-            aria-label="이미지 붙이기"
-            title={`이미지 붙이기 (${MAX_CHAT_IMAGES}장까지). 입력칸에 붙여 넣거나 이 칸에 끌어 놓아도 됩니다`}
-            onClick={() => fileRef.current?.click()}
-            disabled={images.length >= MAX_CHAT_IMAGES}
-          >
-            <Icon name="image" size={16} />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            aria-label="붙일 이미지 파일"
-            onChange={(event) => {
-              void attachImages(imageFiles(event.target.files));
-              event.target.value = ""; // 같은 파일을 다시 골라도 붙는다
-            }}
-          />
-          <label className="chip-select" title={SCOPES.find((item) => item.value === scope)?.title(preferences.paper_text_chars)}>
-            <span className="chip-select-label">범위:</span>
-            <select aria-label="범위" value={scope} onChange={(event) => chooseScope(event.target.value as ChatScope)}>
-              {SCOPES.map((item) => (
-                <option key={item.value} value={item.value} title={item.title(preferences.paper_text_chars)}>
-                  {item.label}
-                </option>
+        <div className="chat-composer-box">
+          {attachments.length > 0 && (
+            <ul className="chat-attachments" aria-label="질문에 붙인 위치">
+              {attachments.map((anchor) => (
+                <li key={anchor.anchor_id} className="chat-chip">
+                  <span>
+                    <b>
+                      {anchor.kind === "text" ? "선택" : (REGION_LABELS[anchor.kind] ?? "영역")} · p.{anchor.page_index + 1}
+                    </b>{" "}
+                    {anchor.kind === "text" ? excerpt(anchor.display_quote ?? anchor.quote, 80) : ""}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="붙인 위치 빼기"
+                    onClick={() => setAttachments((current) => current.filter((item) => item.anchor_id !== anchor.anchor_id))}
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                </li>
               ))}
-            </select>
-            <Icon name="chevronDown" size={12} />
-          </label>
-          <label className="chip-select">
-            <select aria-label="모델" value={model ?? ""} onChange={(event) => setModel((event.target.value || null) as ChatModel | null)}>
-              {CHAT_MODELS.map((choice) => (
-                <option key={choice.label} value={choice.value ?? ""}>
-                  {choice.value === null ? `${choice.label} (${CHAT_MODELS.find((item) => item.value === preferences.default_model)?.label})` : choice.label}
-                </option>
-              ))}
-            </select>
-            <Icon name="chevronDown" size={12} />
-          </label>
-          {measured?.context_tokens != null && <ContextRing tokens={measured.context_tokens} window={measured.context_window} />}
-          {pending ? (
-            <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={pending.runId === null}>
-              <Icon name="stop" size={14} />
-            </button>
-          ) : (
-            <button type="submit" className="send-button is-large" aria-label="보내기" disabled={!ready || !question.trim()}>
-              <Icon name="arrowUp" size={16} />
-            </button>
+            </ul>
           )}
+          {images.length > 0 && (
+            <ul className="chat-images" aria-label="질문에 붙인 이미지">
+              {images.map((image, index) => (
+                <li key={image.id} className="chat-image-chip">
+                  <img src={image.url} alt={`붙인 이미지 ${index + 1}`} />
+                  <button
+                    type="button"
+                    aria-label={`붙인 이미지 ${index + 1} 빼기`}
+                    title="빼기"
+                    onClick={() => setImages((current) => current.filter((item) => item.id !== image.id))}
+                  >
+                    <Icon name="x" size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <textarea
+            ref={inputRef}
+            className="chat-input"
+            aria-label="질문"
+            rows={3}
+            value={question}
+            placeholder="무엇이든 질문하세요"
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+          />
+          <div className="chat-composer-bar">
+            <button
+              type="button"
+              className="btn btn-icon chat-attach"
+              aria-label="이미지 붙이기"
+              title={`이미지 붙이기 (${MAX_CHAT_IMAGES}장까지). 입력칸에 붙여 넣거나 이 칸에 끌어 놓아도 됩니다`}
+              onClick={() => fileRef.current?.click()}
+              disabled={images.length >= MAX_CHAT_IMAGES}
+            >
+              <Icon name="image" size={16} />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              aria-label="붙일 이미지 파일"
+              onChange={(event) => {
+                void attachImages(imageFiles(event.target.files));
+                event.target.value = ""; // 같은 파일을 다시 골라도 붙는다
+              }}
+            />
+            <label className="chip-select" title={SCOPES.find((item) => item.value === scope)?.title(preferences.paper_text_chars)}>
+              <span className="chip-select-label">범위:</span>
+              <select aria-label="범위" value={scope} onChange={(event) => chooseScope(event.target.value as ChatScope)}>
+                {SCOPES.map((item) => (
+                  <option key={item.value} value={item.value} title={item.title(preferences.paper_text_chars)}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevronDown" size={12} />
+            </label>
+            <label className="chip-select">
+              <select aria-label="모델" value={model ?? ""} onChange={(event) => setModel((event.target.value || null) as ChatModel | null)}>
+                {CHAT_MODELS.map((choice) => (
+                  <option key={choice.label} value={choice.value ?? ""}>
+                    {choice.value === null ? `${choice.label} (${CHAT_MODELS.find((item) => item.value === preferences.default_model)?.label})` : choice.label}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevronDown" size={12} />
+            </label>
+            <div className="chat-composer-send">
+              {measured?.context_tokens != null && <ContextRing tokens={measured.context_tokens} window={measured.context_window} />}
+              {pending ? (
+                <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={pending.runId === null}>
+                  <Icon name="stop" size={14} />
+                </button>
+              ) : (
+                <button type="submit" className="send-button is-large" aria-label="보내기" disabled={!ready || !question.trim()}>
+                  <Icon name="arrowUp" size={16} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         <p className="chat-note">이 PC의 Claude Code · 구독 사용량. 고른 근거와 질문, 붙인 이미지가 Anthropic으로 전송됩니다.</p>
       </form>

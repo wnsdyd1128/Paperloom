@@ -1704,54 +1704,130 @@ body.is-resizing-side {
   font-size: 13px;
 }
 
+/*
+ * 대화 입력부 (2026-11-13 사용자 요청: 요즘 대화 앱 모양으로). 붙인 것·입력칸·도구줄을 둥근 카드 하나로 묶고, 포커스되면
+ * 강조색 테두리와 빛을 준다. 앱의 다른 곳은 모서리가 0이지만 입력부만 둥글게 해 쓰는 자리를 드러낸다.
+ * 대화 칸이 좁으면 '범위:' 머리글을 숨긴다(컨테이너 쿼리). 고른 값과 화면 낭독기 이름(범위)은 그대로다.
+ */
 .chat-composer {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  border-top: 2px solid var(--color-divider);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-divider);
+  container-type: inline-size;
 }
 
+.chat-composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 6px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: 16px;
+  background: var(--color-bg);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, #2d2b2b 8%, transparent),
+    0 6px 18px color-mix(in srgb, #2d2b2b 7%, transparent);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.chat-composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent),
+    0 8px 24px color-mix(in srgb, #2d2b2b 10%, transparent);
+}
+
+/* 글이 늘면 높이도 늘어난다(field-sizing). 크기 조절 손잡이는 없다 */
 .chat-input {
-  min-height: 72px;
+  width: 100%;
+  min-height: 48px;
   max-height: 200px;
+  padding: 6px 8px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  font: inherit;
   font-size: 13.5px;
-  resize: vertical;
+  line-height: 1.55;
+  resize: none;
+  field-sizing: content;
 }
 
+.chat-input::placeholder {
+  color: var(--color-neutral-600);
+}
+
+/* 칸이 모자라면 칩을 줄이지 않고 컨텍스트 원·보내기 단추를 다음 줄 오른쪽으로 내린다 */
 .chat-composer-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
+  min-width: 0;
 }
 
-.chat-composer-bar .send-button {
+.chat-composer .send-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.chat-composer .send-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.chat-composer .send-button:disabled {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-500);
+}
+
+/* 컨텍스트 아이콘은 보내기 단추 바로 왼쪽(오른쪽 끝 묶음) (2026-10-02 사용자 요청). 줄을 바꿔도 둘이 함께 간다 */
+.chat-composer-send {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
 }
 
-/* 컨텍스트 아이콘은 보내기 단추 바로 왼쪽(오른쪽 끝 묶음) (2026-10-02 사용자 요청) */
-.chat-composer-bar .context-ring {
-  margin-left: auto;
-}
-
-.chat-composer-bar .context-ring + .send-button {
-  margin-left: 0;
-}
-
+/* 범위·모델: 테두리 없는 알약 칩. 글은 줄을 바꾸지 않고, 칩은 줄어들지 않는다(값이 잘리지 않게) */
 .chip-select {
   position: relative;
   display: flex;
+  flex: none;
   align-items: center;
-  height: 26px;
-  border: 1px solid var(--color-divider);
+  height: 28px;
+  border-radius: 999px;
+  background: var(--color-surface);
   font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.chip-select:hover {
+  background: var(--color-neutral-200);
+}
+
+.chip-select:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .chip-select select {
   height: 100%;
-  padding: 0 22px 0 8px;
+  padding: 0 20px 0 9px;
   border: 0;
-  background: var(--color-bg);
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
   font-size: 12px;
   appearance: none;
   cursor: pointer;
@@ -1759,23 +1835,38 @@ body.is-resizing-side {
 
 .chip-select svg {
   position: absolute;
-  right: 6px;
+  right: 7px;
+  color: var(--color-neutral-700);
   pointer-events: none;
 }
 
 .chip-select-label {
-  padding-left: 8px;
+  padding-left: 9px;
   color: var(--color-neutral-700);
+  white-space: nowrap;
 }
 
 .chip-select-label + select {
   padding-left: 4px;
 }
 
+@container (max-width: 380px) {
+  .chip-select-label {
+    display: none;
+  }
+
+  .chip-select-label + select {
+    padding-left: 9px;
+  }
+}
+
 .chat-note {
   margin: 0;
-  color: var(--color-neutral-700);
+  padding: 0 4px;
+  color: var(--color-neutral-600);
   font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .chat-attachments {
@@ -1793,6 +1884,7 @@ body.is-resizing-side {
   gap: 8px;
   padding: 8px 10px;
   border-left: 2px solid var(--color-accent);
+  border-radius: 10px;
   background: var(--color-surface);
   font-size: 12.5px;
   line-height: 1.4;
@@ -1832,7 +1924,9 @@ body.is-resizing-side {
 
 .chat-image-chip {
   position: relative;
+  overflow: hidden;
   border: 1px solid var(--color-divider);
+  border-radius: 10px;
   background: #fff;
 }
 
@@ -1859,12 +1953,15 @@ body.is-resizing-side {
 }
 
 .chat-composer-bar .chat-attach {
-  width: 26px;
-  height: 26px;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   color: var(--color-neutral-700);
 }
 
 .chat-composer-bar .chat-attach:hover:not(:disabled) {
+  background: var(--color-surface);
   color: var(--color-accent);
 }
 
