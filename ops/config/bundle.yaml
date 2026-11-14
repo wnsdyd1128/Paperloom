@@ -14,6 +14,7 @@ ocr:
   model_path: ../models/pp-ocrv6-small-rec/inference.onnx  # 글자 사전(inference.yml)은 같은 폴더
   device: auto
 wiki:
+  enabled: false  # 개발 중이라 꺼 둔다. true면 화면에 Wiki로 내보내기가 보이고 bundle을 쓴다
   outbox_path: ~/.paperloom/outbox  # 폴더를 만들어야 Wiki로 내보내기가 켜진다
 cost_policy:
   mode: plan_only

@@ -13,6 +13,7 @@ import {
   toggledArtifact,
   toggleProposalAnchor,
   toRequest,
+  wikiExportShown,
   withAnswers,
 } from "./draft";
 
@@ -115,6 +116,14 @@ describe("표시", () => {
     expect(outboxProblem({ status: "ready", path: "/data/outbox" })).toBeNull();
     expect(outboxProblem({ status: "not_configured", path: null })).toContain("wiki.outbox_path");
     expect(outboxProblem({ status: "unwritable", path: "/data/outbox" })).toContain("권한");
+    expect(outboxProblem({ status: "disabled", path: "/data/outbox" })).toContain("wiki.enabled");
+  });
+
+  it("Wiki로 내보내기는 설정이 켜져 있을 때만 보인다(개발 중이라 기본으로 숨김)", () => {
+    expect(wikiExportShown({ status: "disabled", path: "/data/outbox" })).toBe(false);
+    expect(wikiExportShown(null)).toBe(false); // 아직 모르거나 묻지 못했으면 숨긴다
+    expect(wikiExportShown({ status: "ready", path: "/data/outbox" })).toBe(true);
+    expect(wikiExportShown({ status: "not_configured", path: null })).toBe(true); // 켰지만 폴더가 없으면 막힌 단추로 이유를 보인다
   });
 
   it("크기", () => {

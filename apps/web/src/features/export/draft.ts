@@ -117,7 +117,16 @@ export function withAnswers(content: string, answers: readonly string[]): string
 const OUTBOX_PROBLEMS: Readonly<Record<Exclude<OutboxStatus, "ready">, string>> = {
   not_configured: "Wiki로 보낼 폴더가 없습니다. 설정의 wiki.outbox_path와 그 폴더를 확인하세요.",
   unwritable: "Wiki로 보낼 폴더에 쓸 수 없습니다. 폴더 권한을 확인하세요.",
+  disabled: "Wiki로 내보내기는 꺼져 있습니다(설정 wiki.enabled).",
 };
+
+/**
+ * Wiki로 내보내기를 화면에 보일지 (2026-11-13 사용자 결정: 개발 중이라 숨긴다). 설정 wiki.enabled가 꺼져 있으면(disabled)
+ * 숨기고, 상태를 아직 모르거나 묻지 못했을 때도 숨긴다(켜진 뒤에만 나타난다).
+ */
+export function wikiExportShown(outbox: WikiOutbox | null): boolean {
+  return outbox !== null && outbox.status !== "disabled";
+}
 
 /** 내보내기를 막는 이유. 막지 않으면 null (F-08) */
 export function outboxProblem(outbox: WikiOutbox): string | null {

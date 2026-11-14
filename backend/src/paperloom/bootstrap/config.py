@@ -49,6 +49,8 @@ class OcrSettings(_Strict):
 class WikiSettings(_Strict):
     """LLM Wiki로 넘기는 Evidence Bundle을 쓰는 outbox 폴더. 없거나 폴더가 없으면 내보내기만 막는다."""
 
+    # Wiki로 내보내기는 아직 개발 중이라 기본으로 끈다(2026-11-13 사용자 결정). 끄면 화면에서 진입점을 숨기고 bundle도 쓰지 않는다
+    enabled: bool = False
     outbox_path: Path | None = None
 
 

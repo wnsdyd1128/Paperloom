@@ -50,13 +50,15 @@ type Props = Readonly<{
   library: Library;
   /** 머리의 제목 검색 결과(논문 → 찾은 낱말을 표시한 제목). 검색하지 않았으면 null */
   hits: ReadonlyMap<string, readonly SnippetPart[]> | null;
+  /** Wiki로 내보내기 단추와 논문 고르기 칸을 보일지 (설정 wiki.enabled, 개발 중이라 기본으로 숨긴다) */
+  wikiExport: boolean;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
   exportProblem: string | null;
   onOpen: (paper: Paper) => void;
   onExport: (papers: readonly Paper[]) => void;
 }>;
 
-export function LibraryPage({ library, hits, exportProblem, onOpen, onExport }: Props) {
+export function LibraryPage({ library, hits, wikiExport, exportProblem, onOpen, onExport }: Props) {
   const [filter, setFilter] = useState<TagFilter>(NO_TAG_FILTER);
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const { list, papers } = library;
@@ -99,17 +101,19 @@ export function LibraryPage({ library, hits, exportProblem, onOpen, onExport }: 
           </span>
         </div>
         <div className="shelf-tools">
-          <button type="button" className="btn btn-secondary" disabled={exportBlocked !== null} title={exportBlocked ?? undefined} onClick={() => onExport(chosenPapers)}>
-            <Icon name="send" size={15} />
-            Wiki로 내보내기{chosenPapers.length > 0 && ` (${chosenPapers.length}편)`}
-          </button>
+          {wikiExport && (
+            <button type="button" className="btn btn-secondary" disabled={exportBlocked !== null} title={exportBlocked ?? undefined} onClick={() => onExport(chosenPapers)}>
+              <Icon name="send" size={15} />
+              Wiki로 내보내기{chosenPapers.length > 0 && ` (${chosenPapers.length}편)`}
+            </button>
+          )}
           {/* 끌어 놓기는 화면 어디에나 된다(LibraryShell). 한도는 서버 UploadLimits (IMPL §5.1) */}
           <div className="drop-hint" aria-hidden="true">
             PDF를 끌어다 놓기 <span className="muted">100 MiB · 300쪽</span>
           </div>
         </div>
       </div>
-      {chosenPapers.length > MAX_PAPERS && (
+      {wikiExport && chosenPapers.length > MAX_PAPERS && (
         <p className="status error" role="status">
           {exportBlocked}
         </p>
@@ -140,9 +144,11 @@ export function LibraryPage({ library, hits, exportProblem, onOpen, onExport }: 
         <table className="table shelf-table">
           <thead>
             <tr>
-              <th scope="col" className="col-choose">
-                <span className="sr-only">내보낼 논문 고르기</span>
-              </th>
+              {wikiExport && (
+                <th scope="col" className="col-choose">
+                  <span className="sr-only">내보낼 논문 고르기</span>
+                </th>
+              )}
               <th scope="col">제목</th>
               <th scope="col" className="col-status">
                 본문 추출
@@ -180,7 +186,7 @@ export function LibraryPage({ library, hits, exportProblem, onOpen, onExport }: 
                 filter={filter}
                 known={counts.map((item) => item.name)}
                 chosen={chosen.has(paper.paper_id)}
-                onChoose={toggleChosen}
+                onChoose={wikiExport ? toggleChosen : null}
                 onOpen={onOpen}
                 onRetry={(item) => void library.retry(item)}
                 onToggleTag={toggleTag}
@@ -212,7 +218,8 @@ type RowProps = Readonly<{
   known: readonly string[];
   /** 내보내려고 골랐는지 */
   chosen: boolean;
-  onChoose: (paper: Paper) => void;
+  /** Wiki로 내보내기가 꺼져 있으면 null이고 고르기 칸이 없다 */
+  onChoose: ((paper: Paper) => void) | null;
   onOpen: (paper: Paper) => void;
   onRetry: (paper: Paper) => void;
   onToggleTag: (name: string) => void;
@@ -232,9 +239,11 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
   const filtered = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
   return (
     <tr data-paper-id={paper.paper_id}>
-      <td className="shelf-choose">
-        <input type="checkbox" aria-label={`${paper.title} 내보내기로 고르기`} checked={chosen} onChange={() => onChoose(paper)} />
-      </td>
+      {onChoose && (
+        <td className="shelf-choose">
+          <input type="checkbox" aria-label={`${paper.title} 내보내기로 고르기`} checked={chosen} onChange={() => onChoose(paper)} />
+        </td>
+      )}
       <td className="shelf-title-cell">
         <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
           {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}

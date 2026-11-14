@@ -42,7 +42,7 @@ def receiver(tmp_path, monkeypatch):
 def paperloom(tmp_path, receiver):
     """논문 하나를 올리고 추출한 클라이언트와 그 판본, Anchor 하나."""
     _, outbox, _ = receiver
-    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(outbox_path=outbox)))
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(enabled=True, outbox_path=outbox)))
     client = TestClient(app, base_url="http://127.0.0.1:8000")
     paper = client.post(
         "/api/v1/papers",

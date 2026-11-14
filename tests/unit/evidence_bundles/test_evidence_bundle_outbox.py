@@ -66,6 +66,7 @@ def test_status_needs_a_folder_that_takes_a_file(tmp_path, monkeypatch):
     assert Outbox(None).status() == "not_configured"
     assert Outbox(tmp_path / "없음").status() == "not_configured"
     assert Outbox(tmp_path).status() == "ready"
+    assert Outbox(tmp_path, enabled=False).status() == "disabled"  # 끄면 폴더가 있어도 쓰지 않는다
     assert names(tmp_path) == []  # 시험 파일을 남기지 않는다
 
     def refuse(**_):

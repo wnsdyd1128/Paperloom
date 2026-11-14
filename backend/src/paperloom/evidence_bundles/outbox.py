@@ -12,16 +12,19 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
-Status = Literal["ready", "not_configured", "unwritable"]
+Status = Literal["ready", "not_configured", "unwritable", "disabled"]
 TEMPORARY = ".tmp-"
 
 
 class Outbox:
-    def __init__(self, path: Path | None) -> None:
+    def __init__(self, path: Path | None, enabled: bool = True) -> None:
         self._path = path
+        self._enabled = enabled  # 끄면(설정 wiki.enabled) 폴더와 상관없이 disabled다
 
     def status(self) -> Status:
         """폴더가 있고 쓸 수 있는지. 시험 파일을 만들었다 지워 본다(Windows에서는 os.access를 믿을 수 없다)."""
+        if not self._enabled:
+            return "disabled"
         if self._path is None or not self._path.is_dir():
             return "not_configured"
         try:

@@ -18,6 +18,7 @@ import { ArtifactWindow } from "../artifacts/ArtifactWindow";
 import { useBridge } from "../chat/BridgeStatus";
 import { usePreferences } from "../settings/PreferencesProvider";
 import { ExportDialog } from "../export/ExportDialog";
+import { wikiExportShown } from "../export/draft";
 import { useOutbox } from "../export/useOutbox";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import { openTranslationChannel, pageInfos, scrollDelta, type TranslationChannel, viewPosition } from "../translation/channel";
@@ -1088,6 +1089,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         onSummary={() => chatTarget()?.({ kind: "summary", nonce: Date.now() })}
         onCopyLink={() => void copyLink()}
         pdfExport={<PdfExportMenu versionId={versionId} title={paper.title} disabled={!ready} counts={pdfPartCounts(annotationItems, inline.items, versionId)} />}
+        wikiExport={wikiExportShown(outbox.outbox)}
         exportProblem={outbox.problem}
         onExport={() => setExportOpen(true)}
         tocOpen={toc.open}

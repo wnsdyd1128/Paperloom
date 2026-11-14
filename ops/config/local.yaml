@@ -6,6 +6,7 @@ app:
   port: 8000
   data_dir: ../../var
 wiki:
+  enabled: false  # 개발 중이라 꺼 둔다. true면 화면에 Wiki로 내보내기가 보이고 bundle을 쓴다
   outbox_path: ../../var/outbox  # 폴더를 만들어야 Wiki로 내보내기가 켜진다
 cost_policy:
   mode: plan_only

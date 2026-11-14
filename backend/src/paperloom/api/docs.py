@@ -94,7 +94,7 @@ class ModelStatus(BaseModel):
 
 
 class OutboxStatus(BaseModel):
-    status: Literal["ready", "not_configured", "unwritable"]
+    status: Literal["ready", "not_configured", "unwritable", "disabled"]
     path: str | None
 
 
@@ -109,7 +109,7 @@ class Health(BaseModel):
     claude_code_url: str | None
     layout_model: ModelStatus | None
     ocr_model: ModelStatus | None
-    wiki_outbox: OutboxStatus = Field(description="Wiki로 내보낼 폴더. 준비되지 않아도 내보내기만 막힌다")
+    wiki_outbox: OutboxStatus = Field(description="Wiki로 내보낼 폴더. 준비되지 않아도 내보내기만 막힌다. 설정 wiki.enabled가 꺼져 있으면 disabled이고 화면에서 내보내기를 숨긴다")
 
 
 def errors(*codes: str) -> dict[int | str, dict[str, Any]]:

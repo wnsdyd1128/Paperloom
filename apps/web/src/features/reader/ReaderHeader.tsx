@@ -37,6 +37,8 @@ type Props = Readonly<{
   onCopyLink: () => void;
   /** PDF로 내보내기 단추와 창 (PdfExportMenu) */
   pdfExport: ReactNode;
+  /** Wiki로 내보내기 단추를 보일지 (설정 wiki.enabled, 개발 중이라 기본으로 숨긴다) */
+  wikiExport: boolean;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
   exportProblem: string | null;
   onExport: () => void;
@@ -141,16 +143,18 @@ export function ReaderHeader(props: Props) {
           <Icon name="settings" size={17} />
         </button>
         {props.pdfExport}
-        <button
-          type="button"
-          className="btn btn-icon head-icon"
-          aria-label="Wiki로 내보내기"
-          title={props.exportProblem ?? "Wiki로 내보내기: 고른 위치·메모·제안을 LLM Wiki가 받을 bundle로 씁니다"}
-          onClick={props.onExport}
-          disabled={!ready || props.exportProblem !== null}
-        >
-          <Icon name="send" size={17} />
-        </button>
+        {props.wikiExport && (
+          <button
+            type="button"
+            className="btn btn-icon head-icon"
+            aria-label="Wiki로 내보내기"
+            title={props.exportProblem ?? "Wiki로 내보내기: 고른 위치·메모·제안을 LLM Wiki가 받을 bundle로 씁니다"}
+            onClick={props.onExport}
+            disabled={!ready || props.exportProblem !== null}
+          >
+            <Icon name="send" size={17} />
+          </button>
+        )}
         <button type="button" className="btn btn-icon head-icon" aria-label="위치 링크 복사" title="위치 링크 복사" onClick={props.onCopyLink} disabled={!ready}>
           <Icon name="share" size={17} />
         </button>

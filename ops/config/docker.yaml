@@ -13,6 +13,7 @@ ocr:
   model_path: /app/models/pp-ocrv6-small-rec/inference.onnx  # 이미지에 넣은 글줄 인식 모델과 글자 사전(inference.yml)
   device: auto
 wiki:
+  enabled: false  # 개발 중이라 꺼 둔다. true면 화면에 Wiki로 내보내기가 보이고 bundle을 쓴다
   outbox_path: /data/outbox  # compose가 호스트 폴더를 붙인다. 없으면 Wiki로 내보내기만 막힌다
 artifacts:
   shown_dir: var/artifacts  # 서버는 /data/artifacts에 쓰고, compose가 그 자리에 저장소의 var/artifacts를 붙인다

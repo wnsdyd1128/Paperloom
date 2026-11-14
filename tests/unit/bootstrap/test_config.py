@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from paperloom.bootstrap.config import load_settings
+from paperloom.bootstrap.config import WikiSettings, load_settings
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -42,6 +42,14 @@ def test_outbox_is_optional_and_resolves_like_other_paths(tmp_path):
     path.write_text("app:\n  data_dir: data\nwiki:\n  outbox_path: ../outbox\n", encoding="utf-8")
 
     assert load_settings(path).wiki.outbox_path == (tmp_path / "outbox").resolve()
+
+
+def test_wiki_export_is_off_in_shipped_configs_and_on_for_e2e():
+    """Wiki로 내보내기는 개발 중이라 사용자가 쓰는 설정에서는 끈다. E2E는 켜고 계속 확인한다."""
+    assert WikiSettings().enabled is False
+    for name in ("local", "docker", "bundle"):
+        assert load_settings(REPO_ROOT / "ops" / "config" / f"{name}.yaml").wiki.enabled is False, name
+    assert load_settings(REPO_ROOT / "ops" / "config" / "e2e.yaml").wiki.enabled is True
 
 
 def test_shipped_configs_name_the_outbox():

@@ -8,6 +8,7 @@ app:
   web_dist_dir: ../../apps/web/dist
   claude_code_url: http://127.0.0.1:8794  # 가짜 Claude Code CLI로 도는 E2E 브리지 (playwright.config.ts)
 wiki:
+  enabled: true  # 개발 중인 Wiki로 내보내기도 E2E로 확인한다
   outbox_path: ../../var/e2e/outbox  # e2e/export.spec.ts가 만든다
 cost_policy:
   mode: plan_only

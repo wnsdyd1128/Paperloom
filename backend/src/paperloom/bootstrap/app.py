@@ -56,7 +56,7 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     store = SourceStore(data_dir)
     if removed := store.discard_incomplete_uploads():
         log.warning("이전 실행에서 남은 임시 업로드 %d개를 지웠습니다.", removed)
-    outbox = Outbox(settings.wiki.outbox_path)
+    outbox = Outbox(settings.wiki.outbox_path, settings.wiki.enabled)
     if removed := outbox.discard_incomplete():
         log.warning("이전 실행이 쓰다 끊긴 bundle 임시 폴더 %d개를 지웠습니다.", removed)
 

@@ -40,7 +40,7 @@ def outbox(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def app(tmp_path, outbox):
-    return create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(outbox_path=outbox)))
+    return create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(enabled=True, outbox_path=outbox)))
 
 
 @pytest.fixture
@@ -330,7 +330,7 @@ def test_images_are_not_drawn_when_the_file_limit_is_already_lost(app, client, p
 def test_export_is_blocked_without_an_outbox_but_the_server_runs(tmp_path, config):
     """AC-04."""
     path = None if config == "없음" else tmp_path / config
-    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(outbox_path=path)))
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(enabled=True, outbox_path=path)))
     client = TestClient(app, base_url=BASE_URL)
     uploaded = upload(client)
     body = {"papers": [{"version_id": uploaded["version_id"]}]}
@@ -775,7 +775,7 @@ def test_starting_up_discards_what_an_interrupted_write_left(tmp_path, outbox):
     leftover.mkdir()
     (leftover / "sources.json").write_bytes(b"[]")
 
-    create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(outbox_path=outbox)))
+    create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(enabled=True, outbox_path=outbox)))
 
     assert bundles_in(outbox) == []
 
@@ -821,3 +821,18 @@ def test_near_limit_is_counted_with_rendered_images(client, paper, monkeypatch):
 
     assert response.json()["file_count"] == 53
     assert [item["code"] for item in response.json()["warnings"]] == ["near_limit"]
+
+
+def test_export_is_off_unless_enabled_even_with_a_ready_folder(tmp_path):
+    """Wiki로 내보내기는 개발 중이라 설정 wiki.enabled를 켜야 쓴다(2026-11-13 사용자 결정). 끄면 health가 disabled라
+    화면이 진입점을 숨기고, 서버도 bundle을 쓰지 않는다."""
+    outbox = tmp_path / "outbox"
+    outbox.mkdir()
+    app = create_app(Settings(app=AppSettings(mode="test", data_dir=tmp_path / "data"), wiki=WikiSettings(outbox_path=outbox)))
+    client = TestClient(app, base_url=BASE_URL)
+    body = {"papers": [{"version_id": upload(client)["version_id"]}]}
+
+    assert client.get("/api/v1/health").json()["wiki_outbox"]["status"] == "disabled"
+    for response in (preview(client, body), create(client, body)):
+        assert (response.status_code, response.json()["code"]) == (503, "OUTBOX_UNAVAILABLE")
+    assert list(outbox.iterdir()) == []

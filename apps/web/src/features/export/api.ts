@@ -2,7 +2,8 @@
 
 import { ApiError, jsonRequest, parseJson, postJson } from "../../shared/http";
 
-export type OutboxStatus = "ready" | "not_configured" | "unwritable";
+/** disabled: 설정 wiki.enabled가 꺼져 있다(개발 중이라 기본으로 끈다). 화면은 Wiki로 내보내기를 숨긴다 */
+export type OutboxStatus = "ready" | "not_configured" | "unwritable" | "disabled";
 /** path는 컨테이너 안 경로이거나 사용자 폴더를 ~로 쓴 경로다. 사용자 이름이 드러나지 않는다 */
 export type WikiOutbox = Readonly<{ status: OutboxStatus; path: string | null }>;
 

@@ -13,6 +13,7 @@ import { ConversationsPage } from "../answers/ConversationsPage";
 import { bridgeState, useBridge } from "../chat/BridgeStatus";
 import { BundlesPage } from "../export/BundlesPage";
 import { ExportDialog } from "../export/ExportDialog";
+import { wikiExportShown } from "../export/draft";
 import { useOutbox } from "../export/useOutbox";
 import { search, type SnippetPart } from "../search/api";
 import { SettingsDialog } from "../settings/SettingsDialog";
@@ -41,6 +42,9 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
   const library = useLibrary();
   const bridge = useBridge();
   const outbox = useOutbox();
+  // Wiki로 내보내기는 개발 중이라 설정(wiki.enabled)이 켜져 있을 때만 보인다. 꺼져 있으면 /bundles도 서재를 보인다
+  const wikiExport = wikiExportShown(outbox.outbox);
+  const shown = view === "bundles" && !wikiExport ? "library" : view;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState<readonly Paper[] | null>(null);
   const [query, setQuery] = useState("");
@@ -80,15 +84,17 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
           <h1 className="brand-name">Paperloom</h1>
         </span>
         <nav className="library-nav" aria-label="화면">
-          <button type="button" aria-current={view === "library" ? "page" : undefined} onClick={() => onView("library")}>
+          <button type="button" aria-current={shown === "library" ? "page" : undefined} onClick={() => onView("library")}>
             서재
           </button>
           <button type="button" aria-current={view === "answers" ? "page" : undefined} onClick={() => onView("answers")}>
             답변
           </button>
-          <button type="button" aria-current={view === "bundles" ? "page" : undefined} onClick={() => onView("bundles")}>
-            내보낸 bundle
-          </button>
+          {wikiExport && (
+            <button type="button" aria-current={view === "bundles" ? "page" : undefined} onClick={() => onView("bundles")}>
+              내보낸 bundle
+            </button>
+          )}
           <button type="button" aria-haspopup="dialog" onClick={() => setSettingsOpen(true)}>
             설정
           </button>
@@ -139,7 +145,7 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         </div>
       </header>
       <div className="library-notices">
-        {view === "library" && <SearchStatus found={found} onClear={clearSearch} />}
+        {shown === "library" && <SearchStatus found={found} onClear={clearSearch} />}
         {library.notice && (
           <p className={`status ${library.notice.tone}`} role="status">
             {library.notice.text}
@@ -147,11 +153,18 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         )}
       </div>
       <main className="library-main">
-        {view === "library" && (
-          <LibraryPage library={library} hits={found.kind === "ready" ? found.hits : null} exportProblem={outbox.problem} onOpen={onOpenPaper} onExport={setExporting} />
+        {shown === "library" && (
+          <LibraryPage
+            library={library}
+            hits={found.kind === "ready" ? found.hits : null}
+            wikiExport={wikiExport}
+            exportProblem={outbox.problem}
+            onOpen={onOpenPaper}
+            onExport={setExporting}
+          />
         )}
-        {view === "answers" && <ConversationsPage onOpen={onOpenConversation} onOpenCitation={onOpenCitation} />}
-        {view === "bundles" && <BundlesPage />}
+        {shown === "answers" && <ConversationsPage onOpen={onOpenConversation} onOpenCitation={onOpenCitation} />}
+        {shown === "bundles" && <BundlesPage />}
       </main>
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
