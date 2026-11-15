@@ -76,3 +76,61 @@ test("PDF로 내보내기: 넣을 것을 골라 원본에 PDF 메모로 붙인 �
 
   await clearThreads(page, paperId); // 다른 시험의 답변 화면에 남지 않게 한다
 });
+
+/** 브리지가 하듯 쪽 1의 번역을 저장한다. 번역하지 않는 문단은 빼고 문단마다 문장 수를 맞춘다(서버가 알려 주는 대로) */
+async function translateFirstPage(page: Page, versionId: string) {
+  const url = `/api/v1/versions/${versionId}/pages/0/translations/ko`;
+  const blocks: { block_id: string }[] = (await (await page.request.get(`/api/v1/versions/${versionId}/pages/0`)).json()).blocks;
+  const counts = new Map(blocks.map((block) => [block.block_id, 1]));
+  for (let attempt = 0; attempt <= blocks.length * 2; attempt++) {
+    const data = { blocks: [...counts].map(([block_id, count]) => ({ block_id, sentences: Array.from({ length: count }, (_, index) => `번역문 ${index + 1}`) })) };
+    const response = await page.request.put(url, { data });
+    if (response.ok()) return;
+    const { details } = await response.json();
+    for (const id of details.unknown ?? []) counts.delete(id);
+    if (details.expected !== undefined) counts.set(details.block_id, details.expected);
+  }
+  throw new Error("쪽 번역을 저장하지 못했습니다");
+}
+
+test("PDF로 내보내기: 바탕으로 레이아웃 유지 번역본을 고르면 번역한 쪽에 번역문을 쓴다", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "dpr-1", "내려받는 파일은 화면 배율과 무관하다");
+  const settings = await (await page.request.get("/api/v1/settings")).json();
+  expect((await page.request.put("/api/v1/settings", { data: { ...settings, answer_language: "ko" } })).status()).toBe(200);
+  const { versionId } = await uploadPdf(page, PDF, FILE);
+  await clearAnnotations(page, versionId);
+  await expect.poll(async () => (await (await page.request.get(`/api/v1/versions/${versionId}`)).json()).status, { timeout: 30_000 }).toMatch(/INDEXED|PARTIAL/);
+  expect((await page.request.delete(`/api/v1/versions/${versionId}/translations/ko`)).status()).toBe(204);
+  const pageCount: number = (await (await page.request.get(`/api/v1/versions/${versionId}`)).json()).page_count;
+
+  await openFixture(page, PDF, FILE);
+  const menuButton = page.getByRole("button", { name: "PDF로 내보내기" });
+  const dialog = page.getByRole("dialog", { name: "PDF로 내보내기" });
+  const base = dialog.getByRole("radiogroup", { name: "바탕" });
+  await menuButton.click();
+  // 번역한 쪽이 없으면 원문만 고를 수 있다
+  await expect(base.getByRole("radio", { name: /원문/ })).toBeChecked();
+  await expect(base.getByRole("radio", { name: /번역본/ })).toBeDisabled();
+  await expect(base).toContainText(`0/${pageCount}쪽`);
+  await page.keyboard.press("Escape");
+
+  await translateFirstPage(page, versionId);
+  await menuButton.click(); // 창을 열 때마다 번역한 쪽을 다시 센다
+  await expect(base).toContainText(`1/${pageCount}쪽`);
+  await base.locator(".seg-opt", { hasText: "번역본" }).click();
+  await expect(base.getByRole("radio", { name: /번역본/ })).toBeChecked();
+  await expect(dialog.locator(".pdf-export-hint")).toContainText("나머지 쪽은 원문 그대로");
+
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "PDF 내려받기" }).click();
+  const bytes = readFileSync(await (await download).path());
+  const original = await (await page.request.get(`/api/v1/versions/${versionId}/pdf`)).body();
+  expect(bytes.subarray(0, original.length).equals(original)).toBe(true); // 원본은 그대로, 뒤에 덮개를 덧붙인다
+  const added = bytes.subarray(original.length).toString("latin1");
+  expect(added).toContain("/BaseFont /WantedSans-Regular"); // 번역문 글꼴(쓴 글자만)을 넣는다
+  expect(added).toContain("/FontFile2");
+
+  // 다른 시험이 번역하지 않은 이 논문을 쓰게 되돌린다
+  expect((await page.request.delete(`/api/v1/versions/${versionId}/translations/ko`)).status()).toBe(204);
+  await page.request.put("/api/v1/settings", { data: settings });
+});

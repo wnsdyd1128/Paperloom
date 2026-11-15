@@ -1089,7 +1089,16 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
         onOpenChat={() => (chatDetached ? void chatTab.show() : openPanel("chat"))}
         onSummary={() => chatTarget()?.({ kind: "summary", nonce: Date.now() })}
         onCopyLink={() => void copyLink()}
-        pdfExport={<PdfExportMenu versionId={versionId} title={paper.title} disabled={!ready} counts={pdfPartCounts(annotationItems, inline.items, versionId)} />}
+        pdfExport={
+          <PdfExportMenu
+            versionId={versionId}
+            title={paper.title}
+            disabled={!ready}
+            counts={pdfPartCounts(annotationItems, inline.items, versionId)}
+            pageCount={pageCount}
+            language={preferences.answer_language}
+          />
+        }
         wikiExport={wikiExportShown(outbox.outbox)}
         exportProblem={outbox.problem}
         onExport={() => setExportOpen(true)}

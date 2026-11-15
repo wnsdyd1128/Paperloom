@@ -1,10 +1,12 @@
 /**
  * 주석을 넣은 PDF 내보내기 (2026-11-13 사용자 요청). 서버가 원본 PDF 뒤에 고른 것을 PDF 표준 주석으로 붙인다
- * (backend/src/paperloom/pdf_export). 사이드바의 Claude 대화와 번역은 넣지 않는다.
+ * (backend/src/paperloom/pdf_export). 사이드바의 Claude 대화와 선택 메뉴의 번역은 넣지 않는다.
+ * 바탕으로 레이아웃 유지 번역본도 고른다(2026-11-15 사용자 요청): 서버가 번역한 쪽의 원문 문단 자리에 번역문을 쓴다.
  */
 import type { IconName } from "../../shared/Icon";
 import type { Annotation } from "../annotations/api";
 import type { InlineThread } from "../threads/useInlineThreads";
+import type { Language } from "../translation/api";
 
 /** 넣을 수 있는 것 (서버의 pdf_export.marks.Part) */
 export type PdfPart = "highlights" | "notes" | "explanations" | "questions";
@@ -17,8 +19,17 @@ export const PDF_PARTS: readonly Readonly<{ part: PdfPart; label: string; icon: 
   { part: "questions", label: "AI 질문", icon: "ask" },
 ];
 
-export function annotatedPdfUrl(versionId: string, parts: readonly PdfPart[]): string {
+/** 번역본 바탕: 번역 언어와 레이아웃 유지 번역의 글꼴 배율(번역 글꼴 단추) */
+export type TranslatedBase = Readonly<{ language: Language; scale: number }>;
+
+/** translated가 없으면 원본 바탕이다 */
+export function annotatedPdfUrl(versionId: string, parts: readonly PdfPart[], translated?: TranslatedBase): string {
   const query = new URLSearchParams(parts.map((part) => ["include", part]));
+  if (translated) {
+    query.set("base", "translated");
+    query.set("language", translated.language);
+    query.set("scale", String(translated.scale));
+  }
   return `/api/v1/versions/${encodeURIComponent(versionId)}/annotated-pdf?${query}`;
 }
 

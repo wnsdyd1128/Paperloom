@@ -13,6 +13,10 @@ describe("annotatedPdfUrl", () => {
   it("고른 것을 include로 하나씩 보낸다", () => {
     expect(annotatedPdfUrl("v 1", ["highlights", "questions"])).toBe("/api/v1/versions/v%201/annotated-pdf?include=highlights&include=questions");
   });
+
+  it("번역본 바탕이면 언어와 번역 글꼴 배율을 함께 보낸다", () => {
+    expect(annotatedPdfUrl("v1", ["notes"], { language: "ko", scale: 0.9 })).toBe("/api/v1/versions/v1/annotated-pdf?include=notes&base=translated&language=ko&scale=0.9");
+  });
 });
 
 describe("pdfPartCounts", () => {

@@ -2020,6 +2020,31 @@ body.is-resizing-side {
   line-height: 1.4;
 }
 
+/* 바탕: 원문 | 번역본 (창 폭을 반씩) */
+.pdf-export-base {
+  display: flex;
+}
+
+.pdf-export-base .seg-opt {
+  flex: 1;
+  justify-content: center;
+}
+
+.pdf-export-base .seg-opt:has(input:disabled) {
+  color: var(--color-neutral-600);
+  cursor: not-allowed;
+}
+
+.pdf-export-base .seg-opt:has(input:disabled):hover {
+  background: none;
+}
+
+.pdf-export-pages {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
 .pdf-export-parts {
   display: flex;
   flex-direction: column;
