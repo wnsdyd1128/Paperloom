@@ -11,6 +11,7 @@ requires-python = ">=3.13"
 # 모델 파일(레이아웃·글줄 인식, documents.layout_model·ocr_model)은 패키지가 아니라 따로 받는다.
 dependencies = [
     "fastapi>=0.141",
+    "fonttools>=4.68",  # 번역본 PDF 내보내기: 쓴 글자만 담은 Wanted Sans를 PDF에 넣는다(pdf_export.fonts)
     "pillow>=13",  # 모델 입력 그림(레이아웃: 쪽을 800×800으로 줄인다, 글줄 인식: 글줄을 높이 48로 자른다)
     "pydantic>=2.11",
     "pypdf>=6.19",  # 수식 글꼴의 /Differences 글리프 이름(유니코드가 없는 수식 기호 되찾기, documents.glyphs). 테스트의 합성 PDF 생성에도 쓴다
@@ -32,3 +33,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"paperloom.pdf_export" = ["fonts/*"]  # 번역본 PDF에 넣는 글꼴(Wanted Sans, OFL)

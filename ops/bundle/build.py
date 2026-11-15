@@ -68,7 +68,7 @@ NOTICES = """Paperloom {version} Windows 압축본에 함께 든 것과 그 라�
 - PP-DocLayout_plus-L, PP-OCRv6_small_rec (models 폴더, PaddlePaddle): Apache License 2.0
   https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx
   https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx
-- Wanted Sans 글꼴 (web 폴더): SIL Open Font License 1.1 (licenses\\Wanted-Sans-OFL.txt)
+- Wanted Sans 글꼴 (web 폴더, 번역본 PDF에 넣는 paperloom 패키지의 pdf_export/fonts 폴더): SIL Open Font License 1.1 (licenses\\Wanted-Sans-OFL.txt)
 - PDF.js (web 폴더): Apache License 2.0
 """
 

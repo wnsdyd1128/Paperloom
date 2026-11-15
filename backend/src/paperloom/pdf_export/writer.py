@@ -4,8 +4,11 @@
 좌표는 anchor.v1 정본 좌표(회전 전 view box = CropBox ∩ MediaBox 기준, 좌상단 원점, 0~1, reading.geometry)를 PDF 사용자
 공간으로 되돌린다. 주석 좌표는 회전 전 공간이므로 /Rotate와 상관없다.
 
+번역본 바탕이면 표시를 붙이기 전에 번역한 쪽을 번역문으로 덮고(overlay), 하이라이트는 그 번역 문장 자리로 옮긴다.
+
 신뢰할 수 없는 PDF를 다루므로 영역 이미지(reading.region_image)처럼 시간 제한이 있는 하위 프로세스에서 쓴다.
-하위 프로세스: `python -m paperloom.pdf_export.writer <pdf>`, stdin에 표시 목록(JSON) → stdout에 PDF.
+하위 프로세스: `python -m paperloom.pdf_export.writer <pdf>`, stdin에 {"marks": 표시 목록, "translated": 번역한 쪽들,
+"scale": 번역 글꼴 배율}(JSON) → stdout에 PDF.
 """
 
 import io
@@ -18,6 +21,8 @@ from pathlib import Path
 
 from paperloom.infrastructure.isolation import limit_resources
 from paperloom.pdf_export.marks import Mark
+from paperloom.pdf_export.overlay import draw_translations, page_space
+from paperloom.pdf_export.translated import TranslatedPage
 
 Box = tuple[float, float, float, float]  # x0, y0, x1, y1 (PDF 사용자 공간)
 
@@ -34,11 +39,13 @@ class ExportFailed(Exception):
         self.code = code
 
 
-def write_annotated(path: Path, marks: Sequence[Mark], timeout_seconds: float) -> bytes:
+def write_annotated(path: Path, marks: Sequence[Mark], timeout_seconds: float, translated: Sequence[TranslatedPage] = (), scale: float = 1.0) -> bytes:
+    """translated가 있으면 그 쪽들을 번역문으로 덮는다(번역본 바탕). scale은 번역 글꼴 배율이다."""
+    job = {"marks": [asdict(mark) for mark in marks], "translated": [page.drawing() for page in translated], "scale": scale}
     try:
         result = subprocess.run(
             [sys.executable, "-m", "paperloom.pdf_export.writer", str(path)],
-            input=json.dumps([asdict(mark) for mark in marks]).encode("utf-8"),
+            input=json.dumps(job).encode("utf-8"),
             capture_output=True,
             timeout=timeout_seconds,
             check=False,
@@ -74,32 +81,23 @@ def _overlaps(a: Box, b: Box) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
-def _view_box(page) -> Box:
-    """reading.geometry.page_geometry와 같은 규칙: CropBox(없으면 MediaBox)와 MediaBox의 교집합."""
-    media = _ordered(page.mediabox)
-    crop = _ordered(page.cropbox)
-    return max(media[0], crop[0]), max(media[1], crop[1]), min(media[2], crop[2]), min(media[3], crop[3])
-
-
-def _ordered(box) -> Box:
-    x0, y0, x1, y1 = (float(value) for value in box)
-    return min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
-
-
-def _annotate(path: str, marks: list[dict]) -> bytes:
+def _annotate(path: str, job: dict) -> bytes:
     import pypdf
     from pypdf.annotations import Highlight, Text
     from pypdf.constants import AnnotationFlag
     from pypdf.generic import ArrayObject, FloatObject, NameObject, NumberObject, TextStringObject
 
     writer = pypdf.PdfWriter(path, incremental=True)
+    moved = draw_translations(writer, job["translated"], job["scale"]) if job["translated"] else {}
     taken: dict[int, list[Box]] = {}
-    for mark in marks:
+    for mark in job["marks"]:
         page_index = mark["page_index"]
-        view_box = _view_box(writer.pages[page_index])
+        view_box = page_space(writer.pages[page_index]).view_box
         if mark["kind"] == "highlight":
+            # 번역본 바탕: 걸친 번역 문장 자리로 옮긴다. 번역하지 않은 쪽·문단이면 원래 자리다
+            quads = [quad for block_id, group in mark["targets"] for quad in moved.get((page_index, block_id, group), [])] or mark["quads"]
             points: list[float] = []
-            for quad in mark["quads"]:
+            for quad in quads:
                 corners = [to_user_space(u, v, view_box) for u, v in zip(quad[0::2], quad[1::2], strict=True)]
                 # 정본 quad는 좌상 → 우상 → 우하 → 좌하, /QuadPoints는 좌상 → 우상 → 좌하 → 우하(Acrobat이 쓰는 순서)다
                 for x, y in (corners[0], corners[1], corners[3], corners[2]):
@@ -131,8 +129,8 @@ def _annotate(path: str, marks: list[dict]) -> bytes:
 
 def _main() -> None:
     limit_resources()
-    marks = json.loads(sys.stdin.buffer.read())
-    sys.stdout.buffer.write(_annotate(sys.argv[1], marks))
+    job = json.loads(sys.stdin.buffer.read())
+    sys.stdout.buffer.write(_annotate(sys.argv[1], job))
 
 
 if __name__ == "__main__":

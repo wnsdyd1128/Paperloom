@@ -5,7 +5,7 @@
 Reader 사이드바의 Claude 대화와 선택 메뉴의 번역은 넣지 않는다(사용자 결정: 대화는 나중에, 번역은 빼기).
 """
 
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -32,6 +32,8 @@ class Mark:
     label: str  # 메모 창 제목(/T)
     contents: str  # 메모 글(/Contents). 빈 글이면 표시만 한다
     rgb: str  # RRGGBB
+    # 번역본 바탕에서 하이라이트를 칠할 번역 문장 묶음 (문단 ID, 묶음 차례). 없으면 quads 자리에 칠한다(translated)
+    targets: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -51,20 +53,26 @@ class Thread:
     turns: Sequence[Turn]
 
 
-def marks_for(annotations: Sequence[AnnotationOut], threads: Sequence[Thread], parts: Collection[Part]) -> list[Mark]:
-    """고른 부분(parts)의 표시를 읽는 순서(쪽, 위, 왼쪽)로. 같은 자리면 주석이 대화보다 앞이다."""
-    marks = [mark for annotation in annotations for mark in _annotation_marks(annotation, parts)]
+def marks_for(
+    annotations: Sequence[AnnotationOut],
+    threads: Sequence[Thread],
+    parts: Collection[Part],
+    targets_for: Callable[[AnchorOut], tuple[tuple[str, int], ...]] = lambda anchor: (),
+) -> list[Mark]:
+    """고른 부분(parts)의 표시를 읽는 순서(쪽, 위, 왼쪽)로. 같은 자리면 주석이 대화보다 앞이다.
+    targets_for는 하이라이트를 칠할 번역 문장 묶음을 준다(번역본 바탕일 때)."""
+    marks = [mark for annotation in annotations for mark in _annotation_marks(annotation, parts, targets_for)]
     wanted = {"explain": "explanations" in parts, "ask": "questions" in parts}
     marks += [_thread_mark(thread) for thread in threads if wanted[thread.kind] and thread.turns]
     return sorted(marks, key=lambda mark: (mark.page_index, mark.quads[0][1], mark.quads[0][0]))
 
 
-def _annotation_marks(annotation: AnnotationOut, parts: Collection[Part]) -> list[Mark]:
+def _annotation_marks(annotation: AnnotationOut, parts: Collection[Part], targets_for: Callable[[AnchorOut], tuple[tuple[str, int], ...]]) -> list[Mark]:
     anchor = annotation.anchor
     comment = annotation.comment.strip() if "notes" in parts else ""
     if annotation.color is not None and "highlights" in parts:
         label = "주석" if comment else "하이라이트"
-        return [Mark(anchor.page_index, "highlight", anchor.quads, label, comment, HIGHLIGHT_RGB[annotation.color])]
+        return [Mark(anchor.page_index, "highlight", anchor.quads, label, comment, HIGHLIGHT_RGB[annotation.color], targets_for(anchor))]
     if comment:
         return [_note(anchor, "주석", comment)]
     return []

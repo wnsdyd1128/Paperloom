@@ -1,5 +1,5 @@
 """주석을 넣은 PDF 내려받기 (2026-11-13 사용자 요청): 원본 뒤에 하이라이트·주석·설명·AI 질문을 PDF 표준 주석으로 붙인다.
-번역 대화·지운 대화·사이드바 대화는 넣지 않는다."""
+번역 대화·지운 대화·사이드바 대화는 넣지 않는다. 바탕으로 레이아웃 유지 번역본도 고른다(2026-11-15 사용자 요청)."""
 
 import io
 import json
@@ -15,6 +15,8 @@ from fastapi.testclient import TestClient
 
 from paperloom.bootstrap.app import create_app
 from paperloom.bootstrap.config import AppSettings, Settings
+from paperloom.documents.block_kinds import NOT_BODY
+from paperloom.documents.sentences import sentence_spans
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "pdf-layout"
 ACCENT_400 = (255, 151, 131)  # 하이라이트 c2
@@ -159,3 +161,49 @@ def test_unknown_versions_parts_and_broken_sources_are_refused(client, tmp_path)
         path.write_bytes(b"%PDF-1.7\nbroken")
     broken = client.get(f"/api/v1/versions/{client.version_id}/annotated-pdf")
     assert (broken.status_code, broken.json()["code"]) == (500, "EXPORT_FAILED")
+
+
+def translate_page(client: TestClient, language: str = "ko") -> list[dict]:
+    """브리지가 하듯 쪽 1의 본문 문단을 문장마다 번역해 저장하고 그 문단들을 돌려준다(그림 안 글자는 번역하지 않는다)."""
+    blocks = [
+        block
+        for block in client.get(f"/api/v1/versions/{client.version_id}/pages/0").json()["blocks"]
+        if NOT_BODY.isdisjoint(block["quality_flags"]) and sentence_spans(block["text"])
+    ]
+    body = {"blocks": [{"block_id": block["block_id"], "sentences": [f"번역문 {index}" for index, _ in enumerate(sentence_spans(block["text"]))]} for block in blocks]}
+    assert client.put(f"/api/v1/versions/{client.version_id}/pages/0/translations/{language}", json=body).status_code == 200
+    return blocks
+
+
+def test_the_translated_base_writes_the_translation_over_the_original_paragraphs(client):
+    """레이아웃 유지 번역본 바탕 (2026-11-15 사용자 요청): 번역한 문단 자리를 덮고 번역문을 쓴다. 원본은 앞에 그대로 있다."""
+    body = next(block for block in translate_page(client) if block["text"].startswith("BODY"))
+    u0, v0, u1, v1 = body["regions"][0]
+    anchor = client.post(
+        "/api/v1/anchors",
+        json={"schema_version": "anchor.v1", "version_id": client.version_id, "page_index": 0, "quads": [[u0 + 0.2, v0, u1, v0, u1, v1, u0 + 0.2, v1]], "quote": "NOT A FIGURE"},
+    ).json()["anchor_id"]
+    annotate(client, anchor, color="c2")
+    original = client.get(f"/api/v1/versions/{client.version_id}/pdf").content
+
+    response = client.get(f"/api/v1/versions/{client.version_id}/annotated-pdf", params={"base": "translated", "language": "ko"})
+
+    assert response.status_code == 200
+    assert response.content.startswith(original)
+    page = pdfium.PdfDocument(response.content)[0]
+    assert "번역문 0" in page.get_textpage().get_text_range()
+    # 하이라이트는 원문 낱말 자리(u0 + 0.2부터)가 아니라 그 문장의 번역문 자리(문단 왼쪽 끝부터)에 칠한다
+    [highlight] = added_annotations(client, response.content)
+    width = page.get_size()[0]
+    assert float(highlight["/QuadPoints"][0]) == pytest.approx(u0 * width, abs=0.5)
+
+    # 그 언어로 번역한 쪽이 없으면 원본 바탕과 같다
+    english = client.get(f"/api/v1/versions/{client.version_id}/annotated-pdf", params={"base": "translated", "language": "en"})
+    assert "번역문" not in pdfium.PdfDocument(english.content)[0].get_textpage().get_text_range()
+    assert float(added_annotations(client, english.content)[0]["/QuadPoints"][0]) == pytest.approx((u0 + 0.2) * width, abs=0.5)
+
+
+def test_the_translation_font_scale_stays_within_the_web_range(client):
+    for scale in ("0.5", "1.4"):
+        response = client.get(f"/api/v1/versions/{client.version_id}/annotated-pdf", params={"base": "translated", "scale": scale})
+        assert (response.status_code, response.json()["code"]) == (422, "INVALID_REQUEST")
