@@ -52,7 +52,7 @@ AI 기능은 이 PC에 로그인한 Claude Code(claude.ai 구독)로 실행하�
 | Claude와 대화 | 논문 본문 또는 현재 쪽을 근거로 대화, 3줄 요약, 대화 기록·이름 바꾸기, 답마다 갈래 만들기, 모델(Sonnet·Opus·Haiku) 고르기 |
 | 쪽 번역 | 레이아웃 유지·글로 읽기·별도 탭 세 가지 보기, 보는 쪽 바로 번역, 모든 쪽 번역, 원문 ↔ 번역 문장 강조. 수식·표·그림 속 글자·알고리즘 의사코드·머리글·참고문헌은 원문 그대로 두고 캡션은 번역 |
 | 기록 | 하이라이트·주석 패널(검색, 색·종류 거르기, Markdown으로 모두 복사), 모든 논문의 대화를 모은 답변 화면 |
-| PDF로 내보내기 | 하이라이트·주석·설명·AI 질문 가운데 고른 것을 PDF 표준 주석(색칠·메모)으로 넣은 원문 PDF 내려받기 |
+| PDF로 내보내기 | 하이라이트·주석·설명·AI 질문 가운데 고른 것을 PDF 표준 주석(색칠·메모)으로 넣은 원문 PDF나 레이아웃 유지 번역본 PDF 내려받기 |
 | 설정 | 답변·번역 언어(한국어·English), 기본 모델, 논문 본문 한도(약 4–100쪽), 다크 모드, 글꼴 크기, 수식 구분 기호, 설명·번역·요약 프롬프트 개인화 |
 
 ## 동작 방식
@@ -205,7 +205,8 @@ Reader 머리의 내려받기 단추(`PDF로 내보내기`)를 눌러 넣을 것
 
 - `하이라이트`는 원문 위에 같은 색으로 칠합니다. 하이라이트에 단 메모는 `주석`도 고르면 그 하이라이트의 메모가 됩니다.
 - `주석`·`설명`·`AI 질문`은 그 줄 높이의 쪽 여백에 메모 아이콘으로 넣습니다. 메모 첫 줄에는 고른 글을 인용하고(영역이면 `[그림]`·`[표]`·`[수식]`), 설명은 Claude의 답을, AI 질문은 물은 말과 답을 그 아래에 적습니다.
-- 사이드바의 `Claude와 대화`와 번역은 넣지 않습니다.
+- 바탕은 `원문`과 `번역본` 가운데 고릅니다. `번역본`은 번역해 둔 쪽의 원문 문단을 흰 상자로 가리고 그 자리에 레이아웃 유지 번역처럼 번역문을 씁니다. 번역하지 않은 쪽은 원문 그대로 두고, 하이라이트는 걸친 문장의 번역문에 칠합니다. 내보낼 때 새로 번역하지는 않습니다.
+- 사이드바의 `Claude와 대화`와 선택 메뉴의 번역은 넣지 않습니다.
 
 ### 단축키
 
@@ -318,7 +319,7 @@ ops/                            Docker Compose, Windows 압축본(ops/bundle), �
 
 ## 서드파티
 
-- [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`)
+- [Wanted Sans](https://github.com/wanteddev/wanted-sans): SIL Open Font License 1.1 (`apps/web/src/shared/theme/fonts/OFL.txt`, 번역본 PDF에 넣는 사본은 `backend/src/paperloom/pdf_export/fonts/OFL.txt`)
 - [PDF.js](https://mozilla.github.io/pdf.js/): Apache License 2.0
 - [Swagger UI](https://github.com/swagger-api/swagger-ui): Apache License 2.0 (웹 빌드의 `swagger/LICENSE`, `swagger/NOTICE`)
 - [PP-DocLayout_plus-L](https://huggingface.co/PaddlePaddle/PP-DocLayout_plus-L_onnx) (PaddlePaddle): Apache License 2.0. 저장소에는 넣지 않고 이미지·압축본을 만들 때 받습니다
