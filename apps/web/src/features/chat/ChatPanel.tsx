@@ -26,6 +26,7 @@ import {
   type SessionMeta,
   sessionsOf,
 } from "./sessions";
+import { MOTION_STYLE, StreamingAnswer } from "./StreamingAnswer";
 import { type ChatScope, planTurn } from "./turnPlan";
 
 /**
@@ -210,11 +211,12 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const { inherited, own } = conversationTurns(answers, session, links, fork && { parent: fork.parent, at: fork.at });
   const turns = [...inherited, ...own];
 
-  // 새 답이 오면 맨 아래로 내린다.
-  useEffect(() => {
+  // 새 답이 오면 맨 아래로 내린다. 만드는 중인 답은 칸 높이가 spring으로 늘어나므로 늘 때마다 내린다(StreamingAnswer).
+  const scrollToEnd = () => {
     const list = messagesRef.current;
     if (list) list.scrollTop = list.scrollHeight;
-  }, [turns.length, pending?.text, session]);
+  };
+  useEffect(scrollToEnd, [turns.length, pending?.text, session]);
 
   /**
    * 차례 하나를 브리지에 보낸다. 만드는 중인 차례와 그 결과는 runningTurn.ts를 거친다: 답을 받는 중에 이 칸이 사라져도
@@ -514,14 +516,10 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         ))}
         {inherited.length > 0 && own.length === 0 && <ForkDivider />}
         {pending && (
-          <div className="chat-turn is-pending">
+          <div className="chat-turn is-pending" style={MOTION_STYLE}>
             <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} onShowAnchor={onShowAnchor} />
             <div className="chat-answer">
-              {pending.text ? (
-                <AnswerMarkdown markdown={pending.text} canCite={() => false} onCite={() => undefined} streaming />
-              ) : (
-                <p className="chat-thinking muted">답을 만드는 중…</p>
-              )}
+              <StreamingAnswer text={pending.text} onGrow={scrollToEnd} />
             </div>
           </div>
         )}

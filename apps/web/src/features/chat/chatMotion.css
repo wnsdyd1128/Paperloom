@@ -1,0 +1,105 @@
+/*
+ * 대화의 움직임 (Motion Studies Goo Thinking·Streaming Reply를 Paperloom 토큰으로).
+ * spring 곡선은 chat/StreamingAnswer.tsx가 shared/spring.ts로 만들어 --word-*·--rise-* 변수로 준다.
+ */
+
+/* — 만드는 중인 답: 점 셋이 튀는 판이 답으로 열린다 — */
+.chat-stream {
+  position: relative;
+  width: 64px;
+  height: 40px;
+  overflow: hidden;
+}
+
+/* 판 바탕. 열리는 만큼 사라진다(--pill 1 → 0) */
+.chat-stream::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
+  opacity: var(--pill, 1);
+}
+
+/* 질문 다음에 판이 올라온다 (원본 0.6초 늦게, 300/22) */
+.chat-stream:not([data-open]) {
+  animation: chat-rise var(--rise-time) var(--rise-ease) 0.3s both;
+}
+
+.chat-goo-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.chat-goo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 40px;
+}
+
+.chat-goo i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-neutral-700);
+  will-change: transform;
+}
+
+.chat-stream-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* 낱말 하나: 아래에서 올라오며 흐림이 걷힌다 (원본 340/26) */
+.stream-word {
+  display: inline-block;
+  animation: stream-word var(--word-time) var(--word-ease) both;
+}
+
+@keyframes stream-word {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* 보낸 질문이 올라온다 (원본 300/22) */
+.chat-turn.is-pending .chat-user {
+  animation: chat-rise-in var(--rise-time) var(--rise-ease) both;
+}
+
+@keyframes chat-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes chat-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-word,
+  .chat-stream:not([data-open]),
+  .chat-turn.is-pending .chat-user {
+    animation: none;
+  }
+}

@@ -7,6 +7,7 @@ import { AnswerMarkdown } from "../answers/AnswerMarkdown";
 import { findCitation } from "../answers/citations";
 import type { Citation } from "../answers/api";
 import type { Artifact } from "../artifacts/artifact";
+import { StreamingAnswer } from "../chat/StreamingAnswer";
 import { usePreferences } from "../settings/PreferencesProvider";
 import type { ThreadKind } from "./api";
 import { dragOffset, type Offset } from "./drag";
@@ -319,11 +320,7 @@ function ThreadWindow({
           <div className="inline-turn is-pending">
             {(item.kind === "ask" || answers.length > 0) && <p className="inline-question">{item.pending.prompt}</p>}
             <div className="chat-answer">
-              {item.pending.text ? (
-                <AnswerMarkdown markdown={item.pending.text} canCite={() => false} onCite={() => undefined} streaming />
-              ) : (
-                <p className="chat-thinking muted">답을 만드는 중…</p>
-              )}
+              <StreamingAnswer text={item.pending.text} />
             </div>
             <button type="button" className="btn btn-ghost inline-stop" onClick={() => void threads.stop(item.key)} disabled={!item.pending.runId}>
               <Icon name="stop" size={12} /> 중단

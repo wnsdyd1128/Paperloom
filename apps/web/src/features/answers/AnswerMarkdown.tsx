@@ -9,6 +9,7 @@ import { type Artifact, ARTIFACT_LANGUAGE, fencedArtifact, parseArtifact } from 
 import { ArtifactCard } from "../artifacts/ArtifactCard";
 import { FIGURE_SCHEME, type FigureImages } from "../artifacts/paperFigures";
 import { citeTarget, isLegacyAnswer, OLD_CITE_PREFIX, PAGE_PREFIX, remarkCitations, remarkInlineMathTags, remarkOutsideEvidence } from "./citations";
+import { rehypeStreamWords } from "./streamWords";
 
 type Props = Readonly<{
   markdown: string;
@@ -111,7 +112,8 @@ export function AnswerMarkdown({ markdown, canCite, onCite, onPage, onOpenArtifa
     <div className="markdown">
       <Markdown
         remarkPlugins={[remarkGfm, remarkMath, remarkInlineMathTags, remarkOutsideEvidence, [remarkCitations, { legacy: isLegacyAnswer(markdown) }]]}
-        rehypePlugins={[rehypeKatex]}
+        // 만드는 중에는 낱말마다 감싸 하나씩 나타나게 한다(수식을 그린 뒤라 KaTeX 글은 건드리지 않는다)
+        rehypePlugins={streaming ? [rehypeKatex, rehypeStreamWords] : [rehypeKatex]}
         components={components}
         // 그림 참조는 기본 규칙이 모르는 주소라 지워지므로 이미지 주소일 때만 남긴다(img가 figures로 바꾼다)
         urlTransform={(url, key) => (key === "src" && url.startsWith(FIGURE_SCHEME) ? url : defaultUrlTransform(url))}
