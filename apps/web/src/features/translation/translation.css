@@ -289,6 +289,41 @@
   font-style: italic;
 }
 
+/* 번역을 기다리는 동안 번역될 문단의 줄 자리가 숨 쉰다. 쪽은 테마와 상관없이 밝은 원래 색이라 색을 고정한다 */
+.translated-skeleton {
+  position: absolute;
+  background: rgb(32 30 29 / 16%);
+  pointer-events: none;
+  animation: translated-wait 1.2s ease-in-out infinite;
+}
+
+@keyframes translated-wait {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/*
+ * 보는 동안 번역이 도착하면 문단이 읽는 차례로 한 번 나타난다 (spring·간격은 TranslatedPage.tsx). 번역문은 원문 줄과 같은
+ * 자리여야 하므로 움직이지 않고 투명도만 바꾼다: 올라오게 했더니 그동안 원문 문장 → 번역 문장 잇기가 어긋났다(E2E translation).
+ */
+.translated-block.is-arriving {
+  animation: translated-arrive var(--arrive-time) var(--arrive-ease) backwards;
+}
+
+@keyframes translated-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .translated-skeleton,
+  .translated-block.is-arriving {
+    animation: none;
+  }
+}
+
 .translated-page-message {
   position: absolute;
   top: 12px;

@@ -57,6 +57,8 @@ export type TextBlock = Readonly<{
   styles: readonly (readonly [number, number, string])[];
   /** 가운데 글꼴 크기(pt). 전에 추출한 문단은 null */
   font_size: number | null;
+  /** 추출이 붙인 표시(in_figure·page_header·reference 등). 쪽 번역이 어느 문단을 번역할지 같은 표시로 고른다 */
+  quality_flags?: readonly string[];
 }>;
 
 /** 추출이 끝나지 않은 버전이면 상태와 빈 pages가 온다. */

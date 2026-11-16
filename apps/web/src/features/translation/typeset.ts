@@ -8,6 +8,16 @@ export type Mark = "" | "b" | "i" | "bi";
 /** script: 아래첨자(sub)·위첨자(sup). 없으면 본 글자 */
 export type StyledRun = Readonly<{ text: string; bold: boolean; italic: boolean; script?: "sub" | "sup" }>;
 
+/**
+ * 쪽 번역이 번역하는 문단: 글이 있고 본문이 아닌 표시가 없는 것. 서버 documents/block_kinds.NOT_BODY와 같은 목록이다
+ * (그림·표 안, 따로 놓인 수식, 머리글·바닥글, 참고문헌). 번역을 기다리는 동안 그 자리를 표시하는 데 쓴다.
+ */
+const NOT_BODY = new Set(["in_figure", "in_table", "math", "page_header", "page_footer", "reference"]);
+
+export function translatableBlocks(blocks: readonly TextBlock[]): TextBlock[] {
+  return blocks.filter((block) => block.text.trim() !== "" && !(block.quality_flags ?? []).some((flag) => NOT_BODY.has(flag)));
+}
+
 const TAG = /<(\/?)(b|i|sub|sup)>/gi;
 const MARKS: readonly string[] = ["b", "i", "bi"];
 

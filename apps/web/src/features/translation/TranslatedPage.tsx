@@ -3,18 +3,27 @@
  * 번역문을 맞춰 넣는다. 그림·표는 원문 그대로다(그림 안 글자는 번역하지 않는다). 번역문은 원문 글꼴 크기·줄 간격·굵게·기울임을
  * 따르고(2026-10-03 사용자 요청), 문장(묶음)마다 나뉘어 마우스를 올리면 그 문장과 원문 문장을 함께 강조한다(onHover).
  * 쪽 그림은 화면에 들어올 때만 그린다.
+ * 번역을 기다리는 동안은 번역될 문단의 줄 자리가 숨 쉬고, 보는 동안 번역이 도착하면 문단이 읽는 차례로 한 번 나타난다
+ * (2026-11-16 사용자 요청). 저장된 번역을 읽었거나 화면 밖에서 번역된 쪽은 움직이지 않고 바로 보인다.
  */
 import type { PDFDocumentProxy, PageViewport, RenderTask } from "pdfjs-dist";
 import { type CSSProperties, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { springEasing } from "../../shared/spring";
 import type { TextBlock } from "../library/api";
 import { boxToQuad, quadToCssRect } from "../reader/geometry";
 import type { LinkedSentence } from "./linkedSentence";
 import { useLayoutScale } from "./TranslationControls";
 import { StyledText } from "./TranslationText";
 import { type SentenceGroup, sentenceGroups } from "./sentences";
-import { blockFrame, singleLineRoom, wholeMark } from "./typeset";
+import { blockFrame, singleLineRoom, translatableBlocks, wholeMark } from "./typeset";
 import type { PageEntry } from "./useTranslation";
+
+/** 도착한 문단이 나타나는 spring(Motion Studies spring-fade 420/32)과 문단 사이 간격(--stagger 45ms). 긴 쪽도 0.6초 안에 다 시작한다 */
+const ARRIVE = springEasing(420, 32);
+const ARRIVE_STYLE = { "--arrive-ease": ARRIVE.easing, "--arrive-time": `${ARRIVE.duration.toFixed(3)}s` } as CSSProperties;
+const STAGGER_MS = 45;
+const MAX_STAGGERED = 12;
 
 /**
  * 원문 문장 강조: 그 쪽·문단(글과 줄 상자)과 문단 text 안 범위들. null이면 지운다. 문단을 함께 실어, 별도 탭의 강조를
@@ -86,11 +95,28 @@ export function TranslatedPage({ pdfDocument, pageIndex, viewport, size, entry, 
     };
   }, [visible, pdfDocument, pageIndex, viewport.scale, viewport.rotation]);
 
+  // 이 쪽을 보는 동안 번역이 도착했을 때만 문단을 차례로 보인다(그리기 전에 정해 번역문이 한 번 먼저 보이지 않게)
+  const status = entry?.status;
+  const previous = useRef(status);
+  const [arriving, setArriving] = useState(false);
+  useLayoutEffect(() => {
+    if (previous.current === "translating" && status === "ready" && visible) setArriving(true);
+    else if (status !== "ready") setArriving(false);
+    previous.current = status;
+  }, [status, visible]);
+
   const ready = entry?.status === "ready" ? entry : null;
   const blocks = ready ? new Map(ready.blocks.map((block) => [block.block_id, block])) : null;
   const translated = ready && blocks ? ready.translation.blocks.flatMap((item) => (blocks.has(item.block_id) ? [{ item, block: blocks.get(item.block_id)! }] : [])) : [];
+  const waiting = entry?.status === "translating" && entry.blocks ? translatableBlocks(entry.blocks) : [];
+  const covered = ready ? translated.map(({ block }) => block) : waiting;
   return (
-    <div ref={ref} className="translated-page" data-page-index={pageIndex} style={{ width: size?.width ?? viewport.width, height: size?.height ?? viewport.height }}>
+    <div
+      ref={ref}
+      className="translated-page"
+      data-page-index={pageIndex}
+      style={{ ...ARRIVE_STYLE, width: size?.width ?? viewport.width, height: size?.height ?? viewport.height }}
+    >
       <div
         className="translated-page-content"
         style={{
@@ -102,18 +128,32 @@ export function TranslatedPage({ pdfDocument, pageIndex, viewport, size, entry, 
         <canvas ref={canvasRef} className="translated-page-canvas" aria-hidden="true" />
         {/* 원문 글을 가리는 흰 바탕은 번역문 아래 층에 따로 둔다: 문단 상자가 겹쳐도(큰 첫 글자 등) 뒤 문단 바탕이 앞 문단 번역을 가리지 않는다 */}
         <div className="translated-masks" aria-hidden="true">
-          {translated.map(({ block }) => {
+          {covered.map((block) => {
             const frame = blockFrame(blockLines(block, viewport), block.font_size, viewport.scale, scale);
             return <div key={block.block_id} className="translated-mask" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }} />;
           })}
         </div>
-        {translated.map(({ item, block }) => (
+        {waiting.length > 0 && (
+          <div className="translated-waiting" aria-hidden="true">
+            {waiting.flatMap((block) =>
+              blockLines(block, viewport).map((line, index) => (
+                <span
+                  key={`${block.block_id}:${index}`}
+                  className="translated-skeleton"
+                  style={{ left: line.left, top: line.top + (line.bottom - line.top) * 0.25, width: line.right - line.left, height: (line.bottom - line.top) * 0.5 }}
+                />
+              )),
+            )}
+          </div>
+        )}
+        {translated.map(({ item, block }, index) => (
           <TranslatedBlockBox
             key={item.block_id}
             block={block}
             groups={sentenceGroups(item.sentences)}
             viewport={viewport}
             scale={scale}
+            arriveDelay={arriving ? Math.min(index, MAX_STAGGERED) * STAGGER_MS : null}
             linkedGroup={linked?.pageIndex === pageIndex && linked.blockId === block.block_id ? linked.group : null}
             onHover={(ranges) => onHover(ranges && { pageIndex, block: { block_id: block.block_id, text: block.text, regions: block.regions }, ranges })}
           />
@@ -134,6 +174,7 @@ function TranslatedBlockBox({
   groups,
   viewport,
   scale,
+  arriveDelay,
   linkedGroup,
   onHover,
 }: Readonly<{
@@ -141,6 +182,8 @@ function TranslatedBlockBox({
   groups: readonly SentenceGroup[];
   viewport: PageViewport;
   scale: number;
+  /** 보는 동안 도착한 번역이면 나타나기 시작까지의 늦춤(ms). 아니면 null(바로 보인다) */
+  arriveDelay: number | null;
   linkedGroup: number | null;
   onHover: (ranges: SentenceGroup["ranges"] | null) => void;
 }>) {
@@ -162,11 +205,20 @@ function TranslatedBlockBox({
 
   // 한 줄 문단(제목 등)은 번역이 원문보다 길면 그 단 안에서 늘려 한 줄로 둔다(상자 폭에 맞추면 글자가 너무 작아진다).
   const room = singleLineRoom(frame, viewport.width);
-  const style: CSSProperties = frame.single
+  const placed: CSSProperties = frame.single
     ? { left: frame.left, top: frame.top, minWidth: frame.width, width: "max-content", maxWidth: room, height: frame.height, lineHeight: frame.lineHeight }
     : { left: frame.left, top: frame.top, width: frame.width, height: frame.height, lineHeight: frame.lineHeight };
+  const style: CSSProperties = arriveDelay === null ? placed : { ...placed, animationDelay: `${arriveDelay}ms` };
   const mark = wholeMark(block);
-  const className = ["translated-block", frame.single && "is-single", mark.includes("b") && "is-bold", mark.includes("i") && "is-italic"].filter(Boolean).join(" ");
+  const className = [
+    "translated-block",
+    frame.single && "is-single",
+    mark.includes("b") && "is-bold",
+    mark.includes("i") && "is-italic",
+    arriveDelay !== null && "is-arriving",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <div ref={ref} className={className} style={style} data-block-id={block.block_id}>
       {groups.map((group, index) => (

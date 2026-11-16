@@ -5,7 +5,7 @@ import { blockAtPoint, groupAtPoint } from "./linkedSentence";
 import { locateText } from "./locate";
 import { batchProgress, nextPageToTranslate, type PageInfo } from "./schedule";
 import { sentenceGroups } from "./sentences";
-import { blockFrame, singleLineRoom, styledRuns, wholeMark } from "./typeset";
+import { blockFrame, singleLineRoom, styledRuns, translatableBlocks, wholeMark } from "./typeset";
 
 const page = (pageIndex: number, extra: Partial<PageInfo> = {}): PageInfo => ({ pageIndex, hasText: true, ...extra });
 // 2: 글 없는 쪽, 4: 참고문헌·그림·표뿐인 쪽(본문 없음)
@@ -140,6 +140,23 @@ describe("wholeMark (문단 전체 모양: 번역이 표시를 빼도 제목은 
     expect(wholeMark({ text: "5.2 Scheduling", styles: [[4, 14, "b"]] })).toBe("");
     expect(wholeMark({ text: "Plain", styles: [] })).toBe("");
     expect(wholeMark({ text: "Odd", styles: [[0, 3, "x"]] })).toBe("");
+  });
+});
+
+describe("translatableBlocks (번역을 기다리는 동안 표시할 문단, 서버 NOT_BODY와 같다)", () => {
+  it("글이 있는 본문 문단만, 그림·표·수식·머리글·바닥글·참고문헌은 뺀다", () => {
+    const block = (block_id: string, text: string, quality_flags?: string[]) =>
+      ({ block_id, reading_order: 0, text, regions: [], styles: [], font_size: null, quality_flags }) as const;
+    const blocks = [
+      block("body", "Caches matter."),
+      block("old", "Extracted before flags."),
+      block("empty", "  "),
+      block("figure", "axis label", ["in_figure"]),
+      block("header", "Journal 2026", ["page_header"]),
+      block("refs", "[1] A. Author", ["reference"]),
+      block("mapped", "Body with odd glyphs", ["unmapped_chars"]),
+    ];
+    expect(translatableBlocks(blocks).map((item) => item.block_id)).toEqual(["body", "old", "mapped"]);
   });
 });
 

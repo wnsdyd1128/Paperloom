@@ -14,7 +14,8 @@ import { batchProgress, nextPageToTranslate, type PageInfo } from "./schedule";
 export type PageEntry =
   | Readonly<{ status: "loading" }>
   | Readonly<{ status: "missing" }>
-  | Readonly<{ status: "translating" }>
+  /** blocks: 번역을 기다리는 동안 먼저 받은 그 쪽 문단(번역될 자리를 표시한다). 받기 전에는 null */
+  | Readonly<{ status: "translating"; blocks: readonly TextBlock[] | null }>
   | Readonly<{ status: "ready"; translation: PageTranslation; blocks: readonly TextBlock[] }>
   | Readonly<{ status: "failed"; code: string; message: string }>;
 
@@ -113,10 +114,18 @@ export function useTranslation({ versionId, language, bridge, pages, current, ac
     async (page: number, force: boolean) => {
       const runKey = keyRef.current;
       setRunning(page);
-      setEntry(page, { status: "translating" });
+      setEntry(page, { status: "translating", blocks: null });
+      // 문단은 번역을 기다리는 동안 먼저 받아 번역될 자리를 보인다(TranslatedPage)
+      const pageBlocks = getPageBlocks(versionId, page);
+      pageBlocks
+        .then((blocks) => {
+          if (keyRef.current !== runKey) return;
+          setEntries((map) => (map.get(page)?.status === "translating" ? new Map(map).set(page, { status: "translating", blocks }) : map));
+        })
+        .catch(() => undefined);
       try {
         const translation = await translatePage(await bridge.resolveUrl(), versionId, page, force);
-        const blocks = await getPageBlocks(versionId, page);
+        const blocks = await pageBlocks;
         if (keyRef.current !== runKey) return;
         setEntry(page, { status: "ready", translation, blocks });
         mark(setDone, page, true);
