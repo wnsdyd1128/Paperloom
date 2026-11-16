@@ -1,0 +1,153 @@
+/*
+ * PDF 받침 (FileDrop.tsx). 원본 File Drop의 자리와 크기를 그대로 두고 색·글꼴·모서리만 Paperloom 토큰으로 바꿨다.
+ * 원본처럼 점선 테두리 없이, 파일이 다가오면 바탕이 강조색으로 조금 물든다(--h는 0..1, FileDrop이 매 화면 쓴다).
+ * 모서리는 디자인 시스템대로 0이고, 원과 고리만 둥글다.
+ */
+.file-drop {
+  position: relative;
+  width: min(296px, 100%);
+  height: 216px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  overflow: hidden;
+  user-select: none;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.file-drop[role="button"] {
+  cursor: pointer;
+}
+
+.file-drop[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.file-drop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  opacity: var(--h, 0);
+  pointer-events: none;
+}
+
+.file-drop-core {
+  position: absolute;
+  left: 50%;
+  top: 38px;
+  z-index: 1;
+  width: 72px;
+  height: 72px;
+  margin-left: -36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  will-change: transform;
+}
+
+.file-drop-flood {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-ok);
+  transform: scale(0);
+  will-change: transform;
+}
+
+.file-drop-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: rotate(-90deg);
+}
+
+.file-drop-track {
+  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.file-drop-arc {
+  stroke: var(--color-accent);
+}
+
+.file-drop-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  will-change: transform, opacity;
+}
+
+.file-drop-icon svg {
+  display: block;
+}
+
+.file-drop-doc {
+  opacity: 0;
+}
+
+/* 초록 위의 체크는 바탕색으로 그린다(밝은 판·어두운 판 모두 대비가 난다) */
+.file-drop-ok {
+  color: var(--color-bg);
+  opacity: 0;
+}
+
+.file-drop-ok svg {
+  width: 30px;
+  height: 30px;
+}
+
+.file-drop-ok path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+.file-drop-line {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 1;
+  overflow: hidden;
+  text-align: center;
+  pointer-events: none;
+}
+
+.file-drop-line span {
+  position: absolute;
+  inset: 0 0 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  will-change: transform, opacity;
+}
+
+.file-drop-title {
+  top: 130px;
+  height: 24px;
+}
+
+.file-drop-title span {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.015em;
+}
+
+.file-drop[data-phase="failed"] .file-drop-title span {
+  color: var(--color-accent);
+}
+
+.file-drop-detail {
+  top: 157px;
+  height: 20px;
+}
+
+.file-drop-detail span {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

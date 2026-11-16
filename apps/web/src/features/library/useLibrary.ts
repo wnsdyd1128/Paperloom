@@ -18,6 +18,15 @@ import {
 
 export type ListState = Readonly<{ kind: "loading" }> | Readonly<{ kind: "ready"; papers: readonly Paper[] }> | Readonly<{ kind: "failed" }>;
 export type Notice = Readonly<{ tone: "ok" | "error" | "pending"; text: string }> | null;
+/**
+ * PDF 받침(FileDrop)이 그리는 올리기 단계. done·failed는 받침이 결과를 다 보여 준 뒤 settleUpload()로 idle이 된다.
+ * 서버가 바이트를 받은 뒤 PDF를 확인하는 시간이 대부분이라 보낸 비율(%)은 두지 않는다.
+ */
+export type UploadStatus =
+  | Readonly<{ kind: "idle" }>
+  | Readonly<{ kind: "sending"; name: string; bytes: number; index: number; count: number }>
+  | Readonly<{ kind: "done"; title: string; count: number }>
+  | Readonly<{ kind: "failed"; message: string }>;
 
 const POLL_MS = 1500;
 
@@ -25,6 +34,7 @@ export function useLibrary() {
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [notice, setNotice] = useState<Notice>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ kind: "idle" });
   const tagSaves = useRef({ chain: Promise.resolve(), latest: new Map<string, number>() });
   const papers = list.kind === "ready" ? list.papers : [];
 
@@ -53,21 +63,28 @@ export function useLibrary() {
     const pdfs = files.filter((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
     if (pdfs.length === 0) {
       setNotice({ tone: "error", text: "PDF 파일만 올릴 수 있습니다." });
+      setUploadStatus({ kind: "failed", message: "PDF 파일만 올릴 수 있습니다." });
       return;
     }
     setUploading(true);
     try {
-      for (const file of pdfs) {
+      let last: Paper | null = null;
+      for (const [index, file] of pdfs.entries()) {
         setNotice({ tone: "pending", text: `“${file.name}” 확인 중…` });
+        setUploadStatus({ kind: "sending", name: file.name, bytes: file.size, index: index + 1, count: pdfs.length });
         try {
           const paper = await uploadPaper(file);
+          last = paper;
           setList((current) => ({ kind: "ready", papers: [paper, ...(current.kind === "ready" ? current.papers : [])] }));
           setNotice({ tone: "ok", text: `등록됨: ${paper.title}` });
         } catch (error) {
-          setNotice({ tone: "error", text: describeUploadError(error, papers) });
+          const message = describeUploadError(error, papers);
+          setNotice({ tone: "error", text: message });
+          setUploadStatus({ kind: "failed", message });
           return;
         }
       }
+      if (last) setUploadStatus({ kind: "done", title: last.title, count: pdfs.length });
     } finally {
       setUploading(false);
     }
@@ -135,7 +152,9 @@ export function useLibrary() {
     }
   }
 
-  return { list, papers, notice, uploading, upload, retry, setTags, renameTag, deleteTag, removePaper };
+  const settleUpload = () => setUploadStatus({ kind: "idle" });
+
+  return { list, papers, notice, uploading, uploadStatus, upload, settleUpload, retry, setTags, renameTag, deleteTag, removePaper };
 }
 
 export type Library = ReturnType<typeof useLibrary>;

@@ -5,7 +5,7 @@
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
  */
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { MAX_PAPERS } from "../export/draft";
@@ -54,11 +54,13 @@ type Props = Readonly<{
   wikiExport: boolean;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
   exportProblem: string | null;
+  /** 서재가 비었을 때(첫 올리기 결과를 보여 주는 동안 포함) 표 대신 놓는 PDF 받침. 없으면 null */
+  dropZone: ReactNode;
   onOpen: (paper: Paper) => void;
   onExport: (papers: readonly Paper[]) => void;
 }>;
 
-export function LibraryPage({ library, hits, wikiExport, exportProblem, onOpen, onExport }: Props) {
+export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone, onOpen, onExport }: Props) {
   const [filter, setFilter] = useState<TagFilter>(NO_TAG_FILTER);
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const { list, papers } = library;
@@ -139,8 +141,13 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, onOpen, 
       )}
       {list.kind === "loading" && <p className="muted">목록을 불러오는 중…</p>}
       {list.kind === "failed" && <p className="status error">목록을 불러오지 못했습니다. 백엔드(이 PC의 Paperloom 서버)가 실행 중인지 확인하세요.</p>}
-      {list.kind === "ready" && papers.length === 0 && <p className="muted">아직 등록된 논문이 없습니다. PDF를 등록하거나 끌어다 놓으세요.</p>}
-      {list.kind === "ready" && papers.length > 0 && (
+      {list.kind === "ready" && dropZone && (
+        <div className="shelf-drop">
+          {papers.length === 0 && <p className="muted">아직 등록된 논문이 없습니다.</p>}
+          {dropZone}
+        </div>
+      )}
+      {list.kind === "ready" && !dropZone && papers.length > 0 && (
         <table className="table shelf-table">
           <thead>
             <tr>

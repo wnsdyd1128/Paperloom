@@ -472,22 +472,37 @@
 }
 
 /* — 끌어 놓기 — */
+/* 끄는 동안에만 창 테두리를 점선으로 두른다. 놓은 뒤(또는 PDF 등록 단추로 올릴 때)는 가운데 받침만 결과를 보여 준다 */
 .drop-overlay {
   position: fixed;
   inset: 0;
   z-index: 90;
   display: grid;
   place-items: center;
-  border: 3px dashed var(--color-accent);
+  padding: var(--space-4);
+  border: 3px solid transparent;
   background: color-mix(in srgb, var(--color-bg) 82%, transparent);
   pointer-events: none;
 }
 
-.drop-overlay p {
+.drop-overlay[data-dragging] {
+  border: 3px dashed var(--color-accent);
+}
+
+.drop-overlay .file-drop {
+  box-shadow: var(--shadow-lg);
+}
+
+/* 빈 서재의 받침 */
+.shelf-drop {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) 0;
+}
+
+.shelf-drop .muted {
   margin: 0;
-  font-family: var(--font-heading);
-  font-size: 20px;
-  font-weight: 600;
 }
 
 /* — 답변 화면 (모든 논문의 대화) — */

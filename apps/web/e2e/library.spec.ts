@@ -168,7 +168,9 @@ test("PDF를 화면에 끌어다 놓거나 PDF 등록으로 올린다(같은 파
   await page.goto("/");
   await expect(page.locator(".shelf-table")).toBeVisible();
 
-  // 1) 끌어 놓기: 끄는 동안 받침이 보이고, 놓으면 올린다 (이미 올린 바이트라 서버가 중복이라고 답한다)
+  // 1) 끌어 놓기: 끄는 동안 받침이 보이고, 놓으면 올린다 (이미 올린 바이트라 서버가 중복이라고 답한다).
+  //    놓은 뒤에도 가운데 받침이 결과(여기서는 등록 실패)를 보여 준 뒤 사라진다
+  const overlayDrop = page.locator(".drop-overlay .file-drop");
   const drop = async (name: string, type: string, base64: string) => {
     const transfer = await page.evaluateHandle(
       ({ name, type, base64 }) => {
@@ -180,10 +182,13 @@ test("PDF를 화면에 끌어다 놓거나 PDF 등록으로 올린다(같은 파
       { name, type, base64 },
     );
     await page.dispatchEvent(".library-main", "dragenter", { dataTransfer: transfer });
-    await expect(page.locator(".drop-overlay")).toBeVisible();
+    await expect(page.locator(".drop-overlay")).toHaveAttribute("data-dragging", "true");
+    await expect(overlayDrop).toHaveAttribute("data-phase", "idle");
     await page.dispatchEvent(".library-main", "dragover", { dataTransfer: transfer });
     await page.dispatchEvent(".library-main", "drop", { dataTransfer: transfer });
-    await expect(page.locator(".drop-overlay")).toHaveCount(0);
+    await expect(overlayDrop).toHaveAttribute("data-phase", "failed");
+    await expect(page.locator(".drop-overlay")).not.toHaveAttribute("data-dragging");
+    await expect(page.locator(".drop-overlay")).toHaveCount(0, { timeout: 10_000 });
   };
   await drop("text-digital.pdf", "application/pdf", pdf("text-digital.pdf").toString("base64"));
   await expect(page.getByRole("status").filter({ hasText: `이미 등록된 논문입니다: ${title}` })).toBeVisible();
@@ -195,6 +200,38 @@ test("PDF를 화면에 끌어다 놓거나 PDF 등록으로 올린다(같은 파
   await page.getByRole("button", { name: "PDF 등록" }).click();
   await (await chooser).setFiles({ name: "text-digital.pdf", mimeType: "application/pdf", buffer: pdf("text-digital.pdf") });
   await expect(page.getByRole("status").filter({ hasText: `이미 등록된 논문입니다: ${title}` })).toBeVisible();
+  // 단추로 올릴 때도 가운데 받침이 떠서 결과를 보인다 (끄는 중이 아니므로 창 테두리는 없다)
+  await expect(overlayDrop).toHaveAttribute("data-phase", "failed");
+  await expect(page.locator(".drop-overlay")).not.toHaveAttribute("data-dragging");
+  await expect(page.locator(".drop-overlay")).toHaveCount(0, { timeout: 10_000 });
+});
+
+test("서재가 비면 표 자리에 PDF 받침을 두고, 첫 논문이 등록되면 결과를 보인 뒤 표로 바뀐다", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "dpr-1", "올리기는 DPR과 무관하다");
+  const { paperId } = (await uploadAll(page))["text-digital.pdf"];
+  const stored = await (await page.request.get(`/api/v1/papers/${paperId}`)).json();
+  // 추출 중이면 서재가 목록을 다시 받아(빈 목록) 표가 사라지므로, 응답의 논문은 추출이 끝난 상태로 둔다
+  const paper = { ...stored, current_version: { ...stored.current_version, status: "INDEXED" } };
+  // 빈 서재는 목록을, 첫 등록은 올리기 응답을 바꿔 만든다(공유 E2E 데이터에 논문을 더하지 않는다)
+  await page.route("**/api/v1/papers", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: { papers: [] } }) : route.fulfill({ status: 201, json: paper }),
+  );
+  await page.goto("/");
+  const zone = page.getByRole("button", { name: /^PDF 등록: 여기에 끌어다 놓거나/ });
+  await expect(zone).toHaveAttribute("data-phase", "idle");
+  await expect(zone.locator(".file-drop-title")).toHaveText("PDF를 끌어다 놓으세요");
+  await expect(page.locator(".shelf-table")).toHaveCount(0);
+
+  // 받침을 누르면 파일 고르기 창이 열린다. 창 전체 받침(.drop-overlay)은 띄우지 않고 이 받침이 결과를 보인다
+  const chooser = page.waitForEvent("filechooser");
+  await zone.click();
+  await (await chooser).setFiles({ name: "text-digital.pdf", mimeType: "application/pdf", buffer: pdf("text-digital.pdf") });
+  await expect(zone).toHaveAttribute("data-phase", "done");
+  await expect(zone.locator(".file-drop-title")).toHaveText("서재에 등록했습니다");
+  await expect(zone.locator(".file-drop-detail")).toHaveText(paper.title);
+  await expect(page.locator(".drop-overlay")).toHaveCount(0);
+  await expect(row(page, paperId)).toBeVisible({ timeout: 10_000 });
+  await expect(zone).toHaveCount(0);
 });
 
 test("논문을 열면 마지막 열람이 오늘이 되고 맨 위로 온다. 주석·대화 개수는 서버의 수다", async ({ page }, testInfo) => {

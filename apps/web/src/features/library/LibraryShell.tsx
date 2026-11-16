@@ -19,6 +19,7 @@ import { search, type SnippetPart } from "../search/api";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import type { Conversation } from "../threads/api";
 import type { Paper } from "./api";
+import { FileDrop } from "./FileDrop";
 import { LibraryPage } from "./LibraryPage";
 import { useLibrary } from "./useLibrary";
 
@@ -49,9 +50,24 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
   const [exporting, setExporting] = useState<readonly Paper[] | null>(null);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Search>({ kind: "idle" });
-  const dragging = useFileDrop((files) => void library.upload(files));
+  const dragging = useFileDrop((files) => startUpload(files));
   const fileInput = useRef<HTMLInputElement>(null);
   const state = bridgeState(bridge);
+  // 빈 서재의 받침에서 시작한 올리기는 첫 논문이 표에 들어와도 결과를 다 보여 줄 때까지 받침을 둔다
+  const [heldInline, setHeldInline] = useState(false);
+  const emptyShelf = shown === "library" && library.list.kind === "ready" && library.papers.length === 0;
+  const inlineDrop = emptyShelf || (shown === "library" && heldInline);
+  const overlay = !inlineDrop && (dragging || library.uploadStatus.kind !== "idle");
+
+  function startUpload(files: File[]) {
+    if (emptyShelf) setHeldInline(true);
+    void library.upload(files);
+  }
+
+  function settleUpload() {
+    setHeldInline(false);
+    library.settleUpload();
+  }
 
   async function onSearch(event: FormEvent) {
     event.preventDefault();
@@ -139,7 +155,7 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
             onChange={(event) => {
               const files = [...(event.target.files ?? [])];
               event.target.value = ""; // 같은 파일을 다시 고를 수 있게
-              if (files.length > 0) void library.upload(files);
+              if (files.length > 0) startUpload(files);
             }}
           />
         </div>
@@ -159,6 +175,11 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
             hits={found.kind === "ready" ? found.hits : null}
             wikiExport={wikiExport}
             exportProblem={outbox.problem}
+            dropZone={
+              inlineDrop ? (
+                <FileDrop status={library.uploadStatus} near={dragging} onPick={() => fileInput.current?.click()} onSettled={settleUpload} />
+              ) : null
+            }
             onOpen={onOpenPaper}
             onExport={setExporting}
           />
@@ -166,9 +187,9 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         {shown === "answers" && <ConversationsPage onOpen={onOpenConversation} onOpenCitation={onOpenCitation} />}
         {shown === "bundles" && <BundlesPage />}
       </main>
-      {dragging && (
-        <div className="drop-overlay" aria-hidden="true">
-          <p>PDF를 놓으면 서재에 등록합니다</p>
+      {overlay && (
+        <div className="drop-overlay" data-dragging={dragging || undefined} aria-hidden="true">
+          <FileDrop status={library.uploadStatus} near={dragging} onSettled={settleUpload} />
         </div>
       )}
       {settingsOpen && <SettingsDialog bridge={bridge} onClose={() => setSettingsOpen(false)} />}
