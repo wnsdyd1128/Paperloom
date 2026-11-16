@@ -568,8 +568,12 @@ test("답을 만드는 중에 중단하면 답을 저장하지 않고 질문을 
   await input.press("Enter");
   const stop = chat.getByRole("button", { name: "중단" });
   await expect(stop).toBeEnabled(); // 브리지가 실행 ID를 주었다
+  // 입력칸 위 상태 줄이 열리고, 답 자리에는 점 셋이 튀는 판이 있다(첫 글자 전)
+  await expect(chat.locator(".chat-composer-status")).toHaveText("Claude가 생각하는 중");
+  await expect(chat.locator(".chat-turn.is-pending .chat-stream")).not.toHaveAttribute("data-open");
   await stop.click();
   await expect(chat.getByRole("status")).toContainText("중단했습니다");
+  await expect(chat.locator(".chat-composer-status")).toHaveText("중단했습니다");
   expect(Date.now() - started).toBeLessThan(9_000);
   await expect(input).toHaveValue("(느리게) 중단할 질문");
   await expect(chat.getByRole("button", { name: "보내기" })).toBeVisible();

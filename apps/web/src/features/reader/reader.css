@@ -1717,7 +1717,7 @@ body.is-resizing-side {
     0 8px 24px color-mix(in srgb, #2d2b2b 10%, transparent);
 }
 
-/* 글이 늘면 높이도 늘어난다(field-sizing). 크기 조절 손잡이는 없다 */
+/* 글이 늘면 높이도 spring으로 늘어난다(chat/promptBox.ts, 아래 최소·최대 높이 안에서). 크기 조절 손잡이는 없다 */
 .chat-input {
   width: 100%;
   min-height: 48px;
@@ -1732,7 +1732,6 @@ body.is-resizing-side {
   font-size: 13.5px;
   line-height: 1.55;
   resize: none;
-  field-sizing: content;
 }
 
 .chat-input::placeholder {

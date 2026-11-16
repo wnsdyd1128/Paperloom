@@ -1,5 +1,5 @@
 /*
- * 대화의 움직임 (Motion Studies Goo Thinking·Streaming Reply를 Paperloom 토큰으로).
+ * 대화의 움직임 (Motion Studies Prompt Box·Goo Thinking·Streaming Reply를 Paperloom 토큰으로).
  * spring 곡선은 chat/StreamingAnswer.tsx가 shared/spring.ts로 만들어 --word-*·--rise-* 변수로 준다.
  */
 
@@ -94,6 +94,92 @@
     opacity: 0;
     transform: translateY(14px) scale(0.92);
   }
+}
+
+/* — 대화 입력부: 상태 줄과 보내기·중단 단추 (원본 Prompt Box, chat/promptBox.ts) — */
+.chat-composer-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 0;
+  margin-bottom: -6px; /* 닫혀 있으면 상자 간격(gap)도 없앤다. 열리면 promptBox.ts가 0으로 */
+  padding: 0 8px;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chat-status-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text);
+  transition: background 0.25s ease;
+}
+
+.chat-composer-status[data-tone="thinking"] .chat-status-mark,
+.chat-composer-status[data-tone="writing"] .chat-status-mark {
+  animation: chat-status-pulse 1s ease-in-out infinite;
+}
+
+.chat-composer-status[data-tone="thinking"] .chat-status-label,
+.chat-composer-status[data-tone="writing"] .chat-status-label {
+  background: linear-gradient(90deg, var(--color-neutral-500) 20%, var(--color-text) 50%, var(--color-neutral-500) 80%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chat-status-shine 1.4s linear infinite;
+}
+
+.chat-composer-status[data-tone="done"] .chat-status-mark {
+  background: var(--color-ok);
+}
+
+.chat-composer-status[data-tone="done"] .chat-status-label {
+  color: var(--color-text);
+}
+
+.chat-composer-status[data-tone="cancelled"] .chat-status-mark {
+  background: var(--color-neutral-500);
+}
+
+.chat-composer-status[data-tone="error"] .chat-status-mark {
+  background: var(--color-accent);
+}
+
+@keyframes chat-status-pulse {
+  50% {
+    transform: scale(0.55);
+    opacity: 0.5;
+  }
+}
+
+@keyframes chat-status-shine {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* 보내기 화살표와 중단 사각형을 겹쳐 두고 promptBox.ts가 크기·회전을 바꾼다 */
+.send-button.is-morph {
+  position: relative;
+}
+
+.send-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  will-change: transform;
+}
+
+.send-square {
+  transform: scale(0);
 }
 
 @media (prefers-reduced-motion: reduce) {

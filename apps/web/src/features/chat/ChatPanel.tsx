@@ -14,6 +14,7 @@ import { usePreferences } from "../settings/PreferencesProvider";
 import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, MAX_QUESTION_CHARS } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
 import { type AttachedImage, imageFiles, MAX_CHAT_IMAGES, prepareImage } from "./chatImages";
+import { PROMPT_STATUS_LABELS, type PromptStatus, usePromptBox } from "./promptBox";
 import { finishTurn, onTurnFinished, runningTurn, startTurn, type TurnOutcome, updateTurn, useRunningTurn } from "./runningTurn";
 import {
   conversationTurns,
@@ -120,10 +121,20 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const [model, setModel] = useState<ChatModel | null>(null);
   const { preferences } = usePreferences();
   const [error, setError] = useState<string | null>(null);
+  // 끝난 차례의 결과: 입력칸 위 상태 줄이 잠깐 보인다
+  const [finished, setFinished] = useState<TurnOutcome["kind"] | null>(null);
   const handled = useRef<number | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const arrowRef = useRef<HTMLSpanElement>(null);
+  const squareRef = useRef<HTMLSpanElement>(null);
+  const promptStatus: PromptStatus = pending ? (pending.text ? "writing" : "thinking") : finished;
+  usePromptBox(
+    { input: inputRef, status: statusRef, arrow: arrowRef, square: squareRef },
+    { question, busy: pending !== null, status: promptStatus, onStatusClosed: () => setFinished(null) },
+  );
 
   const reload = () =>
     listAnswers({ paperId, origin: "claude_code", limit: LIST_LIMIT }).then((list) => {
@@ -147,6 +158,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     () =>
       onTurnFinished((finished, turn, outcome) => {
         if (finished !== paperId) return;
+        setFinished(outcome.kind);
         if (outcome.kind === "done") {
           const { answer } = outcome;
           const created = answer.session_id;
@@ -229,6 +241,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     }
     setError(null);
     setNotice(null);
+    setFinished(null);
     const draft = forkRef.current; // 갈래면 원래 대화를 이어받은 새 대화로 묻는다
     const session = sessionRef.current;
     startTurn(paperId, { prompt, quote, images: attached, text: "", runId: null, session, fork: draft });
@@ -536,6 +549,11 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
       )}
       <form className="chat-composer" onSubmit={(event) => void submit(event)}>
         <div className="chat-composer-box">
+          {/* 답을 만드는 동안과 끝난 결과 (promptBox.ts). 같은 안내를 대화 칸이 알리므로 화면 낭독기에서는 숨긴다 */}
+          <div ref={statusRef} className="chat-composer-status" data-tone={promptStatus ?? undefined} aria-hidden="true">
+            <span className="chat-status-mark" />
+            <span className="chat-status-label">{promptStatus ? PROMPT_STATUS_LABELS[promptStatus] : ""}</span>
+          </div>
           {attachments.length > 0 && (
             <ul className="chat-attachments" aria-label="질문에 붙인 위치">
               {attachments.map((anchor) => (
@@ -578,7 +596,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
             ref={inputRef}
             className="chat-input"
             aria-label="질문"
-            rows={3}
+            rows={1} // 높이는 글을 따라 promptBox.ts가 정한다(잴 때 한 줄부터)
             value={question}
             placeholder="무엇이든 질문하세요"
             onChange={(event) => setQuestion(event.target.value)}
@@ -630,15 +648,22 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               <Icon name="chevronDown" size={14} />
             </label>
             <div className="chat-composer-send">
-              {pending ? (
-                <button type="button" className="send-button is-large is-stop" aria-label="중단" title="답 만들기를 멈춥니다" onClick={() => void stop()} disabled={pending.runId === null}>
-                  <Icon name="stop" size={14} />
-                </button>
-              ) : (
-                <button type="submit" className="send-button is-large" aria-label="보내기" disabled={!ready || !question.trim()}>
+              {/* 한 단추가 보내기 화살표와 중단 사각형 사이를 spring으로 바뀐다 (promptBox.ts) */}
+              <button
+                type={pending ? "button" : "submit"}
+                className={`send-button is-large is-morph${pending ? " is-stop" : ""}`}
+                aria-label={pending ? "중단" : "보내기"}
+                title={pending ? "답 만들기를 멈춥니다" : undefined}
+                onClick={pending ? () => void stop() : undefined}
+                disabled={pending ? pending.runId === null : !ready || !question.trim()}
+              >
+                <span ref={arrowRef} className="send-glyph">
                   <Icon name="arrowUp" size={16} />
-                </button>
-              )}
+                </span>
+                <span ref={squareRef} className="send-glyph send-square">
+                  <Icon name="stop" size={14} />
+                </span>
+              </button>
             </div>
           </div>
         </div>
