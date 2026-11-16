@@ -36,6 +36,8 @@ const ICONS = {
     "m21.854 2.147-10.94 10.939",
   ],
   panel: [{ rect: [3, 3, 18, 18] }, "M15 3v18"],
+  // Lucide grip-horizontal (끌어 옮기는 독의 손잡이)
+  grip: [{ circle: [12, 9, 1] }, { circle: [19, 9, 1] }, { circle: [5, 9, 1] }, { circle: [12, 15, 1] }, { circle: [19, 15, 1] }, { circle: [5, 15, 1] }],
   toSidebar: [{ rect: [3, 3, 18, 18] }, "M15 3v18", "m8 9 3 3-3 3"],
   chat: ["M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z", "M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"],
   // Lucide app-window (아티팩트 탭)

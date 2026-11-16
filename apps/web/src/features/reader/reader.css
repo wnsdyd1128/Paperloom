@@ -1365,25 +1365,58 @@ body.is-resizing-side {
   white-space: nowrap;
 }
 
-/* ── 레일 ── */
-.reader-rail {
+/* ── 사이드바 패널 고르기 (PanelDock.tsx) ── */
+/* 닫혀 있을 때: PDF 위에 뜬 독. 자리(transform)·나타나기(opacity)는 PanelDock.tsx가 spring으로 정한다 */
+.reader-dock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
   display: flex;
-  flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 56px;
-  padding: var(--space-2) 0;
-  border-left: 2px solid var(--color-divider);
+  gap: 2px;
+  padding: 2px 4px 4px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent);
   background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  will-change: transform, opacity;
 }
 
-.rail-button {
+.reader-dock[data-dragging] {
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+}
+
+.dock-grip {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 14px;
+  color: var(--color-neutral-600);
+}
+
+/* 열려 있을 때: 사이드바 머리의 탭 */
+.side-tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px var(--space-2) 0;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.dock-button,
+.side-tab {
   position: relative;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   background: none;
@@ -1391,21 +1424,19 @@ body.is-resizing-side {
   cursor: pointer;
 }
 
-.rail-button:hover {
+.dock-button:hover,
+.side-tab:hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
-.rail-item[aria-pressed="true"] {
-  background: var(--color-surface);
-  box-shadow: inset -3px 0 0 var(--color-accent);
+.side-tab[aria-pressed="true"] {
+  box-shadow: inset 0 -3px 0 var(--color-accent);
   color: var(--color-accent);
 }
 
-.rail-rule {
-  width: 28px;
-  height: 2px;
-  margin: 4px 0;
-  background: var(--color-divider);
+.side-tab-close {
+  margin-left: auto;
+  color: var(--color-neutral-700);
 }
 
 .rail-badge {

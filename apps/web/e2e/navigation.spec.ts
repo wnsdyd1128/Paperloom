@@ -86,6 +86,41 @@ async function textCenter(target: Locator, needle: string) {
   }, needle);
 }
 
+test("사이드바 패널: 닫으면 PDF 위 떠 있는 독으로 고르고, 독을 끌면 가까운 가장자리에 붙어 그 자리를 기억한다", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "dpr-1", "독 자리는 DPR과 무관하다");
+  await openFixture(page);
+  const tabs = page.locator(".side-tabs");
+  const dock = page.locator(".reader-dock");
+  const dockX = async () => (await dock.boundingBox())?.x ?? -1;
+
+  // 처음은 대화가 열려 있고 머리 탭에서 고른다. ×로 닫으면 독이 뜨고 PDF가 창 끝까지 넓어진다(레일 열이 없다)
+  await expect(tabs.getByRole("button", { name: "Claude와 대화", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await tabs.getByRole("button", { name: "사이드바 닫기" }).click();
+  await expect(tabs).toHaveCount(0);
+  await expect(dock).toBeVisible();
+  const viewport = page.viewportSize()!;
+  expect((await page.locator(".reader-stage").boundingBox())!.width).toBeCloseTo(viewport.width, 0);
+  await expect.poll(dockX).toBeGreaterThan(viewport.width / 2); // 처음 자리는 오른쪽
+
+  // 손잡이를 왼쪽으로 끌어 놓으면 왼쪽 가장자리에 붙는다. 다시 열어도 그 자리다
+  const grip = (await page.locator(".dock-grip").boundingBox())!;
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(viewport.width * 0.3, grip.y - 120, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(dockX).toBeLessThan(40);
+  await page.reload();
+  await expect(dock).toBeVisible();
+  await expect.poll(dockX).toBeLessThan(40);
+
+  // 독 단추는 끌기가 아니라 누르기로 패널을 연다. 같은 탭을 다시 누르면 닫혀 독으로 돌아간다
+  await page.getByRole("navigation", { name: "사이드바 패널" }).getByRole("button", { name: "주석", exact: true }).click();
+  await expect(tabs.getByRole("button", { name: "주석", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dock).toHaveCount(0);
+  await tabs.getByRole("button", { name: "주석", exact: true }).click();
+  await expect(dock).toBeVisible();
+});
+
 test("목차: PDF 목차를 단계대로 보이고 누르면 그 목적지로 간다. Ctrl+Shift+O로 열고 닫고, 연 상태를 기억한다", async ({ page }) => {
   await openExtracted(page, "text-navigation.pdf");
   await expect(toc(page)).toHaveCount(0); // 처음은 닫힘

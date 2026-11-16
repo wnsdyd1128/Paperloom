@@ -5,7 +5,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import type { EventBus, PDFPageView, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Icon, type IconName } from "../../shared/Icon";
+import type { IconName } from "../../shared/Icon";
 import { inSelectPicker } from "../../shared/selectPicker";
 import { type Anchor, type Annotation, createAnchor, getAnchor, type NewAnchor, type RegionKind } from "../annotations/api";
 import type { HighlightColor } from "../annotations/api";
@@ -45,6 +45,7 @@ import { boxToQuad, type Quad } from "./geometry";
 import { navigationKeyAction } from "./navigationKeys";
 import type { ReadingLine, TocEntry } from "./outline";
 import { PageTextStatus, usePageTexts } from "./PageTextStatus";
+import { FloatingDock, PanelTabs } from "./PanelDock";
 import { PaperInfoMenu } from "./PaperInfo";
 import { pdfPartCounts } from "./pdfExport";
 import { PdfExportMenu } from "./PdfExportMenu";
@@ -77,7 +78,10 @@ const CONTEXT_CHARS = 64; // anchor.v1 prefix·suffix 길이
 const EQUATION_QUESTION = "이 수식을 LaTeX로 옮기고, 각 기호의 뜻과 수식이 말하는 바를 설명해 주세요.";
 const NOTICE_MS = 4000;
 
-/** 오른쪽 사이드바 패널 (시안 레일): Claude와 대화, 아티팩트 모음(2026-11-09 사용자 요청), 선택 설명·질문, 하이라이트(U5), 주석 */
+/**
+ * 오른쪽 사이드바 패널: Claude와 대화, 아티팩트 모음(2026-11-09 사용자 요청), 선택 설명·질문, 하이라이트(U5), 주석.
+ * 닫혀 있으면 PDF 위의 떠 있는 독, 열려 있으면 사이드바 머리의 탭으로 고른다(PanelDock.tsx, 2026-11-16 사용자 요청).
+ */
 type Panel = "chat" | "artifacts" | "threads" | "highlights" | "notes";
 const PANEL_KEY = "paperloom.reader.panel"; // 이 브라우저에서만 기억하는 편의 설정
 const RAIL: readonly Readonly<{ panel: Panel; label: string; icon: IconName }>[] = [
@@ -1054,6 +1058,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
     notes: annotations.state.kind === "ready" ? annotations.state.items.length : 0,
   };
   const togglePanel = (next: Panel) => openPanel(next, !(panelOpen && panel === next));
+  const panelItems = RAIL.map((item) => ({ ...item, count: counts[item.panel] }));
   // 메모가 있는 주석은 본문 옆 칩으로도 보인다(2026-10-02 사용자 요청). 하이라이트만 한 주석은 표시만 있다.
   const annotationItems = annotations.state.kind === "ready" ? annotations.state.items : [];
   const noteSpots = annotationItems
@@ -1266,10 +1271,12 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           <ReturnBar spots={returns.spots} onBack={goBack} onClose={returns.clear} />
           {find.open && <FindBar focusKey={find.focusKey} matches={findMatches} pending={findPending} onFind={findText} onClose={closeFind} />}
           {openArtifact && <ArtifactWindow key={openArtifact.nonce} artifact={openArtifact.artifact} versionId={versionId} onClose={() => setOpenArtifact(null)} />}
+          {!panelOpen && <FloatingDock items={panelItems} onPick={(next) => openPanel(next)} />}
         </main>
         {/* 사이드바를 바꾸거나 닫아도 대화·입력이 남도록 패널을 숨기기만 한다. */}
         <aside className="reader-side" hidden={!panelOpen} aria-label="사이드바" style={{ width: side.width }}>
           {side.handle}
+          {panelOpen && <PanelTabs items={panelItems} current={panel} onPick={togglePanel} onClose={() => openPanel(panel, false)} />}
           <div className="side-panel side-chat" hidden={panel !== "chat"}>
             {/* 새 탭으로 분리한 동안에는 대화를 그 탭에서만 한다(두 곳에서 같은 대화를 묻지 않게) */}
             {chatDetached ? (
@@ -1322,37 +1329,6 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
             />
           </div>
         </aside>
-        <nav className="reader-rail" aria-label="사이드바 패널">
-          <button
-            type="button"
-            className="rail-button"
-            aria-label={panelOpen ? "사이드바 닫기" : "사이드바 열기"}
-            aria-expanded={panelOpen}
-            title="사이드바 열기/닫기"
-            onClick={() => openPanel(panel, !panelOpen)}
-          >
-            <Icon name="panel" size={18} />
-          </button>
-          <span className="rail-rule" aria-hidden="true" />
-          {RAIL.map((item) => (
-            <button
-              key={item.panel}
-              type="button"
-              className="rail-button rail-item"
-              aria-label={item.label}
-              aria-pressed={panelOpen && panel === item.panel}
-              title={`${item.label} (다시 누르면 닫기)`}
-              onClick={() => togglePanel(item.panel)}
-            >
-              <Icon name={item.icon} size={18} />
-              {counts[item.panel] > 0 && (
-                <span className="rail-badge" aria-hidden="true">
-                  {counts[item.panel]}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
       </div>
       {settingsOpen && <SettingsDialog bridge={bridge} onClose={() => setSettingsOpen(false)} />}
       {exportOpen && <ExportDialog papers={[{ ...paper, current_version: version }]} onClose={() => setExportOpen(false)} onShowHistory={onShowBundles} />}
