@@ -71,7 +71,17 @@ test("글을 고르면 곁에 메뉴가 뜨고, 설명은 원문 위 창에서 �
   const box = (await page.locator(MENU).boundingBox())!;
   const line = (await page.locator('.page[data-page-number="2"] .textLayer span', { hasText: "epsilonword" }).first().boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(line.y + line.height - 1); // 고른 줄 바로 아래
-  await expect(page.locator(`${MENU} .selection-menu-label`)).toHaveText(["설명", "번역", "하이라이트", "주석", "AI에게 질문"]);
+  // 가로 단추줄(2026-11-16): 하이라이트 뒤에 색 견본 셋, 구분선 뒤에 AI에게 질문
+  await expect(page.locator(MENU).getByRole("menuitem")).toHaveText([
+    "설명",
+    "번역",
+    "하이라이트",
+    "하이라이트: 연한 주황",
+    "하이라이트: 주황",
+    "하이라이트: 회색",
+    "주석",
+    "AI에게 질문",
+  ]);
 
   // Esc로 닫고, 빈 곳을 눌러 선택을 푼 뒤 다시 고르면 또 뜬다
   await page.keyboard.press("Escape");

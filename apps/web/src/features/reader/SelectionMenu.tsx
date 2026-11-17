@@ -1,24 +1,24 @@
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { Icon, type IconName } from "../../shared/Icon";
+import type { IconName } from "../../shared/Icon";
 import { type HighlightColor, REGION_KIND_LABELS, type RegionKind } from "../annotations/api";
-import { HIGHLIGHT_COLOR_LABELS, HIGHLIGHT_COLORS } from "../annotations/highlights";
+import { HIGHLIGHT_COLOR_LABELS, HIGHLIGHT_COLORS, storedHighlightColor } from "../annotations/highlights";
 import { isEditable } from "./clipboard";
 import type { CssRect } from "./geometry";
-import { MorphTools } from "./MorphTools";
+import { type MorphTool, MorphTools } from "./MorphTools";
 
 /** 선택 메뉴의 동작. note는 메모 창, ask는 질문 창을 연다 (docs/UI_PLAN.md U2). */
 export type MenuAction = "explain" | "translate" | "highlight" | "note" | "ask" | "copy";
 
-type Item = Readonly<{ action: MenuAction; label: string; icon: IconName; key: string; code: string; hint: string }>;
+type Item = Readonly<{ action: MenuAction; label: string; icon: IconName; key: string; code: string }>;
 
 const TEXT_ITEMS: readonly Item[] = [
-  { action: "explain", label: "설명", icon: "sparkles", key: "E", code: "KeyE", hint: "Claude가 이 부분을 설명합니다" },
-  { action: "translate", label: "번역", icon: "languages", key: "T", code: "KeyT", hint: "Claude가 이 부분을 번역합니다" },
-  { action: "highlight", label: "하이라이트", icon: "highlighter", key: "H", code: "KeyH", hint: "마지막에 고른 색으로 칠해 둡니다" },
-  { action: "note", label: "주석", icon: "note", key: "C", code: "KeyC", hint: "메모를 달아 주석으로 저장합니다" },
+  { action: "explain", label: "설명", icon: "sparkles", key: "E", code: "KeyE" },
+  { action: "translate", label: "번역", icon: "languages", key: "T", code: "KeyT" },
+  { action: "highlight", label: "하이라이트", icon: "highlighter", key: "H", code: "KeyH" },
+  { action: "note", label: "주석", icon: "note", key: "C", code: "KeyC" },
 ];
-const ASK_ITEM: Item = { action: "ask", label: "AI에게 질문", icon: "ask", key: "Enter", code: "Enter", hint: "이 부분을 두고 직접 묻습니다" };
+const ASK_ITEM: Item = { action: "ask", label: "AI에게 질문", icon: "ask", key: "Enter", code: "Enter" };
 const REGION_KINDS_SHOWN: readonly RegionKind[] = ["figure", "table", "equation"];
 const GAP = 8;
 
@@ -41,9 +41,9 @@ type Props = Readonly<{
 
 /**
  * 글·영역을 고르면 그 곁에 뜨는 메뉴 (시안 Reader v3의 선택 메뉴·영역 도구줄).
- * - 글: 세로 메뉴. 설명 E · 번역 T · 하이라이트 H(색 견본 셋, U5) · 주석 C · AI에게 질문 Enter
+ * - 글: 가로 단추줄. 설명 E · 번역 T · 하이라이트 H(밑줄이 마지막 색)와 색 견본 셋(U5) · 주석 C | AI에게 질문 Enter
  * - 영역: 가로 도구줄. 종류(그림·표·수식) · 설명 E · AI에게 질문 Enter · 주석 C · 그림 복사 Ctrl+C
- * 영역의 동작 단추는 아이콘이고 이름·단축키는 단추 사이를 옮겨 다니는 말풍선 하나가 보인다(MorphTools.tsx, 2026-11-16 사용자 요청).
+ * 동작 단추는 아이콘(색은 견본)이고 이름·단축키는 단추 사이를 옮겨 다니는 말풍선 하나가 보인다(MorphTools.tsx, 2026-11-16 사용자 요청).
  * 단축키는 메뉴가 떠 있고 글 쓰는 칸에 있지 않을 때만 받는다. 한글 입력 상태도 같은 물리 키로 받는다.
  * 바깥을 누르거나 Esc로 닫는다.
  */
@@ -121,38 +121,7 @@ export function SelectionMenu({ kind, blockedReason, regionKind, onRegionKind, g
   if (kind === "text") {
     return (
       <div ref={ref} className="selection-menu" role="menu" aria-label="고른 글로 할 일" style={style} onMouseDown={keepSelection}>
-        {blockedReason ? (
-          <p className="selection-menu-note">{blockedReason}</p>
-        ) : (
-          <>
-            {TEXT_ITEMS.map((item) =>
-              item.action === "highlight" ? (
-                <div key={item.action} className="selection-menu-highlight">
-                  <MenuItem item={item} busy={busy} onAction={onAction} />
-                  <span className="highlight-swatches">
-                    {HIGHLIGHT_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        role="menuitem"
-                        className="color-swatch"
-                        data-color={color}
-                        aria-label={`하이라이트: ${HIGHLIGHT_COLOR_LABELS[color]}`}
-                        title={HIGHLIGHT_COLOR_LABELS[color]}
-                        disabled={busy}
-                        onClick={() => onAction("highlight", color)}
-                      />
-                    ))}
-                  </span>
-                </div>
-              ) : (
-                <MenuItem key={item.action} item={item} busy={busy} onAction={onAction} />
-              ),
-            )}
-            <span className="selection-menu-rule" role="separator" />
-            <MenuItem item={ASK_ITEM} busy={busy} onAction={onAction} />
-          </>
-        )}
+        {blockedReason ? <p className="selection-menu-note">{blockedReason}</p> : <MorphTools itemRole="menuitem" disabled={busy} tools={textTools(onAction)} />}
       </div>
     );
   }
@@ -186,14 +155,28 @@ const REGION_SHORTCUTS: readonly Pick<Item, "action" | "code">[] = [
   { action: "ask", code: "Enter" },
 ];
 
-function MenuItem({ item, busy, onAction }: { item: Item; busy: boolean; onAction: (action: MenuAction) => void }) {
-  return (
-    <button type="button" role="menuitem" className="selection-menu-item" disabled={busy} title={item.hint} onClick={() => onAction(item.action)}>
-      <Icon name={item.icon} size={15} />
-      <span className="selection-menu-label">{item.label}</span>
-      <span className="kbd" aria-hidden="true">
-        {item.key}
-      </span>
-    </button>
-  );
+/**
+ * 글 메뉴의 단추: 설명·번역·하이라이트(밑줄이 마지막 색, H)·색 견본 셋·주석, 구분선 뒤 AI에게 질문.
+ * 견본은 어느 색이든 한 번에 칠하고 그 색을 마지막 색으로 기억한다(U5, 2026-11-16 사용자 결정).
+ */
+function textTools(onAction: (action: MenuAction, color?: HighlightColor) => void): MorphTool[] {
+  const last = storedHighlightColor();
+  const tool = (item: Item): MorphTool => ({ id: item.action, label: item.label, icon: item.icon, shortcut: item.key, keys: item.key, onClick: () => onAction(item.action) });
+  return [
+    ...TEXT_ITEMS.flatMap((item) =>
+      item.action === "highlight"
+        ? [
+            { ...tool(item), underline: `var(--mark-${last})` },
+            ...HIGHLIGHT_COLORS.map((color) => ({
+              id: `highlight-${color}`,
+              label: `하이라이트 · ${HIGHLIGHT_COLOR_LABELS[color]}`,
+              name: `하이라이트: ${HIGHLIGHT_COLOR_LABELS[color]}`,
+              swatch: color,
+              onClick: () => onAction("highlight", color),
+            })),
+          ]
+        : [tool(item)],
+    ),
+    { ...tool(ASK_ITEM), divider: true },
+  ];
 }

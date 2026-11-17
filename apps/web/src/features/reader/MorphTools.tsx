@@ -1,21 +1,31 @@
 /**
- * 영역 도구줄의 동작 단추 (Motion Studies "Morph Tooltip", 2026-11-16 사용자 요청). 단추는 아이콘만 두고, 이름과 단축키는
- * 도구줄 위의 말풍선 하나가 보인다. 말풍선은 단추 사이를 숨지 않고 옮겨 가며 새 이름 너비로 늘었다 줄어든다: 옮겨 가는 쪽
+ * 선택 메뉴의 단추줄 (Motion Studies "Morph Tooltip", 2026-11-16 사용자 요청): 영역 도구줄의 동작 단추와 글 선택 메뉴.
+ * 단추는 아이콘(하이라이트 색은 견본)만 두고, 이름과 단축키는 줄 위의 말풍선 하나가 보인다. 말풍선은 단추 사이를 숨지 않고 옮겨 가며 새 이름 너비로 늘었다 줄어든다: 옮겨 가는 쪽
  * 가장자리는 단단한 spring(620/36), 반대쪽은 무른 spring(190/19)이라 늘어나며 건너가고, 꼬리는 따로(300/22) 따라간다.
  * 마우스를 올린 단추 뒤의 강조도 같은 두 spring으로 옮겨 간다. 도구줄을 벗어나면 0.14초 기다렸다 숨는다(틈을 지날 때
  * 깜빡이지 않게). 누른 아이콘은 잠깐 작아졌다 돌아온다(520/16). 원본의 자동 시연(혼자 단추를 돌며 고르기)은 뺐다.
  * 단추 이름은 화면 낭독기용 글로 단추 안에 그대로 둔다(말풍선은 보이는 것만 맡는다).
  */
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 
 import { Icon, type IconName } from "../../shared/Icon";
 import { clamp, reducedMotion, spring, startLoop, step, tune } from "../../shared/spring";
+import type { HighlightColor } from "../annotations/api";
 
 export type MorphTool = Readonly<{
   id: string;
   /** 말풍선에 보일 이름 */
   label: string;
-  icon: IconName;
+  /** 화면 낭독기 이름. 없으면 label */
+  name?: string;
+  /** 아이콘. swatch가 있으면 아이콘 대신 그 색 견본을 보인다 */
+  icon?: IconName;
+  /** 하이라이트 색 견본(색은 --mark-c1…c3) */
+  swatch?: HighlightColor;
+  /** 아이콘 아래 짧은 밑줄 색(하이라이트 단추의 마지막 색) */
+  underline?: string;
+  /** 앞 단추와 사이에 구분선 */
+  divider?: boolean;
   /** 말풍선에 보일 단축키(예: E, Ctrl+C) */
   shortcut?: string;
   /** aria-keyshortcuts 값(예: E, Control+C) */
@@ -27,13 +37,15 @@ export type MorphTool = Readonly<{
 type Props = Readonly<{
   tools: readonly MorphTool[];
   disabled: boolean;
+  /** 메뉴(role=menu) 안이면 단추를 menuitem으로 둔다 */
+  itemRole?: "menuitem";
 }>;
 
 const LEAD = [620, 36] as const;
 const TRAIL = [190, 19] as const;
 const HIDE_AFTER = 0.14;
 
-export function MorphTools({ tools, disabled }: Props) {
+export function MorphTools({ tools, disabled, itemRole }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const motion = useRef<Motion | null>(null);
   useEffect(() => {
@@ -55,25 +67,29 @@ export function MorphTools({ tools, disabled }: Props) {
       </div>
       <i className="morph-hl" aria-hidden="true" />
       {tools.map((tool, index) => (
-        <button
-          key={tool.id}
-          type="button"
-          className={tool.primary ? "morph-tool is-primary" : "morph-tool"}
-          aria-keyshortcuts={tool.keys}
-          disabled={disabled}
-          onPointerEnter={() => motion.current?.point(index)}
-          onFocus={() => motion.current?.point(index)}
-          onBlur={() => motion.current?.leave()}
-          onClick={() => {
-            motion.current?.press(index);
-            tool.onClick();
-          }}
-        >
-          <span className="morph-glyph" aria-hidden="true">
-            <Icon name={tool.icon} size={18} />
-          </span>
-          <span className="sr-only">{tool.label}</span>
-        </button>
+        <Fragment key={tool.id}>
+          {tool.divider && <span className="morph-divider" aria-hidden="true" />}
+          <button
+            type="button"
+            role={itemRole}
+            className={["morph-tool", tool.primary && "is-primary", tool.swatch && "is-swatch"].filter(Boolean).join(" ")}
+            aria-keyshortcuts={tool.keys}
+            disabled={disabled}
+            onPointerEnter={() => motion.current?.point(index)}
+            onFocus={() => motion.current?.point(index)}
+            onBlur={() => motion.current?.leave()}
+            onClick={() => {
+              motion.current?.press(index);
+              tool.onClick();
+            }}
+          >
+            <span className="morph-glyph" aria-hidden="true">
+              {tool.swatch ? <span className="morph-swatch" data-color={tool.swatch} /> : tool.icon && <Icon name={tool.icon} size={18} />}
+              {tool.underline && <span className="morph-underline" style={{ background: tool.underline }} />}
+            </span>
+            <span className="sr-only">{tool.name ?? tool.label}</span>
+          </button>
+        </Fragment>
       ))}
     </div>
   );
