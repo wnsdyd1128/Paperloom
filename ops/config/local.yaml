@@ -8,6 +8,8 @@ app:
 wiki:
   enabled: false  # 개발 중이라 꺼 둔다. true면 화면에 Wiki로 내보내기가 보이고 bundle을 쓴다
   outbox_path: ../../var/outbox  # 폴더를 만들어야 Wiki로 내보내기가 켜진다
+metadata:
+  lookup: true  # 비어 있는 저자·연도를 DOI는 Crossref, arXiv 번호는 arXiv에 물어 채운다. 밖으로는 식별자만 나간다
 cost_policy:
   mode: plan_only
   paid_model_calls_allowed: false
