@@ -311,6 +311,9 @@ test("논문 정보: DOI·쪽·추출 상태를 보이고, 제목·저자·연�
   await expect(info).toContainText("KB · ");
 
   await info.getByRole("button", { name: "고치기" }).click();
+  // 배율 메뉴 항목의 '배경 없음'이 저장 단추에 걸리면 흰 글자만 남아 마우스를 올려야 보였다
+  await page.mouse.move(0, 0);
+  await expect(info.getByRole("button", { name: "저장" })).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await info.getByLabel("제목").fill("Navigation Study");
   await info.getByLabel(/저자/).fill("Jun Xiao\n\nAndy D. Pimentel");
   await info.getByLabel("연도").fill("22");
