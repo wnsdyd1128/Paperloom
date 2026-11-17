@@ -482,27 +482,122 @@
   border-right: 1px solid var(--color-divider);
 }
 
-.region-tool {
+/*
+ * 영역 도구줄의 동작 단추 (MorphTools.tsx, Motion Studies Morph Tooltip). 아이콘 단추 뒤의 강조와 위의 말풍선·꼬리는
+ * 자리·너비·투명도를 spring으로 받는다. 말풍선은 글자색 바탕에 바탕색 글자이고 모서리는 0이다.
+ */
+.morph-tools {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.region-toolbar .morph-tools {
+  border-left: 1px solid var(--color-divider);
+}
+
+.morph-tool {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+  transition: color 0.18s;
+}
+
+.morph-tool:hover:not(:disabled),
+.morph-tool:focus-visible {
+  color: var(--color-text);
+}
+
+.morph-tool.is-primary,
+.morph-tool.is-primary:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+.morph-tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.morph-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  will-change: transform;
+}
+
+.morph-hl {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, width, opacity;
+}
+
+.morph-tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 2;
+  height: 30px;
+  overflow: hidden;
+  background: var(--color-text);
+  color: var(--color-bg);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 140%;
+  will-change: transform, width, opacity;
+}
+
+.morph-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-left: 1px solid var(--color-divider);
-  background: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.region-tool.is-primary {
-  border-left: 0;
-  background: var(--color-surface);
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  will-change: transform, opacity;
 }
 
-.region-tool:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+.morph-label kbd {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  margin-right: -3px;
+  padding: 0 5px;
+  background: color-mix(in srgb, var(--color-bg) 16%, transparent);
+  font: inherit;
+  font-size: 11px;
+}
+
+.morph-tail {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 0;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  background: var(--color-text);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 /* ── 원문 위 창 (설명·번역·질문·메모)과 접은 칩 ── */

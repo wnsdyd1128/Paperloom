@@ -5,6 +5,7 @@ import { type HighlightColor, REGION_KIND_LABELS, type RegionKind } from "../ann
 import { HIGHLIGHT_COLOR_LABELS, HIGHLIGHT_COLORS } from "../annotations/highlights";
 import { isEditable } from "./clipboard";
 import type { CssRect } from "./geometry";
+import { MorphTools } from "./MorphTools";
 
 /** 선택 메뉴의 동작. note는 메모 창, ask는 질문 창을 연다 (docs/UI_PLAN.md U2). */
 export type MenuAction = "explain" | "translate" | "highlight" | "note" | "ask" | "copy";
@@ -42,6 +43,7 @@ type Props = Readonly<{
  * 글·영역을 고르면 그 곁에 뜨는 메뉴 (시안 Reader v3의 선택 메뉴·영역 도구줄).
  * - 글: 세로 메뉴. 설명 E · 번역 T · 하이라이트 H(색 견본 셋, U5) · 주석 C · AI에게 질문 Enter
  * - 영역: 가로 도구줄. 종류(그림·표·수식) · 설명 E · AI에게 질문 · 주석 · 그림 복사 Ctrl+C
+ * 영역의 동작 단추는 아이콘이고 이름·단축키는 단추 사이를 옮겨 다니는 말풍선 하나가 보인다(MorphTools.tsx, 2026-11-16 사용자 요청).
  * 단축키는 메뉴가 떠 있고 글 쓰는 칸에 있지 않을 때만 받는다. 한글 입력 상태도 같은 물리 키로 받는다.
  * 바깥을 누르거나 Esc로 닫는다.
  */
@@ -157,22 +159,15 @@ export function SelectionMenu({ kind, blockedReason, regionKind, onRegionKind, g
           </label>
         ))}
       </div>
-      <button type="button" className="region-tool is-primary" disabled={busy} onClick={() => onAction("explain")} title="Claude가 이 영역을 설명합니다">
-        <Icon name="sparkles" size={14} />
-        설명 <span className="kbd">E</span>
-      </button>
-      <button type="button" className="region-tool" disabled={busy} onClick={() => onAction("ask")} title="이 영역을 두고 직접 묻습니다">
-        <Icon name="ask" size={14} />
-        AI에게 질문
-      </button>
-      <button type="button" className="region-tool" disabled={busy} onClick={() => onAction("note")} title="메모를 달아 주석으로 저장합니다">
-        <Icon name="note" size={14} />
-        주석
-      </button>
-      <button type="button" className="region-tool" disabled={busy} onClick={() => onAction("copy")} title="이미지로 클립보드에 복사합니다">
-        <Icon name="copy" size={14} />
-        그림 복사 <span className="kbd">Ctrl+C</span>
-      </button>
+      <MorphTools
+        disabled={busy}
+        tools={[
+          { id: "explain", label: "설명", icon: "sparkles", shortcut: "E", keys: "E", primary: true, onClick: () => onAction("explain") },
+          { id: "ask", label: "AI에게 질문", icon: "ask", onClick: () => onAction("ask") },
+          { id: "note", label: "주석", icon: "note", onClick: () => onAction("note") },
+          { id: "copy", label: "그림 복사", icon: "copy", shortcut: "Ctrl+C", keys: "Control+C", onClick: () => onAction("copy") },
+        ]}
+      />
     </div>
   );
 }
