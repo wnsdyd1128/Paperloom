@@ -7,7 +7,8 @@
   잇고, 줄 끝 하이픈 뒤에 소문자가 오면 하이픈을 빼고 잇는다. 검색을 위해 NFKC로 정규화한다(합자 ﬁ → fi).
 - 읽는 순서: 왼쪽·오른쪽 반에만 놓인 문단이 모두 많으면 두 단으로 보고, 쪽 너비 문단 사이마다 왼쪽 단 →
   오른쪽 단 순서로 둔다. 그 밖에는 pdfium 순서를 그대로 쓴다.
-글자 방향이 돌아간 쪽(가로 쪽의 표 등)은 글자가 가로로 놓이도록 좌표를 돌려 묶은 뒤 상자를 되돌린다.
+글자 방향이 돌아간 쪽(가로 쪽의 표 등)은 글자가 가로로 놓이도록 좌표를 돌려 묶은 뒤 상자를 되돌린다. 쪽 글줄과 다른 방향의
+글자가 대부분인 문단(여백에 세로로 찍힌 arXiv·학회 표기)은 side_text로 표시해 본문에서 뺀다.
 상태·순서는 휴리스틱이다. 보정된 확률이나 정답이라고 부르지 않는다.
 """
 
@@ -18,7 +19,7 @@ import statistics
 import unicodedata
 from dataclasses import dataclass, field
 
-from paperloom.documents.block_kinds import IN_FIGURE, IN_TABLE, MATH, equation_labels, is_display_math
+from paperloom.documents.block_kinds import IN_FIGURE, IN_TABLE, MATH, SIDE_TEXT, equation_labels, is_display_math
 from paperloom.documents.tables import table_blocks
 
 Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용자 공간)
@@ -46,7 +47,10 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 #     (documents.char_recovery, 2026-10-21 사용자 논문 Resource-Aware Task Scheduling의 차트와 ∑·큰 괄호, matplotlib 차트·Symbol)
 # 18: Form 전체를 덮는 흰 배경(슬라이드·쪽째로 넣은 그림)은 그림 후보에 넣지 않는다(reading.figures._white_background, 2026-10-21
 #     사용자 논문 Resource-Aware Task Scheduling 5쪽: 그림 둘이 쪽의 79%로 잡혀 오른쪽 단 본문이 그림 안 글자가 되었다)
-LAYOUT_VERSION = "18"
+# 19: 쪽 글줄과 다른 방향의 글자가 대부분인 문단은 side_text(2026-11-16 사용자 보고: Attention Is All You Need의 세로 arXiv
+#     표기, CROS-RT의 세로 IEEE 표기가 한 글자씩 문단이 되어 글로 읽기에 줄줄이 나왔다)
+LAYOUT_VERSION = "19"
+SIDE_SHARE = 0.5  # 문단 글자의 이만큼 넘게 쪽 글줄과 다른 방향이면 side_text
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
 SCRIPT_BACKSTEP = 1.0  # 줄 높이 배수. 겹친 위·아래첨자처럼 이만큼은 왼쪽으로 돌아가도 같은 줄이다(앞 본 크기 글자까지는 늘 된다)
@@ -100,6 +104,8 @@ class Char:
     style: str = ""  # 글꼴 모양: "" 보통, "b" 굵게, "i" 기울임, "bi" (fonts.font_style)
     size: float = 0.0  # 글꼴 크기(pt, 글자 행렬 반영). 모르면 0
     math: bool = False  # 수식 글꼴의 글자(fonts.is_math_font)
+    # 글자 방향(반시계, 90의 배수). 모르면 None. layout_page가 쪽 글줄 방향에 맞춰 돌린 뒤에는 쪽 글줄에 대한 방향이다(0이면 같다)
+    rotation: int | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +121,7 @@ class Line:
     body: Box | None = None  # 첫 큰 글자(drop cap)를 뺀 상자. 문단 나누기가 쓴다. None이면 box
     core: tuple[float, float] | None = None  # 첫 큰 글자와 큰 기호(BIG_GLYPH)를 뺀 세로 범위(아래, 위). 줄 사이를 잰다. None이면 flow
     drop_cap: bool = False
+    turned: int = 0  # 쪽 글줄과 다른 방향인 글자 수(Char.rotation)
 
     @property
     def flow(self) -> Box:
@@ -162,7 +169,18 @@ def layout_page(
     """한 쪽의 글자(pdfium 순서)를 문단으로 묶는다. text_rotation은 글줄 방향(반시계, 90의 배수)이다.
     figures는 그림 후보 상자, rules는 가로줄 상자(정본 좌표, reading.figures·tables.horizontal_rules)다. 그림 안 문단은 in_figure,
     표·의사코드 안 문단은 in_table, 따로 놓인 수식은 math로 표시한다."""
-    framed = [Char(ch.text, _to_frame(ch.box, text_rotation) if ch.box else None, ch.unmapped, ch.style, ch.size, ch.math) for ch in chars]
+    framed = [
+        Char(
+            ch.text,
+            _to_frame(ch.box, text_rotation) if ch.box else None,
+            ch.unmapped,
+            ch.style,
+            ch.size,
+            ch.math,
+            None if ch.rotation is None else (ch.rotation - text_rotation) % 360,
+        )
+        for ch in chars
+    ]
     lines = build_lines(framed)
     blocks, two_columns = reading_order(build_blocks(lines), _to_frame(view_box, text_rotation))
     back = (360 - text_rotation) % 360
@@ -176,6 +194,8 @@ def layout_page(
         glyphs = sum(line.glyphs for line in block.lines)
         if is_display_math(text, sum(line.math for line in block.lines) / glyphs if glyphs else 0.0):
             flags.append(MATH)
+        if glyphs and sum(line.turned for line in block.lines) / glyphs > SIDE_SHARE:
+            flags.append(SIDE_TEXT)
         sizes = [line.size for line in block.lines if line.size > 0]
         font_size = round(statistics.median(sizes), 2) if sizes else None
         text_blocks.append(TextBlock(text=text, regions=regions, quality_flags=flags, styles=block_styles(block.lines, text), font_size=font_size))
@@ -314,6 +334,7 @@ def _line(chars: list[Char]) -> Line:
         body=_union(ch.box for ch in rest) if drop_cap else None,
         drop_cap=drop_cap,
         core=(min(ch.box[1] for ch in core), max(ch.box[3] for ch in core)),
+        turned=sum(1 for ch in glyphs if ch.rotation not in (None, 0) and ch.text.strip()),
     )
 
 

@@ -193,12 +193,14 @@ def _read_chars(page, pdfium_c, recovery: CharRecovery, clips=None, fills: dict[
                 continue
             if found:  # 모르는 사용자 영역 글자는 두어 본문 글에서 뺀다(block_text)
                 text, unmapped = found, False
-            chars.append(Char(text, box, unmapped, style, size, math_font))
+            rotation = None
             if text.strip():
                 # pdfium의 각도는 시계 방향이다(위로 가는 글줄이 270°). 반시계로 바꾼다. 실패하면 -1.
                 angle = pdfium_c.FPDFText_GetCharAngle(textpage.raw, index)
                 if angle >= 0:
-                    angles[-round(math.degrees(angle) / 90) % 4 * 90] += 1
+                    rotation = -round(math.degrees(angle) / 90) % 4 * 90
+                    angles[rotation] += 1
+            chars.append(Char(text, box, unmapped, style, size, math_font, rotation))
     finally:
         textpage.close()
     recovery.finish(chars)

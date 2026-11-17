@@ -16,7 +16,8 @@ MATH = "math"  # 따로 놓인 수식 줄·식 번호
 PAGE_HEADER = "page_header"  # 쪽마다 되풀이되는 머리글·쪽 번호
 PAGE_FOOTER = "page_footer"  # 쪽마다 되풀이되는 바닥글·쪽 번호
 REFERENCE = "reference"  # 참고문헌 부분(머리부터 부록 앞까지, references.reference_blocks)
-NOT_BODY = frozenset({IN_FIGURE, IN_TABLE, MATH, PAGE_HEADER, PAGE_FOOTER, REFERENCE})  # 쪽 번역에서 빼는 문단
+SIDE_TEXT = "side_text"  # 쪽 글줄과 다른 방향의 글(여백에 세로로 찍힌 arXiv·학회 표기, text_layout.SIDE_SHARE)
+NOT_BODY = frozenset({IN_FIGURE, IN_TABLE, MATH, PAGE_HEADER, PAGE_FOOTER, REFERENCE, SIDE_TEXT})  # 쪽 번역에서 빼는 문단
 NO_BODY_TEXT = "no_body_text"  # 쪽 표시: 글은 있지만 모두 본문이 아니다(참고문헌·그림·표뿐). 쪽 번역 차례가 건너뛴다
 
 # 그림·표·의사코드 설명(캡션)의 머리: 본문으로 보고 번역한다

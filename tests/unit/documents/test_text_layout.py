@@ -344,3 +344,26 @@ def test_rotated_text_gives_the_same_paragraph(rotation):
     x0, y0, x1, y1 = view_box
     assert u0 * (x1 - x0) + x0 == pytest.approx(min(b[0] for b in first_line), abs=1e-3)
     assert y1 - v1 * (y1 - y0) == pytest.approx(min(b[1] for b in first_line), abs=1e-3)
+
+
+def test_text_turned_against_the_page_is_side_text():
+    """여백에 세로로 찍힌 표기(arXiv·학회)는 글자마다 따로 문단이 되어도 side_text라 본문이 아니다(2026-11-16 사용자 보고)."""
+    body = [replace(ch, rotation=0 if ch.box else None) for ch in line("Attention is all you need.", 100, 700)]
+    stamp = [Char(text, (20, 300 + index * W, 20 + H, 300 + (index + 1) * W), rotation=90) for index, text in enumerate("arXiv:1706")]
+
+    page = layout_page(body + stamp, PAGE, image_coverage=0.0)
+
+    body_blocks = [block for block in page.blocks if "Attention" in block.text]
+    side_blocks = [block for block in page.blocks if block not in body_blocks]
+    assert [block.quality_flags for block in body_blocks] == [[]]
+    assert side_blocks and all("side_text" in block.quality_flags for block in side_blocks)
+    assert "".join(block.text for block in side_blocks).replace(" ", "") != ""
+
+
+def test_a_turned_page_keeps_its_own_lines_as_body():
+    """쪽 전체가 돌아간 쪽(가로 표)의 글자는 쪽 글줄 방향과 같으므로 본문이다."""
+    chars = [replace(ch, rotation=90 if ch.box else None) for ch in line("Rotated table caption text", 12, 700)]
+
+    page = layout_page(chars, PAGE, image_coverage=0.0, text_rotation=90)
+
+    assert page.blocks and all("side_text" not in block.quality_flags for block in page.blocks)
