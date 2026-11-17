@@ -10,9 +10,9 @@ export type StyledRun = Readonly<{ text: string; bold: boolean; italic: boolean;
 
 /**
  * 쪽 번역이 번역하는 문단: 글이 있고 본문이 아닌 표시가 없는 것. 서버 documents/block_kinds.NOT_BODY와 같은 목록이다
- * (그림·표 안, 따로 놓인 수식, 머리글·바닥글, 참고문헌). 번역을 기다리는 동안 그 자리를 표시하는 데 쓴다.
+ * (그림·표 안, 따로 놓인 수식, 머리글·바닥글, 참고문헌, 여백의 세로 표기). 번역을 기다리는 동안 그 자리를 표시하는 데 쓴다.
  */
-const NOT_BODY = new Set(["in_figure", "in_table", "math", "page_header", "page_footer", "reference"]);
+const NOT_BODY = new Set(["in_figure", "in_table", "math", "page_header", "page_footer", "reference", "side_text"]);
 
 export function translatableBlocks(blocks: readonly TextBlock[]): TextBlock[] {
   return blocks.filter((block) => block.text.trim() !== "" && !(block.quality_flags ?? []).some((flag) => NOT_BODY.has(flag)));
