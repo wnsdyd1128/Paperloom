@@ -340,9 +340,9 @@ test("그림을 누르면 영역 도구줄이 뜨고, AI에게 질문은 원문 
   expect(run.message.message.content.map((block) => block.type)).toEqual(["image", "text"]);
   await thread.getByRole("button", { name: "접기" }).click();
 
-  // 2) 질문 창을 사이드바 대화로 옮기면 고른 그림이 입력칸에 붙고, 쓰던 질문도 따라간다
+  // 2) 질문 창을 사이드바 대화로 옮기면 고른 그림이 입력칸에 붙고, 쓰던 질문도 따라간다. 질문 창은 글 메뉴처럼 Enter로도 연다
   await clickFigure();
-  await regionToolbar(page).getByRole("button", { name: "AI에게 질문" }).click();
+  await page.keyboard.press("Enter");
   await page.getByRole("form", { name: "AI에게 질문" }).getByRole("textbox", { name: "질문" }).fill("이 그림의 캡션은 뭐라고 하나요?");
   await page.getByRole("button", { name: "사이드바 대화로 옮기기" }).click();
   const chat = page.locator(CHAT);

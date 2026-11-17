@@ -42,7 +42,7 @@ type Props = Readonly<{
 /**
  * 글·영역을 고르면 그 곁에 뜨는 메뉴 (시안 Reader v3의 선택 메뉴·영역 도구줄).
  * - 글: 세로 메뉴. 설명 E · 번역 T · 하이라이트 H(색 견본 셋, U5) · 주석 C · AI에게 질문 Enter
- * - 영역: 가로 도구줄. 종류(그림·표·수식) · 설명 E · AI에게 질문 · 주석 · 그림 복사 Ctrl+C
+ * - 영역: 가로 도구줄. 종류(그림·표·수식) · 설명 E · AI에게 질문 Enter · 주석 C · 그림 복사 Ctrl+C
  * 영역의 동작 단추는 아이콘이고 이름·단축키는 단추 사이를 옮겨 다니는 말풍선 하나가 보인다(MorphTools.tsx, 2026-11-16 사용자 요청).
  * 단축키는 메뉴가 떠 있고 글 쓰는 칸에 있지 않을 때만 받는다. 한글 입력 상태도 같은 물리 키로 받는다.
  * 바깥을 누르거나 Esc로 닫는다.
@@ -69,6 +69,13 @@ export function SelectionMenu({ kind, blockedReason, regionKind, onRegionKind, g
   };
 
   useLayoutEffect(place);
+
+  // 머리의 "영역 설명"을 누르고 영역을 고르면 포커스가 그 단추에 남는다(영역 모드는 글 선택을 막느라 포커스를 옮기지 않는다).
+  // 그러면 아래 단축키(E·C·Enter)를 받지 못하고 Enter는 그 단추를 다시 누르므로, 메뉴가 뜰 때 메뉴 밖 단추의 포커스를 놓는다.
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLButtonElement && !ref.current?.contains(active)) active.blur();
+  }, []);
 
   useEffect(() => {
     let frame = 0;
@@ -163,8 +170,8 @@ export function SelectionMenu({ kind, blockedReason, regionKind, onRegionKind, g
         disabled={busy}
         tools={[
           { id: "explain", label: "설명", icon: "sparkles", shortcut: "E", keys: "E", primary: true, onClick: () => onAction("explain") },
-          { id: "ask", label: "AI에게 질문", icon: "ask", onClick: () => onAction("ask") },
-          { id: "note", label: "주석", icon: "note", onClick: () => onAction("note") },
+          { id: "ask", label: "AI에게 질문", icon: "ask", shortcut: "Enter", keys: "Enter", onClick: () => onAction("ask") },
+          { id: "note", label: "주석", icon: "note", shortcut: "C", keys: "C", onClick: () => onAction("note") },
           { id: "copy", label: "그림 복사", icon: "copy", shortcut: "Ctrl+C", keys: "Control+C", onClick: () => onAction("copy") },
         ]}
       />
@@ -172,7 +179,12 @@ export function SelectionMenu({ kind, blockedReason, regionKind, onRegionKind, g
   );
 }
 
-const REGION_SHORTCUTS: readonly Pick<Item, "action" | "code">[] = [{ action: "explain", code: "KeyE" }];
+// 글 메뉴와 같은 키(설명 E · 주석 C · AI에게 질문 Enter, 2026-11-16 사용자 요청). C는 Ctrl이 없을 때만이라 그림 복사(Ctrl+C)와 겹치지 않는다
+const REGION_SHORTCUTS: readonly Pick<Item, "action" | "code">[] = [
+  { action: "explain", code: "KeyE" },
+  { action: "note", code: "KeyC" },
+  { action: "ask", code: "Enter" },
+];
 
 function MenuItem({ item, busy, onAction }: { item: Item; busy: boolean; onAction: (action: MenuAction) => void }) {
   return (

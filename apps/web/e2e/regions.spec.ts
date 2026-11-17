@@ -196,9 +196,9 @@ test("그림을 누르면 일반 PDF 뷰어처럼 그 그림이 영역으로 골
   await page.mouse.click(center.x, center.y);
   await expect(panelQuad(2)).toHaveCount(1);
 
-  // 그림 종류로 저장된다.
+  // 그림 종류로 저장된다. 주석은 글 메뉴처럼 C로도 연다(2026-11-16 사용자 요청)
   await expect(regionToolbar(page).getByRole("radio", { name: "그림" })).toBeChecked();
-  await regionToolbar(page).getByRole("button", { name: "주석" }).click();
+  await page.keyboard.press("c");
   await saveNote(page);
   const anchorId = await page.locator(NOTES).first().getAttribute("data-anchor-id");
   const anchor = await (await page.request.get(`/api/v1/anchors/${anchorId}`)).json();
