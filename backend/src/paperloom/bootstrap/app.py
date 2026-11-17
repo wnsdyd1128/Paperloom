@@ -24,6 +24,7 @@ from paperloom.bootstrap.config import Settings
 from paperloom.context.routes import build_router as build_context_router
 from paperloom.context.service import ContextService
 from paperloom.documents import layout_model, ocr_model
+from paperloom.documents.bibliography_lookup import BibliographyService
 from paperloom.documents.parsing import ParseService
 from paperloom.documents.routes import build_router as build_documents_router
 from paperloom.documents.service import DocumentService, UploadLimits
@@ -68,19 +69,26 @@ def create_app(settings: Settings, upload_limits: UploadLimits = UploadLimits())
     if not ocr.available:
         log.info("글줄 인식 모델(%s)이 없어 글꼴 정보로 읽지 못한 글자는 못 읽은 채로 둡니다.", ocr.path)
         ocr = None
-    parsing = ParseService(db_path, store, layout=layout, ocr=ocr)
+    bibliography = BibliographyService(db_path) if settings.metadata.lookup else None
+    parsing = ParseService(db_path, store, layout=layout, ocr=ocr, after_extract=bibliography.notify if bibliography else None)
 
     # 본문 추출 worker는 서버와 함께 시작하고 멈춘다 (IMPL §5.2). 테스트는 app.state.parsing.run_next()로 직접 돌린다.
+    # 서지 조회 worker는 추출이 채운 DOI·첫 쪽 문단을 쓰므로 추출 worker의 시작 정리(prepare) 뒤에 시작한다.
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         parsing.start()
+        if bibliography:
+            bibliography.start()
         try:
             yield
         finally:
+            if bibliography:
+                bibliography.stop()
             parsing.stop()
 
     app = FastAPI(title="Paperloom", version=__version__, description=DESCRIPTION, openapi_tags=TAGS, docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.parsing = parsing
+    app.state.bibliography = bibliography
     install_error_handler(app)
     install_openapi(app)
 

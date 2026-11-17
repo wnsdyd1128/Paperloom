@@ -86,9 +86,11 @@ def get_storage_ref(connection: sqlite3.Connection, version_id: str) -> str | No
 def update_metadata(
     connection: sqlite3.Connection, paper_id: str, *, title: str, authors: list[str], year: int | None, doi: str | None
 ) -> bool:
-    """사용자가 고친 논문 정보. 지운 DOI는 빈 글로 두어 본문 추출이 다시 채우지 않는다(fill_doi). 논문이 없으면 False."""
+    """사용자가 고친 논문 정보. 지운 DOI는 빈 글로 두어 본문 추출이 다시 채우지 않는다(fill_doi). 아직 서지 조회를 하지 않았으면
+    하지 않게 적어 둔다(지운 저자·연도도 다시 채우지 않는다). 논문이 없으면 False."""
     cursor = connection.execute(
-        "UPDATE papers SET title = ?, authors_json = ?, year = ?, doi = ? WHERE paper_id = ? AND owner_id = ?",
+        "UPDATE papers SET title = ?, authors_json = ?, year = ?, doi = ?, metadata_lookup = COALESCE(metadata_lookup, 'edited')"
+        " WHERE paper_id = ? AND owner_id = ?",
         (title, json.dumps(authors, ensure_ascii=False), year, doi or "", paper_id, LOCAL_OWNER_ID),
     )
     return cursor.rowcount == 1
@@ -207,6 +209,25 @@ def filename_titles(connection: sqlite3.Connection) -> list[tuple[str, str]]:
 
 def fix_title(connection: sqlite3.Connection, paper_id: str, title: str) -> None:
     connection.execute("UPDATE papers SET title = ? WHERE paper_id = ?", (title, paper_id))
+
+
+def papers_to_look_up(connection: sqlite3.Connection) -> list[sqlite3.Row]:
+    """서지 조회를 아직 하지 않았고 본문 추출이 끝난 논문의 paper_id, current_version_id, doi(먼저 올린 것부터).
+    추출 중이면 DOI·첫 쪽 문단이 아직 없으므로 추출이 끝난 뒤에 본다."""
+    return connection.execute(
+        "SELECT p.paper_id, p.current_version_id, p.doi FROM papers AS p JOIN source_versions AS v ON v.version_id = p.current_version_id"
+        " WHERE p.metadata_lookup IS NULL AND v.status IN ('INDEXED', 'PARTIAL') ORDER BY p.created_at",
+    ).fetchall()
+
+
+def fill_bibliography(connection: sqlite3.Connection, paper_id: str, looked_up: str, authors: list[str], year: int | None) -> None:
+    """서지 조회 결과. 비어 있는 저자·연도만 채우고 물은 식별자(looked_up)를 적는다. 그 사이 사용자가 정보를 고쳤으면
+    (metadata_lookup = edited) 아무것도 바꾸지 않는다."""
+    connection.execute(
+        "UPDATE papers SET authors_json = CASE WHEN authors_json = '[]' THEN ? ELSE authors_json END, year = COALESCE(year, ?),"
+        " metadata_lookup = ? WHERE paper_id = ? AND metadata_lookup IS NULL",
+        (json.dumps(authors, ensure_ascii=False), year, looked_up, paper_id),
+    )
 
 
 def papers_without_doi(connection: sqlite3.Connection) -> list[tuple[str, str]]:

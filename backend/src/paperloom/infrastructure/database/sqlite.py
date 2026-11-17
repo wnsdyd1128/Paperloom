@@ -350,9 +350,15 @@ CREATE TABLE answer_images (
 );
 """
 
+# 서지 조회(2026-11-16 사용자 결정, documents.bibliography): 비어 있는 저자·연도를 DOI·arXiv 번호로 물어 채운다.
+# 물은 식별자(doi:…·arxiv:…), 식별자가 없으면 none, 사용자가 논문 정보를 고쳤으면 edited다. NULL이면 아직 묻지 않았다.
+_SCHEMA_V20 = """
+ALTER TABLE papers ADD COLUMN metadata_lookup TEXT;
+"""
+
 MIGRATIONS = [
     _SCHEMA_V1, _SCHEMA_V2, _SCHEMA_V3, _SCHEMA_V4, _SCHEMA_V5, _SCHEMA_V6, _SCHEMA_V7, _SCHEMA_V8, _SCHEMA_V9, _SCHEMA_V10, _SCHEMA_V11,
-    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17, _SCHEMA_V18, _SCHEMA_V19,
+    _SCHEMA_V12, _SCHEMA_V13, _SCHEMA_V14, _SCHEMA_V15, _SCHEMA_V16, _SCHEMA_V17, _SCHEMA_V18, _SCHEMA_V19, _SCHEMA_V20,
 ]
 
 

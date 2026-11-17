@@ -61,6 +61,14 @@ class ArtifactSettings(_Strict):
     shown_dir: str | None = None
 
 
+class MetadataSettings(_Strict):
+    """논문 정보의 서지 조회(documents.bibliography)."""
+
+    # 비어 있는 저자·연도를 DOI는 Crossref, arXiv 번호는 arXiv에 물어 채운다(2026-11-16 사용자 결정). 밖으로는 식별자만 나간다.
+    # 시험이 밖으로 나가지 않게 기본은 끄고, 실행 설정(ops/config의 docker·local·bundle)에서 켠다
+    lookup: bool = False
+
+
 class CostPolicy(_Strict):
     mode: Literal["plan_only"] = "plan_only"
     paid_model_calls_allowed: Literal[False] = False
@@ -74,6 +82,7 @@ class Settings(_Strict):
     ocr: OcrSettings = OcrSettings()
     wiki: WikiSettings = WikiSettings()
     artifacts: ArtifactSettings = ArtifactSettings()
+    metadata: MetadataSettings = MetadataSettings()
     cost_policy: CostPolicy = CostPolicy()
 
 

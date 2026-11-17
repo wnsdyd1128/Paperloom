@@ -232,7 +232,7 @@ def test_invalid_status_patches_are_rejected(client, digital, patch):
 
 def test_unknown_or_foreign_anchor_is_refused_the_same_way(client, digital, data_dir):
     with closing(sqlite3.connect(data_dir / "paperloom.sqlite3")) as connection, connection:
-        connection.execute("INSERT INTO papers VALUES ('other-paper', 'someone-else', 'Secret', '[]', NULL, NULL, 'other-v', 'now', NULL)")
+        connection.execute("INSERT INTO papers VALUES ('other-paper', 'someone-else', 'Secret', '[]', NULL, NULL, 'other-v', 'now', NULL, NULL)")
         connection.execute(
             "INSERT INTO source_versions (version_id, paper_id, sha256, size_bytes, page_count, storage_ref, status, created_at)"
             " VALUES ('other-v', 'other-paper', 'h', 1, 1, 'r', 'INDEXED', 'now')"

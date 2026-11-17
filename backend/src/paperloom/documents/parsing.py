@@ -90,13 +90,16 @@ class ParseService:
         clock: Callable[[], float] = time.time,
         layout: LayoutModel | None = None,
         ocr: OcrModel | None = None,
+        after_extract: Callable[[], None] | None = None,
     ) -> None:
+        """after_extract는 추출 결과(DOI·첫 쪽 문단)를 저장한 뒤마다 부른다(서지 조회 worker 깨우기, documents.bibliography_lookup)."""
         self._db_path = db_path
         self._store = store
         self._settings = settings
         self._clock = clock
         self._layout = layout
         self._ocr = ocr
+        self._after_extract = after_extract
         self._worker_id = f"worker-{uuid.uuid4()}"
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -247,6 +250,8 @@ class ParseService:
             if paper and first and looks_like_filename(paper.title) and (title := title_from_blocks(first["blocks"])):
                 documents.fix_title(connection, version.paper_id, title)
             runs.set_version_status(connection, run.version_id, status, reason)
+        if self._after_extract is not None:
+            self._after_extract()
         log.info(
             "본문 추출 %s 끝: version=%s status=%s reason=%s pages=%d parser=%s %.2fs",
             run.parse_run_id, run.version_id, status, reason, len(pages), self.parser_version, time.monotonic() - started,

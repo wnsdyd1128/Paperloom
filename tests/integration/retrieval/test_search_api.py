@@ -105,7 +105,7 @@ def test_only_own_papers_are_searched(tmp_path):
     data_dir = tmp_path / "data"
     client, _ = build_library(data_dir)
     with closing(sqlite3.connect(data_dir / "paperloom.sqlite3")) as connection, connection:
-        connection.execute("INSERT INTO papers VALUES ('other-paper', 'someone-else', 'Secretword title', '[]', NULL, NULL, 'other-v', 'now', NULL)")
+        connection.execute("INSERT INTO papers VALUES ('other-paper', 'someone-else', 'Secretword title', '[]', NULL, NULL, 'other-v', 'now', NULL, NULL)")
         connection.execute(
             "INSERT INTO source_versions (version_id, paper_id, sha256, size_bytes, page_count, storage_ref, status, created_at)"
             " VALUES ('other-v', 'other-paper', 'h', 1, 1, 'r', 'INDEXED', 'now')"
