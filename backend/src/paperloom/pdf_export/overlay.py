@@ -1,8 +1,8 @@
 """번역본 PDF의 번역 쪽 그리기 (2026-11-15 사용자 요청: PDF로 내보낼 때 레이아웃 유지 번역본도 바탕으로 고른다).
 
 번역한 쪽마다 원문 문단 자리를 흰 상자로 덮고 그 위에 번역문을 쓴 덮개 쪽을 pdfium으로 만들어 원문 쪽 위에 합친다
-(pypdf merge_page). 원문 쪽의 내용은 고치지 않고 덮기만 하므로(웹의 레이아웃 유지 번역과 같다) 가려진 원문 글도 PDF 안에
-남아 검색·복사에 잡힌다. 번역하지 않은 쪽은 그대로 둔다.
+(pypdf merge_page). 흰 상자 밑의 원문 글은 쪽 내용에서 지운다(covered_text: 외부 뷰어에서 끌어 고를 때 가려진 원문까지 잡혔다).
+그림·선은 그대로 덮기만 한다. 번역하지 않은 쪽은 그대로 둔다.
 
 웹처럼 화면에 보이는 방향(회전 뒤)에서 조판하고, 그린 글은 /Rotate만큼 돌려 PDF 사용자 공간에 놓는다.
 신뢰할 수 없는 PDF를 읽고 pdfium을 쓰므로 내보내기 하위 프로세스(writer)에서만 부른다.
@@ -13,6 +13,7 @@ import io
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from paperloom.pdf_export.covered_text import strip_covered_text
 from paperloom.pdf_export.fonts import SYMBOL, Fonts
 from paperloom.pdf_export.typeset import BlockLayout, Rect, Run, SourceBlock, layout_block
 
@@ -82,8 +83,8 @@ def page_space(page) -> PageSpace:
     return PageSpace(view_box, page.rotation % 360)
 
 
-def draw_translations(writer, pages: Sequence[dict], scale: float) -> Quads:
-    """writer(pypdf.PdfWriter)의 번역한 쪽(pages: translated.TranslatedPage를 dict로)에 번역문을 덮어 쓴다."""
+def draw_translations(writer, source: str, pages: Sequence[dict], scale: float) -> Quads:
+    """writer(source를 연 pypdf.PdfWriter)의 번역한 쪽(pages: translated.TranslatedPage를 dict로)에 번역문을 덮어 쓴다."""
     import pypdf
 
     with Fonts() as fonts:
@@ -109,6 +110,7 @@ def draw_translations(writer, pages: Sequence[dict], scale: float) -> Quads:
             ]
             laid.append((index, space, layouts))
         overlay = pypdf.PdfReader(io.BytesIO(_overlay(laid, fonts)))
+    strip_covered_text(writer, source, {index: [space.user_rect(layout.mask) for layout in layouts] for index, space, layouts in laid})
     quads: Quads = {}
     for (index, space, layouts), cover in zip(laid, overlay.pages, strict=True):
         writer.pages[index].merge_page(cover)

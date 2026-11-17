@@ -191,7 +191,10 @@ def test_the_translated_base_writes_the_translation_over_the_original_paragraphs
     assert response.status_code == 200
     assert response.content.startswith(original)
     page = pdfium.PdfDocument(response.content)[0]
-    assert "번역문 0" in page.get_textpage().get_text_range()
+    text = page.get_textpage().get_text_range()
+    assert "번역문 0" in text
+    # 덮은 원문 문단은 글 층에서도 지워 끌어 고를 때 잡히지 않는다(2026-11-17). 그림 안 글자는 번역하지 않아 남는다
+    assert "BODY TEXT" not in text and "Synthetic values" in text
     # 하이라이트는 원문 낱말 자리(u0 + 0.2부터)가 아니라 그 문장의 번역문 자리(문단 왼쪽 끝부터)에 칠한다
     [highlight] = added_annotations(client, response.content)
     width = page.get_size()[0]

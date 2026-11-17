@@ -88,7 +88,7 @@ def _annotate(path: str, job: dict) -> bytes:
     from pypdf.generic import ArrayObject, FloatObject, NameObject, NumberObject, TextStringObject
 
     writer = pypdf.PdfWriter(path, incremental=True)
-    moved = draw_translations(writer, job["translated"], job["scale"]) if job["translated"] else {}
+    moved = draw_translations(writer, path, job["translated"], job["scale"]) if job["translated"] else {}
     taken: dict[int, list[Box]] = {}
     for mark in job["marks"]:
         page_index = mark["page_index"]
