@@ -31,7 +31,7 @@ export type UploadStatus =
 
 const POLL_MS = 1500;
 
-/** onOpenPaper: 이미 등록된 PDF를 올렸을 때 안내의 "기존 논문 열기"가 그 논문을 연다 */
+/** onOpenPaper: 올리기 안내의 바로가기("논문 열기", 이미 등록된 PDF면 "기존 논문 열기")가 그 논문을 연다 */
 export function useLibrary(onOpenPaper: (paper: Paper) => void) {
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [notice, setNotice] = useState<Notice>(null);
@@ -78,7 +78,7 @@ export function useLibrary(onOpenPaper: (paper: Paper) => void) {
           const paper = await uploadPaper(file);
           last = paper;
           setList((current) => ({ kind: "ready", papers: [paper, ...(current.kind === "ready" ? current.papers : [])] }));
-          setNotice({ tone: "ok", text: `등록됨: ${paper.title}` });
+          setNotice({ tone: "ok", text: `등록됨: ${paper.title}`, action: { label: "논문 열기", run: () => onOpenPaper(paper) } });
         } catch (error) {
           const { message, existing } = describeUploadError(error, papers);
           setNotice({
