@@ -97,14 +97,17 @@
   color: var(--toast-fg);
 }
 
+/*
+ * 남은 시간 줄은 줄이는 대신 왼쪽으로 밀어낸다(카드의 overflow: hidden이 자른다). 줄 끝을 흐리게 두어, GPU 합성이
+ * 없거나 프레임 간격이 고르지 않아 끝이 1px씩 끊겨 움직일 때도 그 점프가 눈에 띄지 않게 한다.
+ */
 .toast-time {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
   height: 2px;
-  background: var(--toast-tone);
-  transform-origin: left;
+  background: linear-gradient(to right, var(--toast-tone) calc(100% - 24px), transparent);
   animation-name: toast-time;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
@@ -130,7 +133,7 @@
 
 @keyframes toast-time {
   to {
-    transform: scaleX(0);
+    transform: translateX(-100%);
   }
 }
 
