@@ -8,6 +8,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "../../shared/http";
 import { Icon } from "../../shared/Icon";
+import { Toast } from "../../shared/Toast";
 import type { Citation } from "../answers/api";
 import { ConversationsPage } from "../answers/ConversationsPage";
 import { bridgeState, useBridge } from "../chat/BridgeStatus";
@@ -40,7 +41,7 @@ type Props = Readonly<{
 }>;
 
 export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, onOpenCitation }: Props) {
-  const library = useLibrary();
+  const library = useLibrary(onOpenPaper);
   const bridge = useBridge();
   const outbox = useOutbox();
   // Wiki로 내보내기는 개발 중이라 설정(wiki.enabled)이 켜져 있을 때만 보인다. 꺼져 있으면 /bundles도 서재를 보인다
@@ -162,11 +163,6 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
       </header>
       <div className="library-notices">
         {shown === "library" && <SearchStatus found={found} onClear={clearSearch} />}
-        {library.notice && (
-          <p className={`status ${library.notice.tone}`} role="status">
-            {library.notice.text}
-          </p>
-        )}
       </div>
       <main className="library-main">
         {shown === "library" && (
@@ -192,6 +188,7 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
           <FileDrop status={library.uploadStatus} near={dragging} onSettled={settleUpload} />
         </div>
       )}
+      <Toast notice={library.notice} onClose={library.dismissNotice} />
       {settingsOpen && <SettingsDialog bridge={bridge} onClose={() => setSettingsOpen(false)} />}
       {exporting && (
         <ExportDialog

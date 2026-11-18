@@ -107,7 +107,7 @@ test("Ctrl+클릭한 참고문헌 번호는 참고문헌 쪽의 그 항목으로
   await click(page, await center(body, "measured"), true);
   await page.waitForTimeout(SETTLE_MS);
   await expect(page.locator(".quad-mark.is-focused")).toHaveCount(0);
-  await expect(page.locator(".reader-toast")).toHaveCount(0);
+  await expect(page.locator(".toast")).toHaveCount(0);
 });
 
 /** 조각을 스크롤 영역 가운데에 둔다(쪽 끝이면 스크롤할 수 있는 만큼) */

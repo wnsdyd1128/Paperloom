@@ -1,10 +1,11 @@
 /**
  * 서재의 논문 목록과 바꾸기 (U6). 본문 추출이 끝날 때까지 목록을 다시 받는다. 올리기(단추·끌어 놓기)·다시 추출·태그는
- * 서버에 보낸 뒤 목록을 바꾼다. 안내(notice)는 머리 아래 한 줄로 보인다.
+ * 서버에 보낸 뒤 목록을 바꾼다. 안내(notice)는 화면 우하단의 toast로 보인다.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "../../shared/http";
+import type { ToastNotice } from "../../shared/Toast";
 import {
   deletePaper,
   deleteTag as deleteTagRequest,
@@ -17,7 +18,7 @@ import {
 } from "./api";
 
 export type ListState = Readonly<{ kind: "loading" }> | Readonly<{ kind: "ready"; papers: readonly Paper[] }> | Readonly<{ kind: "failed" }>;
-export type Notice = Readonly<{ tone: "ok" | "error" | "pending"; text: string }> | null;
+export type Notice = ToastNotice | null;
 /**
  * PDF 받침(FileDrop)이 그리는 올리기 단계. done·failed는 받침이 결과를 다 보여 준 뒤 settleUpload()로 idle이 된다.
  * 서버가 바이트를 받은 뒤 PDF를 확인하는 시간이 대부분이라 보낸 비율(%)은 두지 않는다.
@@ -30,7 +31,8 @@ export type UploadStatus =
 
 const POLL_MS = 1500;
 
-export function useLibrary() {
+/** onOpenPaper: 이미 등록된 PDF를 올렸을 때 안내의 "기존 논문 열기"가 그 논문을 연다 */
+export function useLibrary(onOpenPaper: (paper: Paper) => void) {
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [notice, setNotice] = useState<Notice>(null);
   const [uploading, setUploading] = useState(false);
@@ -78,8 +80,12 @@ export function useLibrary() {
           setList((current) => ({ kind: "ready", papers: [paper, ...(current.kind === "ready" ? current.papers : [])] }));
           setNotice({ tone: "ok", text: `등록됨: ${paper.title}` });
         } catch (error) {
-          const message = describeUploadError(error, papers);
-          setNotice({ tone: "error", text: message });
+          const { message, existing } = describeUploadError(error, papers);
+          setNotice({
+            tone: "error",
+            text: message,
+            ...(existing && { action: { label: "기존 논문 열기", run: () => onOpenPaper(existing) } }),
+          });
           setUploadStatus({ kind: "failed", message });
           return;
         }
@@ -153,17 +159,19 @@ export function useLibrary() {
   }
 
   const settleUpload = () => setUploadStatus({ kind: "idle" });
+  const dismissNotice = () => setNotice(null);
 
-  return { list, papers, notice, uploading, uploadStatus, upload, settleUpload, retry, setTags, renameTag, deleteTag, removePaper };
+  return { list, papers, notice, dismissNotice, uploading, uploadStatus, upload, settleUpload, retry, setTags, renameTag, deleteTag, removePaper };
 }
 
 export type Library = ReturnType<typeof useLibrary>;
 
-function describeUploadError(error: unknown, papers: readonly Paper[]): string {
-  if (!(error instanceof ApiError)) return "업로드하지 못했습니다. 백엔드 연결을 확인하세요.";
+/** 올리기 실패 안내. 이미 등록된 PDF이고 그 논문이 목록에 있으면 existing으로 돌려준다 */
+function describeUploadError(error: unknown, papers: readonly Paper[]): Readonly<{ message: string; existing?: Paper }> {
+  if (!(error instanceof ApiError)) return { message: "업로드하지 못했습니다. 백엔드 연결을 확인하세요." };
   if (error.body.code === "DUPLICATE_SOURCE") {
     const existing = papers.find((paper) => paper.paper_id === error.body.details?.paper_id);
-    return existing ? `이미 등록된 논문입니다: ${existing.title}` : error.message;
+    return existing ? { message: `이미 등록된 논문입니다: ${existing.title}`, existing } : { message: error.message };
   }
-  return error.message;
+  return { message: error.message };
 }

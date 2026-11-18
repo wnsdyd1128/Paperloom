@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { IconName } from "../../shared/Icon";
 import { inSelectPicker } from "../../shared/selectPicker";
+import { Toast, type ToastNotice } from "../../shared/Toast";
 import { type Anchor, type Annotation, createAnchor, getAnchor, type NewAnchor, type RegionKind } from "../annotations/api";
 import type { HighlightColor } from "../annotations/api";
 import { rememberHighlightColor, storedHighlightColor } from "../annotations/highlights";
@@ -76,7 +77,6 @@ import { createZoomPinner, DEFAULT_ZOOM, normalizeZoom, stepZoom, wheelZoomFacto
 
 const CONTEXT_CHARS = 64; // anchor.v1 prefix·suffix 길이
 const EQUATION_QUESTION = "이 수식을 LaTeX로 옮기고, 각 기호의 뜻과 수식이 말하는 바를 설명해 주세요.";
-const NOTICE_MS = 4000;
 
 /**
  * 오른쪽 사이드바 패널: Claude와 대화, 아티팩트 모음(2026-11-09 사용자 요청), 선택 설명·질문, 하이라이트(U5), 주석.
@@ -112,7 +112,6 @@ type LinkedAnchor =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "found"; anchor: Anchor }>
   | Readonly<{ kind: "unavailable" }>;
-type Notice = Readonly<{ tone: "ok" | "error"; text: string }>;
 /** 첫 답 전의 창과 그 창이 저장할 선택 */
 type DraftState = Draft & Readonly<{ newAnchor: NewAnchor }>;
 
@@ -170,7 +169,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [asking, setAsking] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useState<ToastNotice | null>(null);
   // 원문 위 창의 자리를 다시 잴 때마다 바뀐다(확대·회전·쪽 크기·창 크기).
   const [layout, setLayout] = useState(0);
   const pointerDownRef = useRef(false);
@@ -213,12 +212,6 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
   translationRef.current = translation;
   const translationTab = useRef<Window | null>(null);
   const sourcePage = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (notice?.tone !== "ok") return;
-    const timer = window.setTimeout(() => setNotice(null), NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   useEffect(() => {
     const container = containerRef.current!;
@@ -370,7 +363,7 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
       returns.remember(); // 스크롤하기 전에
       setFollowed(target);
     },
-    onMiss: (text) => setNotice({ tone: "ok", text }), // 잠시 보이고 사라지는 안내(오류처럼 남기지 않는다)
+    onMiss: (text) => setNotice({ tone: "ok", text }), // 잠시 보이고 사라지는 안내(오류만큼 오래 두지 않는다)
   });
 
   function replaceSelection(next: ReaderSelection | null) {
@@ -1149,12 +1142,6 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           />
         )}
       </div>
-      {/* 방금 한 일의 안내는 본문을 밀지 않도록 위에 띄운다. 성공 안내는 잠시 뒤 사라진다. */}
-      {notice && (
-        <p className={`status ${notice.tone} reader-toast`} role="status">
-          {notice.text}
-        </p>
-      )}
       <SelectionStatus selection={selection} />
       {menuOpen && selection && (
         <SelectionMenu
@@ -1272,6 +1259,8 @@ export function ReaderPage({ paper, version, anchorId, openSession, textFocus, a
           {find.open && <FindBar focusKey={find.focusKey} matches={findMatches} pending={findPending} onFind={findText} onClose={closeFind} />}
           {openArtifact && <ArtifactWindow key={openArtifact.nonce} artifact={openArtifact.artifact} versionId={versionId} onClose={() => setOpenArtifact(null)} />}
           {!panelOpen && <FloatingDock items={panelItems} onPick={(next) => openPanel(next)} />}
+          {/* 방금 한 일의 안내는 원문 영역의 우하단에 띄운다(사이드바의 대화 입력칸을 가리지 않게) */}
+          <Toast notice={notice} onClose={() => setNotice(null)} />
         </main>
         {/* 사이드바를 바꾸거나 닫아도 대화·입력이 남도록 패널을 숨기기만 한다. */}
         <aside className="reader-side" hidden={!panelOpen} aria-label="사이드바" style={{ width: side.width }}>

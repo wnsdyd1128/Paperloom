@@ -58,6 +58,9 @@ const ICONS = {
   arrowUp: ["m5 12 7-7 7 7", "M12 19V5"],
   arrowLeft: ["m12 19-7-7 7-7", "M19 12H5"],
   check: ["M20 6 9 17l-5-5"],
+  // Lucide circle-alert, loader-circle (우하단 안내의 오류·진행 중)
+  alert: [{ circle: [12, 12, 10] }, "M12 8v4", "M12 16h.01"],
+  loader: ["M21 12a9 9 0 1 1-6.219-8.56"],
   type: ["M4 7V4h16v3", "M9 20h6", "M12 4v16"],
   rotate: ["M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8", "M21 3v5h-5"],
   link: [
