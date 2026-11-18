@@ -233,9 +233,15 @@ test("서재가 비면 표 자리에 PDF 받침을 두고, 첫 논문이 등록�
   await expect(zone).toHaveAttribute("data-phase", "done");
   await expect(zone.locator(".file-drop-title")).toHaveText("서재에 등록했습니다");
   await expect(zone.locator(".file-drop-detail")).toHaveText(paper.title);
+  // 등록 안내에 마우스를 올려 두면 남은 시간 줄이 멈춰, 받침이 사라질 때까지 안내가 남는다
+  await page.locator(".toast").filter({ hasText: `등록됨: ${paper.title}` }).hover();
   await expect(page.locator(".drop-overlay")).toHaveCount(0);
   await expect(row(page, paperId)).toBeVisible({ timeout: 10_000 });
   await expect(zone).toHaveCount(0);
+
+  // 등록 안내의 바로가기로 방금 올린 논문을 연다
+  await page.getByRole("button", { name: "논문 열기", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/reader/${paperId}\\?version=`));
 });
 
 test("논문을 열면 마지막 열람이 오늘이 되고 맨 위로 온다. 주석·대화 개수는 서버의 수다", async ({ page }, testInfo) => {
