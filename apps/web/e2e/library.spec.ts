@@ -204,6 +204,10 @@ test("PDF를 화면에 끌어다 놓거나 PDF 등록으로 올린다(같은 파
   await expect(overlayDrop).toHaveAttribute("data-phase", "failed");
   await expect(page.locator(".drop-overlay")).not.toHaveAttribute("data-dragging");
   await expect(page.locator(".drop-overlay")).toHaveCount(0, { timeout: 10_000 });
+
+  // 3) 이미 등록됐다는 안내의 바로가기로 그 논문을 연다
+  await page.getByRole("button", { name: "기존 논문 열기" }).click();
+  await expect(page).toHaveURL(new RegExp(`/reader/${paperId}\\?version=`));
 });
 
 test("서재가 비면 표 자리에 PDF 받침을 두고, 첫 논문이 등록되면 결과를 보인 뒤 표로 바뀐다", async ({ page }, testInfo) => {
@@ -284,6 +288,8 @@ test("논문 삭제: 확인 창에서 취소하면 그대로, 확인하면 서�
   await remove.click();
   await expect(target).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: `삭제됨: ${title}` })).toBeVisible();
+  // 성공 안내는 남은 시간 줄이 다 줄면 스스로 닫힌다
+  await expect(page.getByRole("status").filter({ hasText: `삭제됨: ${title}` })).toHaveCount(0, { timeout: 10_000 });
   expect((await page.request.get(`/api/v1/papers/${uploaded.paperId}`)).status()).toBe(404);
   await page.reload();
   await expect(row(page, uploaded.paperId)).toHaveCount(0);
