@@ -1702,6 +1702,20 @@ body.is-resizing-side {
   overflow-wrap: anywhere;
 }
 
+/*
+ * 보낸 질문의 스킬 이름 (2026-11-19 사용자 요청): 입력칸 칩처럼 따로 보인다. 말풍선은 글자색과 바탕을 뒤집어 그리므로
+ * 강조색을 바탕에만 섞고 글자는 말풍선 글자색 그대로 둔다(밝은 판·어두운 판 모두 읽힌다).
+ */
+.chat-prompt-skill {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 .chat-quote {
   display: flex;
   flex-direction: column;
@@ -1796,6 +1810,62 @@ body.is-resizing-side {
   container-type: inline-size;
 }
 
+/* `/` 스킬 목록 (2026-11-19 사용자 결정 "B+C"): 입력부 바로 위에 뜬다. 고른 줄은 강조색 바탕이다 */
+.chat-skills {
+  max-height: 260px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: 12px;
+  background: var(--color-bg);
+  box-shadow: 0 6px 18px color-mix(in srgb, #2d2b2b 10%, transparent);
+  list-style: none;
+}
+
+.chat-skills li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.chat-skills li.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.chat-skill-name {
+  font-weight: 600;
+}
+
+.chat-skill-hint,
+.chat-skill-tools,
+.chat-skill-note {
+  color: var(--color-neutral-600);
+}
+
+.chat-skill-description,
+.chat-skill-tools {
+  grid-column: 1 / -1;
+}
+
+/* 설명(SKILL.md description)은 두 줄 안으로 쓴다(2026-11-19 사용자 요청). 넘치면 두 줄에서 자르고 전체는 툴팁으로 */
+.chat-skill-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chat-skill-note {
+  margin: 0;
+  font-size: 12px;
+}
+
 .chat-composer-box {
   display: flex;
   flex-direction: column;
@@ -1838,6 +1908,61 @@ body.is-resizing-side {
 
 .chat-input::placeholder {
   color: var(--color-neutral-600);
+}
+
+/*
+ * 고른 스킬 칩 (2026-11-19 사용자 요청, chat/SkillChip.tsx): 입력칸 첫 줄 앞에 붙고, 색은 `/` 목록의 고른 줄과 같다.
+ * 폭·크기·투명도는 spring이 정한다. 왼쪽 여백(4px)과 줄 간격(6px)을 바꾸면 SkillChip.tsx의 PULL도 바꾼다.
+ */
+.chat-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.chat-input-row .chat-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-skill-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin: 5px 0 0 4px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent-700);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  will-change: transform, opacity, width;
+}
+
+.chat-skill-chip-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px 0 8px;
+}
+
+.chat-skill-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chat-skill-chip button:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
 /* 칸이 모자라면 칩을 줄이지 않고 보내기 단추를 다음 줄 오른쪽으로 내린다 */

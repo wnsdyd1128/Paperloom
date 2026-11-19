@@ -120,7 +120,9 @@ test("글을 고르면 곁에 메뉴가 뜨고, 설명은 원문 위 창에서 �
   await expect(page.locator(MENU)).toHaveCount(0);
   await page.evaluate(() => document.getSelection()!.removeAllRanges());
   const [firstRun] = fakeRuns().slice(runsBefore);
-  expect(firstRun.args).toContain("--safe-mode");
+  // 사용자 설정을 읽지 않고, 도구는 Paperloom 스킬뿐이다 (2026-11-19 사용자 결정 "B+C": --safe-mode는 skill을 꺼서 쓰지 않는다)
+  expect(firstRun.args[firstRun.args.indexOf("--setting-sources") + 1]).toBe("project");
+  expect(firstRun.args[firstRun.args.indexOf("--tools") + 1]).toBe("Skill");
   expect(firstRun.env).toEqual([]);
   expect(resumed(firstRun)).toBeNull(); // 고른 곳마다 새 대화
   expect(firstRun.message.message.content.at(-1)!.text).toContain("> epsilonword paragraph that a reader");
@@ -860,6 +862,67 @@ test("한도(50,000자)를 넘는 질문은 보내지 않고 그 이유를 알�
   await expect(input).toHaveValue(tooLong);
   expect(packets).toEqual([]);
   expect(fakeRuns().length).toBe(runsBefore);
+});
+
+test("스킬: 입력칸에 /를 치면 스킬 목록이 뜨고, 고른 스킬은 논문 본문과 함께 보내며 명령을 마지막에 둔다", async ({ page }, testInfo) => {
+  // 2026-11-19 사용자 결정 "B+C": Paperloom이 둔 Claude Code 스킬(SKILL.md)을 대화창에서 /이름으로 부른다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  await startNewChat(chat);
+  await chat.getByLabel("범위").selectOption("page"); // 스킬은 고른 범위와 상관없이 논문 본문을 보낸다
+  const input = chat.getByRole("textbox", { name: "질문" });
+  const list = chat.getByRole("listbox", { name: "스킬" });
+
+  await input.fill("/");
+  await expect(list.getByRole("option")).toHaveCount(3);
+  await expect(list.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await input.fill("/re");
+  await expect(list.getByRole("option")).toHaveText([/^\/review-paper/, /^\/explore-literature/]);
+  await expect(list.getByRole("option").first()).toContainText("웹 검색과 학술 사이트 읽기를 씁니다");
+  await input.press("ArrowDown");
+  await expect(list.getByRole("option").nth(1)).toHaveAttribute("aria-selected", "true");
+  await input.press("Escape"); // 닫으면 글을 바꿀 때까지 닫혀 있다
+  await expect(list).toHaveCount(0);
+  await input.fill("/rev");
+  await input.press("Tab");
+  // 고른 스킬은 입력칸 앞의 칩이 되고 글에는 인자만 남는다(2026-11-19 사용자 요청). 자리 표시 글은 그 스킬의 인자 안내다
+  const chip = chat.locator(".chat-skill-chip");
+  const note = chat.locator(".chat-skill-note");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("");
+  await expect(input).toHaveAttribute("placeholder", "[심사 기준, 예: Q1 · KCI · CORE A, 적합성을 볼 학술지·학회 이름]");
+  await expect(list).toHaveCount(0);
+  await expect(note).toHaveText("/review-paper 스킬: 논문 본문과 함께 보냅니다 · 검색어가 웹 검색으로 나갑니다");
+  // 글 맨 앞의 Backspace로 칩을 빼고, `/이름 `을 직접 쳐도 칩이 된다
+  await input.press("Backspace");
+  await expect(chip).toHaveCount(0);
+  await expect(note).toHaveCount(0);
+  await input.pressSequentially("/review-paper ");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("");
+  // ×로 빼고, 인자까지 붙여 넣어도 칩과 인자로 나뉜다
+  await chip.getByRole("button", { name: "review-paper 스킬 빼기" }).click();
+  await expect(chip).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await input.fill("/review-paper Q1");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("Q1");
+
+  const before = fakeRuns().length;
+  await input.press("Enter");
+  const lastTurn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(lastTurn.locator(".chat-prompt")).toHaveText("/review-paper Q1", { timeout: 15_000 });
+  await expect(chip).toHaveCount(0); // 보내면 칩도 비운다
+  await expect(lastTurn.locator(".chat-prompt-skill")).toHaveText("/review-paper"); // 보낸 말풍선에서도 스킬 이름은 칩이다
+  await expect(lastTurn.locator(".chat-answer strong").first()).toHaveText("가짜 답");
+  const [run] = fakeRuns().slice(before);
+  const content = run.message.message.content;
+  expect(content.at(-1)).toEqual({ type: "text", text: "/review-paper Q1" }); // Claude Code는 마지막 글 블록의 /만 명령으로 펼친다
+  expect(content.at(-2)!.text).toContain("- 범위: 논문 본문");
+  expect(run.args[run.args.indexOf("--tools") + 1]).toBe("Skill,WebSearch,WebFetch"); // 이 차례에만 웹 도구
+  await expect(chat.getByLabel("범위")).toHaveValue("page"); // 고른 범위는 그대로다
 });
 
 test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {

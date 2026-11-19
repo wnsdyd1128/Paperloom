@@ -1,4 +1,4 @@
-import { type ClipboardEvent, type DragEvent, type FormEvent, Fragment, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type ClipboardEvent, type DragEvent, type FormEvent, Fragment, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { formatTime, relativeTime } from "../../shared/time";
@@ -11,7 +11,7 @@ import { type ContextPacket, createPacket, EVIDENCE_ROLE_LABELS, type Intent } f
 import { formatMathForCopy } from "../../shared/mathCopy";
 import { approxPages } from "../settings/api";
 import { usePreferences } from "../settings/PreferencesProvider";
-import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, MAX_QUESTION_CHARS } from "./api";
+import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, type ChatSkill, listSkills, MAX_QUESTION_CHARS } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
 import { type AttachedImage, imageFiles, MAX_CHAT_IMAGES, prepareImage } from "./chatImages";
 import { PROMPT_STATUS_LABELS, type PromptStatus, usePromptBox } from "./promptBox";
@@ -27,6 +27,8 @@ import {
   type SessionMeta,
   sessionsOf,
 } from "./sessions";
+import { invokedSkill, matchingSkills, skillPrompt, skillQuery, splitSkill } from "./skillCommand";
+import { SkillChip } from "./SkillChip";
 import { MOTION_STYLE, StreamingAnswer } from "./StreamingAnswer";
 import { type ChatScope, planTurn } from "./turnPlan";
 
@@ -98,6 +100,10 @@ const LIST_LIMIT = 200;
  * 보인다.
  * 머리의 "새 탭으로 분리"는 지금 대화를 별도 탭(ChatTab.tsx)으로 옮긴다 (2026-11-09 사용자 요청). 그 탭도 이 칸을 쓴다.
  * 질문에 이미지를 붙일 수 있다: 입력칸에 붙여 넣기, 이 칸에 끌어 놓기, 이미지 단추 (2026-11-10 사용자 요청, chatImages.ts).
+ * 입력칸 첫 글자가 `/`이면 Paperloom 스킬 목록이 뜬다(↑↓로 고르고 Enter·Tab으로 넣고 Esc로 닫는다, 2026-11-19 사용자 결정
+ * "B+C", skillCommand.ts). 스킬 질문은 범위와 상관없이 논문 본문과 함께 보낸다(스킬이 논문 전체를 읽는다).
+ * 고른 스킬 이름은 입력칸 앞의 칩이 되고 글에는 인자만 남는다(SkillChip.tsx, 2026-11-19 사용자 요청). ×나 맨 앞에서
+ * Backspace로 뺀다. 보낼 때 `/이름 인자`로 합친다. 보낸 질문 말풍선에서도 스킬 이름은 칩으로 보인다.
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted, onDetach }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
@@ -119,6 +125,10 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const [question, setQuestion] = useState("");
   const [scope, setScope] = useState<ChatScope>(storedScope);
   const [model, setModel] = useState<ChatModel | null>(null);
+  const [skills, setSkills] = useState<readonly ChatSkill[]>([]); // 브리지가 아는 Paperloom 스킬
+  const [skillIndex, setSkillIndex] = useState(0); // `/` 목록에서 고른 줄
+  const [skillsClosed, setSkillsClosed] = useState<string | null>(null); // Esc로 목록을 닫은 때의 입력칸 글
+  const [skillChip, setSkillChip] = useState<string | null>(null); // 입력칸 앞 칩의 스킬 이름
   const { preferences } = usePreferences();
   const [error, setError] = useState<string | null>(null);
   // 끝난 차례의 결과: 입력칸 위 상태 줄이 잠깐 보인다
@@ -172,7 +182,8 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
           setChosen(created);
         } else if (outcome.kind === "cancelled") {
           setNotice("답 만들기를 중단했습니다. 질문은 입력칸에 돌려 두었습니다.");
-          setQuestion((current) => current || turn.prompt);
+          // 인자 없이 보낸 스킬("/review-paper")도 칩으로 돌아오게 이름 뒤에 빈칸을 둔다(splitSkill)
+          setQuestion((current) => current || (/^\/\S+$/.test(turn.prompt) ? `${turn.prompt} ` : turn.prompt));
           setImages((current) => (current.length > 0 ? current : turn.images));
         } else {
           setError(outcome.message);
@@ -218,6 +229,30 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     if (visible && !wasVisible.current) inputRef.current?.focus();
     wasVisible.current = visible;
   }, [visible]);
+
+  // 브리지가 준비되면 스킬 목록을 받는다(브리지를 다시 켜면 다시 받는다)
+  const bridgeReady = bridge.health !== "checking" && bridge.health?.ready === true;
+  useEffect(() => {
+    if (!bridgeReady) return;
+    let live = true;
+    void bridge
+      .resolveUrl()
+      .then(listSkills)
+      .then((found) => {
+        if (live) setSkills(found);
+      });
+    return () => {
+      live = false;
+    };
+  }, [bridgeReady]);
+
+  // 글 맨 앞의 `/스킬 `은 칩으로 옮긴다(목록에서 고르기·직접 치기·붙여 넣기·돌려 둔 질문). 그리기 전에 옮겨 글이 비치지 않는다
+  useLayoutEffect(() => {
+    const split = splitSkill(question, skills);
+    if (!split) return;
+    setSkillChip(split.skill.name);
+    setQuestion(split.rest);
+  }, [question, skills]);
 
   // 갈래면 이어받은 차례도 대화의 일부다(모델이 그 차례를 안다). 범위 본문을 다시 보낼지도 그것까지 보고 정한다.
   const { inherited, own } = conversationTurns(answers, session, links, fork && { parent: fork.parent, at: fork.at });
@@ -353,17 +388,48 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
-    const prompt = question.trim();
+    const sent = skillPrompt(skillChip, question);
+    const prompt = sent.trim();
     if (!prompt || pending) return;
     if (prompt.length > MAX_QUESTION_CHARS) {
       // 그대로 보내면 packet을 만들 때 막혀 "백엔드 연결을 확인하세요"로 보였다
       setError(`질문이 너무 깁니다. ${MAX_QUESTION_CHARS.toLocaleString("ko-KR")}자까지 보낼 수 있습니다(지금 ${prompt.length.toLocaleString("ko-KR")}자).`);
       return;
     }
-    const sent = question;
     setQuestion("");
-    if (!(await ask(prompt, scope))) setQuestion(sent);
+    setSkillChip(null);
+    if (!(await ask(prompt, invokedSkill(prompt, skills) ? "paper" : scope))) setQuestion(sent); // 스킬은 다시 칩이 된다
   }
+
+  // `/`로 시작하고 빈칸이 아직 없으면 스킬 이름을 고르는 중이다. Esc로 닫으면 그 글이 바뀔 때까지 닫아 둔다
+  const query = skillQuery(question);
+  const skillOptions = query === null || skillsClosed === question ? [] : matchingSkills(skills, query);
+  const activeSkill = Math.min(skillIndex, Math.max(0, skillOptions.length - 1));
+  const chipSkill = skills.find((skill) => skill.name === skillChip) ?? null;
+  const typedSkill = chipSkill ?? (skillOptions.length === 0 ? invokedSkill(question.trim(), skills) : null);
+
+  const pickSkill = (skill: ChatSkill) => {
+    setQuestion(`/${skill.name} `);
+    setSkillIndex(0);
+    inputRef.current?.focus();
+  };
+
+  /** 스킬 목록이 떠 있으면 ↑↓·Enter·Tab·Esc를 목록이 받는다 */
+  const onSkillKey = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (skillOptions.length === 0 || event.nativeEvent.isComposing) return false;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      setSkillIndex((activeSkill + (event.key === "ArrowDown" ? 1 : skillOptions.length - 1)) % skillOptions.length);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      pickSkill(skillOptions[activeSkill]);
+    } else if (event.key === "Escape") {
+      event.stopPropagation(); // 본문의 Esc(고른 표시 지우기)로 가지 않는다
+      setSkillsClosed(question);
+    } else {
+      return false;
+    }
+    event.preventDefault();
+    return true;
+  };
 
   const chooseScope = (value: ChatScope) => {
     setScope(value);
@@ -374,7 +440,20 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     }
   };
 
+  const removeSkillChip = () => {
+    setSkillChip(null);
+    inputRef.current?.focus();
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (onSkillKey(event)) return;
+    // 글 맨 앞에서 Backspace는 앞의 스킬 칩을 뺀다
+    const input = event.currentTarget;
+    if (event.key === "Backspace" && skillChip && input.selectionStart === 0 && input.selectionEnd === 0 && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      removeSkillChip();
+      return;
+    }
     // 한글 조합 중의 Enter는 글자를 마무리하는 것이므로 보내지 않는다.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -518,6 +597,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               answer={answer}
               inherited={index < inherited.length}
               showQuote={turns[index - 1]?.packet_id !== answer.packet_id}
+              skills={skills}
               onShowCitation={onShowCitation}
               onShowAnchor={onShowAnchor}
               onShowPage={onShowPage}
@@ -530,7 +610,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         {inherited.length > 0 && own.length === 0 && <ForkDivider />}
         {pending && (
           <div className="chat-turn is-pending" style={MOTION_STYLE}>
-            <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} onShowAnchor={onShowAnchor} />
+            <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} skills={skills} onShowAnchor={onShowAnchor} />
             <div className="chat-answer">
               <StreamingAnswer text={pending.text} onGrow={scrollToEnd} />
             </div>
@@ -548,6 +628,34 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         </p>
       )}
       <form className="chat-composer" onSubmit={(event) => void submit(event)}>
+        {skillOptions.length > 0 && (
+          <ul id="chat-skill-list" className="chat-skills" role="listbox" aria-label="스킬">
+            {skillOptions.map((skill, index) => (
+              <li
+                key={skill.name}
+                id={`chat-skill-${skill.name}`}
+                role="option"
+                aria-selected={index === activeSkill}
+                className={index === activeSkill ? "is-active" : undefined}
+                title={skill.description}
+                // 누르는 동안 입력칸 포커스를 잃지 않게 한다
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => pickSkill(skill)}
+              >
+                <span className="chat-skill-name">/{skill.name}</span>
+                <span className="chat-skill-hint">{skill.argument_hint}</span>
+                <span className="chat-skill-description">{skill.description}</span>
+                {skill.tools.length > 0 && <span className="chat-skill-tools">웹 검색과 학술 사이트 읽기를 씁니다</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {typedSkill && (
+          <p className="chat-skill-note" role="status">
+            /{typedSkill.name} 스킬: 논문 본문과 함께 보냅니다
+            {typedSkill.tools.length > 0 ? " · 검색어가 웹 검색으로 나갑니다" : ""}
+          </p>
+        )}
         <div className="chat-composer-box">
           {/* 답을 만드는 동안과 끝난 결과 (promptBox.ts). 같은 안내를 대화 칸이 알리므로 화면 낭독기에서는 숨긴다 */}
           <div ref={statusRef} className="chat-composer-status" data-tone={promptStatus ?? undefined} aria-hidden="true">
@@ -592,17 +700,27 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               ))}
             </ul>
           )}
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            aria-label="질문"
-            rows={1} // 높이는 글을 따라 promptBox.ts가 정한다(잴 때 한 줄부터)
-            value={question}
-            placeholder="무엇이든 질문하세요"
-            onChange={(event) => setQuestion(event.target.value)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-          />
+          <div className="chat-input-row">
+            <SkillChip name={skillChip} onRemove={removeSkillChip} />
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              aria-label="질문"
+              rows={1} // 높이는 글을 따라 promptBox.ts가 정한다(잴 때 한 줄부터)
+              value={question}
+              placeholder={
+                chipSkill ? chipSkill.argument_hint || "덧붙일 말 없이 보내도 됩니다" : skills.length > 0 ? "무엇이든 질문하세요 (/로 스킬)" : "무엇이든 질문하세요"
+              }
+              aria-controls={skillOptions.length > 0 ? "chat-skill-list" : undefined}
+              aria-activedescendant={skillOptions.length > 0 ? `chat-skill-${skillOptions[activeSkill].name}` : undefined}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                setSkillIndex(0);
+              }}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+            />
+          </div>
           <div className="chat-composer-bar">
             <button
               type="button"
@@ -655,7 +773,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
                 aria-label={pending ? "중단" : "보내기"}
                 title={pending ? "답 만들기를 멈춥니다" : undefined}
                 onClick={pending ? () => void stop() : undefined}
-                disabled={pending ? pending.runId === null : !ready || !question.trim()}
+                disabled={pending ? pending.runId === null : !ready || !(question.trim() || skillChip)}
               >
                 <span ref={arrowRef} className="send-glyph">
                   <Icon name="arrowUp" size={16} />
@@ -682,6 +800,7 @@ function Turn({
   answer,
   inherited = false,
   showQuote,
+  skills,
   onShowCitation,
   onShowAnchor,
   onShowPage,
@@ -693,6 +812,7 @@ function Turn({
   /** 갈래가 이어받은 차례: 흐리게 보이고 버리지 못한다(원래 대화의 답이다) */
   inherited?: boolean;
   showQuote: boolean;
+  skills: readonly ChatSkill[];
   onShowCitation: (citation: Citation) => void;
   onShowAnchor: (anchorId: string) => void;
   onShowPage: (pageNumber: number) => void;
@@ -705,7 +825,7 @@ function Turn({
   const { preferences } = usePreferences();
   return (
     <div className={inherited ? "chat-turn is-inherited" : "chat-turn"} data-answer-id={answer.answer_id}>
-      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} images={answer.images ?? []} onShowAnchor={onShowAnchor} />
+      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} images={answer.images ?? []} skills={skills} onShowAnchor={onShowAnchor} />
       <div className="chat-answer">
         <AnswerMarkdown
           markdown={answer.markdown}
@@ -763,14 +883,18 @@ function UserBubble({
   prompt,
   quote,
   images,
+  skills,
   onShowAnchor,
 }: {
   prompt: string;
   quote: readonly AnswerContext[];
   /** 질문에 붙인 이미지의 주소 */
   images: readonly string[];
+  /** 맨 앞의 `/이름`이 이 스킬이면 입력칸처럼 칩으로 보인다(2026-11-19 사용자 요청). 브리지가 꺼져 목록이 없으면 글 그대로다 */
+  skills: readonly ChatSkill[];
   onShowAnchor: (anchorId: string) => void;
 }) {
+  const skill = invokedSkill(prompt, skills);
   return (
     <div className="chat-user">
       {images.length > 0 && (
@@ -788,7 +912,16 @@ function UserBubble({
           </small>
         </button>
       ))}
-      <p className="chat-prompt answer-prompt">{prompt}</p>
+      <p className="chat-prompt answer-prompt">
+        {skill ? (
+          <>
+            <span className="chat-prompt-skill">/{skill.name}</span>
+            {prompt.slice(skill.name.length + 1)}
+          </>
+        ) : (
+          prompt
+        )}
+      </p>
     </div>
   );
 }
