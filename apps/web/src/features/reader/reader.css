@@ -1896,6 +1896,61 @@ body.is-resizing-side {
   color: var(--color-neutral-600);
 }
 
+/*
+ * 고른 스킬 칩 (2026-11-19 사용자 요청, chat/SkillChip.tsx): 입력칸 첫 줄 앞에 붙고, 색은 `/` 목록의 고른 줄과 같다.
+ * 폭·크기·투명도는 spring이 정한다. 왼쪽 여백(4px)과 줄 간격(6px)을 바꾸면 SkillChip.tsx의 PULL도 바꾼다.
+ */
+.chat-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.chat-input-row .chat-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-skill-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin: 5px 0 0 4px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent-700);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  will-change: transform, opacity, width;
+}
+
+.chat-skill-chip-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px 0 8px;
+}
+
+.chat-skill-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chat-skill-chip button:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
 /* 칸이 모자라면 칩을 줄이지 않고 보내기 단추를 다음 줄 오른쪽으로 내린다 */
 .chat-composer-bar {
   display: flex;

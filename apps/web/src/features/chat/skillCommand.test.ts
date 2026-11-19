@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChatSkill } from "./api";
-import { invokedSkill, matchingSkills, skillQuery } from "./skillCommand";
+import { invokedSkill, matchingSkills, skillPrompt, skillQuery, splitSkill } from "./skillCommand";
 
 const skill = (name: string): ChatSkill => ({ name, description: `${name} 설명`, argument_hint: "[인자]", tools: [] });
 const SKILLS = [skill("distill-paper"), skill("explore-literature"), skill("review-paper")];
@@ -29,5 +29,20 @@ describe("skillCommand", () => {
     expect(invokedSkill("/review-paperX", SKILLS)).toBeNull();
     expect(invokedSkill("/doctor", SKILLS)).toBeNull();
     expect(invokedSkill("논문을 /review-paper", SKILLS)).toBeNull();
+  });
+
+  it("맨 앞의 `/아는 스킬 `만 칩으로 떼어 내고, 이름 뒤 빈칸 하나만 먹는다", () => {
+    expect(splitSkill("/review-paper ", SKILLS)).toEqual({ skill: SKILLS[2], rest: "" });
+    expect(splitSkill("/distill-paper 학부생  방법 위주", SKILLS)).toEqual({ skill: SKILLS[0], rest: "학부생  방법 위주" });
+    expect(splitSkill("/distill-paper\n학부생", SKILLS)?.rest).toBe("학부생");
+    expect(splitSkill("/review-paper", SKILLS)).toBeNull(); // 아직 이름을 치는 중
+    expect(splitSkill("/doctor 확인", SKILLS)).toBeNull();
+    expect(splitSkill("논문을 /review-paper 해줘", SKILLS)).toBeNull();
+  });
+
+  it("칩과 글을 합친 질문은 브리지가 다시 같은 스킬로 읽는다", () => {
+    expect(skillPrompt("review-paper", "Q1")).toBe("/review-paper Q1");
+    expect(skillPrompt(null, "Q1")).toBe("Q1");
+    for (const text of ["", "학부생", "\n두 줄"]) expect(invokedSkill(skillPrompt("distill-paper", text).trim(), SKILLS)?.name).toBe("distill-paper");
   });
 });

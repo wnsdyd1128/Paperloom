@@ -887,15 +887,34 @@ test("스킬: 입력칸에 /를 치면 스킬 목록이 뜨고, 고른 스킬은
   await expect(list).toHaveCount(0);
   await input.fill("/rev");
   await input.press("Tab");
+  // 고른 스킬은 입력칸 앞의 칩이 되고 글에는 인자만 남는다(2026-11-19 사용자 요청). 자리 표시 글은 그 스킬의 인자 안내다
+  const chip = chat.locator(".chat-skill-chip");
   const note = chat.locator(".chat-skill-note");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("");
+  await expect(input).toHaveAttribute("placeholder", "[심사 기준, 예: Q1 · KCI · CORE A, 적합성을 볼 학술지·학회 이름]");
   await expect(list).toHaveCount(0);
   await expect(note).toHaveText("/review-paper 스킬: 논문 본문과 함께 보냅니다 · 검색어가 웹 검색으로 나갑니다");
+  // 글 맨 앞의 Backspace로 칩을 빼고, `/이름 `을 직접 쳐도 칩이 된다
+  await input.press("Backspace");
+  await expect(chip).toHaveCount(0);
+  await expect(note).toHaveCount(0);
+  await input.pressSequentially("/review-paper ");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("");
+  // ×로 빼고, 인자까지 붙여 넣어도 칩과 인자로 나뉜다
+  await chip.getByRole("button", { name: "review-paper 스킬 빼기" }).click();
+  await expect(chip).toHaveCount(0);
+  await expect(input).toBeFocused();
   await input.fill("/review-paper Q1");
+  await expect(chip).toHaveText("/review-paper");
+  await expect(input).toHaveValue("Q1");
 
   const before = fakeRuns().length;
   await input.press("Enter");
   const lastTurn = chat.locator(".chat-turn:not(.is-pending)").last();
   await expect(lastTurn.locator(".chat-prompt")).toHaveText("/review-paper Q1", { timeout: 15_000 });
+  await expect(chip).toHaveCount(0); // 보내면 칩도 비운다
   await expect(lastTurn.locator(".chat-answer strong").first()).toHaveText("가짜 답");
   const [run] = fakeRuns().slice(before);
   const content = run.message.message.content;
