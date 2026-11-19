@@ -103,7 +103,7 @@ const LIST_LIMIT = 200;
  * 입력칸 첫 글자가 `/`이면 Paperloom 스킬 목록이 뜬다(↑↓로 고르고 Enter·Tab으로 넣고 Esc로 닫는다, 2026-11-19 사용자 결정
  * "B+C", skillCommand.ts). 스킬 질문은 범위와 상관없이 논문 본문과 함께 보낸다(스킬이 논문 전체를 읽는다).
  * 고른 스킬 이름은 입력칸 앞의 칩이 되고 글에는 인자만 남는다(SkillChip.tsx, 2026-11-19 사용자 요청). ×나 맨 앞에서
- * Backspace로 뺀다. 보낼 때 `/이름 인자`로 합친다.
+ * Backspace로 뺀다. 보낼 때 `/이름 인자`로 합친다. 보낸 질문 말풍선에서도 스킬 이름은 칩으로 보인다.
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted, onDetach }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
@@ -597,6 +597,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
               answer={answer}
               inherited={index < inherited.length}
               showQuote={turns[index - 1]?.packet_id !== answer.packet_id}
+              skills={skills}
               onShowCitation={onShowCitation}
               onShowAnchor={onShowAnchor}
               onShowPage={onShowPage}
@@ -609,7 +610,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         {inherited.length > 0 && own.length === 0 && <ForkDivider />}
         {pending && (
           <div className="chat-turn is-pending" style={MOTION_STYLE}>
-            <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} onShowAnchor={onShowAnchor} />
+            <UserBubble prompt={pending.prompt} quote={pending.quote} images={pending.images.map((image) => image.url)} skills={skills} onShowAnchor={onShowAnchor} />
             <div className="chat-answer">
               <StreamingAnswer text={pending.text} onGrow={scrollToEnd} />
             </div>
@@ -799,6 +800,7 @@ function Turn({
   answer,
   inherited = false,
   showQuote,
+  skills,
   onShowCitation,
   onShowAnchor,
   onShowPage,
@@ -810,6 +812,7 @@ function Turn({
   /** 갈래가 이어받은 차례: 흐리게 보이고 버리지 못한다(원래 대화의 답이다) */
   inherited?: boolean;
   showQuote: boolean;
+  skills: readonly ChatSkill[];
   onShowCitation: (citation: Citation) => void;
   onShowAnchor: (anchorId: string) => void;
   onShowPage: (pageNumber: number) => void;
@@ -822,7 +825,7 @@ function Turn({
   const { preferences } = usePreferences();
   return (
     <div className={inherited ? "chat-turn is-inherited" : "chat-turn"} data-answer-id={answer.answer_id}>
-      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} images={answer.images ?? []} onShowAnchor={onShowAnchor} />
+      <UserBubble prompt={answer.prompt ?? answer.question} quote={showQuote ? answer.context : []} images={answer.images ?? []} skills={skills} onShowAnchor={onShowAnchor} />
       <div className="chat-answer">
         <AnswerMarkdown
           markdown={answer.markdown}
@@ -880,14 +883,18 @@ function UserBubble({
   prompt,
   quote,
   images,
+  skills,
   onShowAnchor,
 }: {
   prompt: string;
   quote: readonly AnswerContext[];
   /** 질문에 붙인 이미지의 주소 */
   images: readonly string[];
+  /** 맨 앞의 `/이름`이 이 스킬이면 입력칸처럼 칩으로 보인다(2026-11-19 사용자 요청). 브리지가 꺼져 목록이 없으면 글 그대로다 */
+  skills: readonly ChatSkill[];
   onShowAnchor: (anchorId: string) => void;
 }) {
+  const skill = invokedSkill(prompt, skills);
   return (
     <div className="chat-user">
       {images.length > 0 && (
@@ -905,7 +912,16 @@ function UserBubble({
           </small>
         </button>
       ))}
-      <p className="chat-prompt answer-prompt">{prompt}</p>
+      <p className="chat-prompt answer-prompt">
+        {skill ? (
+          <>
+            <span className="chat-prompt-skill">/{skill.name}</span>
+            {prompt.slice(skill.name.length + 1)}
+          </>
+        ) : (
+          prompt
+        )}
+      </p>
     </div>
   );
 }

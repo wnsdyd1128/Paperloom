@@ -915,6 +915,7 @@ test("스킬: 입력칸에 /를 치면 스킬 목록이 뜨고, 고른 스킬은
   const lastTurn = chat.locator(".chat-turn:not(.is-pending)").last();
   await expect(lastTurn.locator(".chat-prompt")).toHaveText("/review-paper Q1", { timeout: 15_000 });
   await expect(chip).toHaveCount(0); // 보내면 칩도 비운다
+  await expect(lastTurn.locator(".chat-prompt-skill")).toHaveText("/review-paper"); // 보낸 말풍선에서도 스킬 이름은 칩이다
   await expect(lastTurn.locator(".chat-answer strong").first()).toHaveText("가짜 답");
   const [run] = fakeRuns().slice(before);
   const content = run.message.message.content;
