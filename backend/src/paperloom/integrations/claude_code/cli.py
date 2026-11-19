@@ -4,8 +4,9 @@
   토큰을 읽거나 저장하거나 넘기지 않는다.
 - API 과금을 막는다. API 키·다른 추론 공급자 환경변수를 자식 프로세스에서 지우고, 실행 전에 로그인 방식이
   claude.ai 구독인지 확인한다. 아니면 실행하지 않는다(API 키가 있으면 구독 대신 API로 과금된다).
-- 격리한다. `--safe-mode`로 사용자의 CLAUDE.md·hook·MCP·skill을 읽지 않고, 내장 도구와 MCP 도구를 모두 끄고,
-  시스템 프롬프트를 논문 읽기 규칙으로 바꾼다. 대화 기록은 전용 작업 폴더의 Claude Code 세션으로 남는다.
+- 격리한다. `--safe-mode`와 `--setting-sources project`로 사용자의 CLAUDE.md·hook·MCP·skill·settings.json을 읽지 않고,
+  내장 도구와 MCP 도구를 모두 끄고, 시스템 프롬프트를 논문 읽기 규칙으로 바꾼다. 대화 기록은 전용 작업 폴더의
+  Claude Code 세션으로 남는다.
 """
 
 import json
@@ -156,7 +157,7 @@ class ClaudeCli:
         # 그 뒤에 넘긴 규칙·사용자 설정은 버린다(2.1.305 도움말과 2026-11-08 확인 실행: 11-07에 시작한 대화가 그 뒤에 더한
         # 아티팩트 규칙을 받지 못했다). 차례마다 지금 규칙을 보낸다
         arguments = [
-            "-p", "--safe-mode", "--tools", "", "--disallowedTools", "mcp__*",
+            "-p", "--safe-mode", "--setting-sources", "project", "--tools", "", "--disallowedTools", "mcp__*",
             "--system-prompt-file", str(prompt_file), "--system-prompt-snapshot", "off",
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
         ]

@@ -122,6 +122,8 @@ def test_translating_a_page_sends_its_sentences_and_saves_a_translation_for_each
     [run] = runs(fake_log)
     args = run["args"]
     assert args[0] == "-p" and "--safe-mode" in args and "--resume" not in args  # 쪽마다 새 대화
+    # 번역은 도구가 없다. --safe-mode만으로는 사용자 settings.json이 들어와 project 설정만 읽게 한다 (2026-11-18 확인 실행 T11·T12)
+    assert args[args.index("--tools") + 1] == "" and args[args.index("--setting-sources") + 1] == "project"
     assert args[args.index("--model") + 1] == "sonnet"  # D9: 설정의 기본 모델
     assert args[args.index("--effort") + 1] == "low"  # 번역은 빠르게 (2026-10-04 사용자 요청)
     prompt = run["system_prompt"]
