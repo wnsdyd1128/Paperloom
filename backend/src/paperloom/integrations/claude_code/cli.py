@@ -313,9 +313,13 @@ def _measure(result: dict, launched: float, ready_at: float | None, first_text_a
 def _context_size(result: dict) -> tuple[int | None, int | None]:
     """차례가 끝난 때의 컨텍스트 길이와 모델의 창 크기 (2026-10-02 사용자 요청).
 
-    result 사건의 usage(입력·캐시 만들기·캐시 읽기·출력 토큰)를 더한다. 도구를 끄므로 한 차례는 모델 호출 한 번이고,
-    그 합이 다음 차례가 이어받는 대화 길이다. 창 크기는 modelUsage의 contextWindow(여러 모델이면 가장 큰 것)다."""
+    마지막 모델 호출의 usage(입력·캐시 만들기·캐시 읽기·출력 토큰)를 더한다. 그 합이 다음 차례가 이어받는 대화 길이다.
+    도구를 쓴 차례는 모델을 여러 번 부르고 result의 usage는 그 합이라, 호출마다의 usage(usage.iterations)가 있으면 마지막 것을
+    쓴다(2026-11-19: 스킬 차례 확인 실행 기록). 창 크기는 modelUsage의 contextWindow(여러 모델이면 가장 큰 것)다."""
     usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    calls = usage.get("iterations")
+    if isinstance(calls, list) and calls and isinstance(calls[-1], dict):
+        usage = calls[-1]
     keys = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
     values = [usage.get(key) for key in keys if isinstance(usage.get(key), int)]
     models = result.get("modelUsage") if isinstance(result.get("modelUsage"), dict) else {}

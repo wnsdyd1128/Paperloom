@@ -14,6 +14,8 @@
 - 질문에 "(원본 그림)"이 있으면 받은 "이 논문의 그림" 목록의 번호로 원본 그림을 넣은 아티팩트(figure_artifacts)를 붙인다
   (E2E 확인용)
 - FAKE_CLAUDE_STEP: 글 조각 사이에 기다릴 초 (생성되는 대로 전달되는지 확인용)
+- `--tools`에 WebSearch·WebFetch가 있으면(스킬 차례) result의 usage를 모델을 두 번 부른 합으로 주고, 마지막 호출의 usage를
+  usage.iterations에 준다(실제 CLI 2.1.305의 모양, 컨텍스트 길이 확인용)
 - FAKE_CLAUDE_REFRESH_RACE: 작업 폴더에서 처음 이만큼의 실행(프로세스를 가로질러 센다)은 실제 CLI처럼 로그인 토큰 갱신이 겹친
   API 오류(모델 <synthetic>, 오류 결과)로 끝난다 (2026-10-13 기록의 모양)
 - 쪽 번역(U7, 글에 "## 번역할 쪽 (JSON)"): 문장 id마다 "[번역] 원문"을 JSON으로 답한다. FAKE_CLAUDE_TRANSLATION이
@@ -239,6 +241,10 @@ def main() -> int:
     emit({"type": "assistant", "uuid": str(uuid.uuid4()), "session_id": session, "message": {"role": "assistant", "content": [{"type": "text", "text": answer}]}})
     # 실제 CLI의 result처럼 토큰 사용량과 모델별 창 크기를 준다(값은 고정: 3 + 1200 + 800 + 50 = 2,053)
     usage = {"input_tokens": 3, "cache_creation_input_tokens": 1200, "cache_read_input_tokens": 800, "output_tokens": 50}
+    if {"WebSearch", "WebFetch"} & set(args[args.index("--tools") + 1].split(",") if "--tools" in args else []):
+        # 웹 도구를 켠 스킬 차례: 실제 CLI(2.1.305)처럼 모델을 두 번 부른 usage의 합과 마지막 호출의 usage(iterations)를 준다
+        last = {"input_tokens": 2, "cache_creation_input_tokens": 300, "cache_read_input_tokens": 2000, "output_tokens": 40}
+        usage = {key: usage[key] + last[key] for key in usage} | {"iterations": [last | {"type": "message"}]}
     model_usage = {"claude-fake": {"inputTokens": 3, "outputTokens": 50, "contextWindow": 200000}}
     emit({"type": "result", "subtype": "success", "is_error": False, "result": answer, "session_id": session, "usage": usage, "modelUsage": model_usage})
     return 0

@@ -374,6 +374,8 @@ def test_a_skill_command_goes_last_and_opens_only_that_skills_tools_for_that_tur
     allowed = args[args.index("--allowedTools") + 1].split(",")
     assert "WebSearch" in allowed and "WebFetch(domain:arxiv.org)" in allowed
     assert all(rule == "WebSearch" or rule.startswith("WebFetch(domain:") for rule in allowed)  # WebFetch는 학술 사이트만
+    # 도구를 쓴 차례는 모델을 여러 번 부른다. 컨텍스트 길이는 그 합이 아니라 마지막 호출이다(usage.iterations)
+    assert answer["context_tokens"] == 2 + 300 + 2000 + 40
 
     # 같은 대화에서 다른 스킬: 명령만 보낸다(근거는 그 대화에 있다)
     chat(bridge, packet_id=packet_id, question="/explore-literature 후속 연구", session_id=answer["session_id"])
