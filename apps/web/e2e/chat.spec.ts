@@ -120,7 +120,9 @@ test("글을 고르면 곁에 메뉴가 뜨고, 설명은 원문 위 창에서 �
   await expect(page.locator(MENU)).toHaveCount(0);
   await page.evaluate(() => document.getSelection()!.removeAllRanges());
   const [firstRun] = fakeRuns().slice(runsBefore);
-  expect(firstRun.args).toContain("--safe-mode");
+  // 사용자 설정을 읽지 않고, 도구는 Paperloom 스킬뿐이다 (2026-11-19 사용자 결정 "B+C": --safe-mode는 skill을 꺼서 쓰지 않는다)
+  expect(firstRun.args[firstRun.args.indexOf("--setting-sources") + 1]).toBe("project");
+  expect(firstRun.args[firstRun.args.indexOf("--tools") + 1]).toBe("Skill");
   expect(firstRun.env).toEqual([]);
   expect(resumed(firstRun)).toBeNull(); // 고른 곳마다 새 대화
   expect(firstRun.message.message.content.at(-1)!.text).toContain("> epsilonword paragraph that a reader");

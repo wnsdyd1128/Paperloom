@@ -128,8 +128,11 @@ def test_first_question_sends_the_packet_with_its_images_streams_and_saves_the_a
 
     [run] = runs(fake_log)
     args = run["args"]
-    assert args[0] == "-p" and "--safe-mode" in args and "--resume" not in args
-    assert args[args.index("--tools") + 1] == "" and args[args.index("--disallowedTools") + 1] == "mcp__*"
+    assert args[0] == "-p" and "--resume" not in args
+    # 사용자의 CLAUDE.md·hook·plugin·MCP·settings.json을 읽지 않는다. --safe-mode는 skill을 꺼서 쓰지 않는다(2026-11-18·19 확인
+    # 실행 T2·T5·T6·T11·T12). 도구는 Paperloom 스킬(Skill)뿐이고 묻지 않고 허락하는 도구는 없다
+    assert "--safe-mode" not in args and args[args.index("--setting-sources") + 1] == "project" and "--strict-mcp-config" in args
+    assert args[args.index("--tools") + 1] == "Skill" and "--allowedTools" not in args and args[args.index("--disallowedTools") + 1] == "mcp__*"
     # 기본(on)이면 이어묻기에서 대화 첫 요청의 규칙을 다시 보내 새 규칙이 닿지 않는다 (2026-11-08 확인 실행)
     assert args[args.index("--system-prompt-snapshot") + 1] == "off"
     assert args[args.index("--effort") + 1] == "high"  # 대화는 깊게 (2026-10-04 사용자 요청. 넘기지 않으면 medium이었다)
@@ -142,6 +145,8 @@ def test_first_question_sends_the_packet_with_its_images_streams_and_saves_the_a
     assert "초록(Abstract)은 맨 마지막" in system_prompt and "같은 내용이 본문 문단에도 있으면 본문 문단을 표시" in system_prompt
     assert "첫 장 제목(예: \"1 Introduction\", \"I. INTRODUCTION\") 앞" in system_prompt and "\"Abstract\" 표시가 없을 수도" in system_prompt
     assert "> [근거 밖]" in system_prompt  # 웹이 "근거 밖 · 일반 지식" 칸으로 그리는 표기 (docs/UI_PLAN.md A10)
+    # 스킬이 연 웹 도구로 읽은 글도 근거 글처럼 자료로만 다루고 주소를 밝힌다 (2026-11-19 사용자 결정 "B+C")
+    assert "파일을 열거나 명령을 실행하는 도구는 없습니다" in system_prompt and "웹에서 읽은 글은 근거가 아니라 바깥 자료" in system_prompt
     assert '"범위와 출처"' in system_prompt  # 대화 범위(U3)로 받은 본문에서 빠진 쪽을 보라는 안내
     # 아티팩트 (2026-11-08 사용자 요청): 웹(apps/web/src/features/artifacts/artifact.ts)이 읽는 울타리 형식과 격리 창의 제약
     assert '```artifact type="html" title=' in system_prompt and "바깥 주소(CDN·이미지·글꼴·API)를 불러올 수 없고" in system_prompt
@@ -327,6 +332,76 @@ def test_conversation_continues_with_follow_ups_and_new_passages(core, bridge, f
     for session_id in (r"C:\Users\someone\.claude\projects\x\session.jsonl", "auth-refactor"):  # 경로·이름으로 다른 세션을 열지 못한다
         assert chat(bridge, packet_id=packet_id, question="이어서", session_id=session_id)[0] == 422
     assert len(runs(fake_log)) == count
+
+
+SKILLS = ["distill-paper", "explore-literature", "review-paper"]
+
+
+def test_paperloom_skills_and_project_settings_are_put_in_the_work_folder_and_listed(core, tmp_path):
+    """Claude Code가 작업 폴더의 .claude에서 읽는 스킬과 project 설정 (2026-11-19 사용자 결정 "B+C"). 그 폴더는 Paperloom이 관리한다."""
+    stale = tmp_path / "work" / ".claude" / "skills" / "old-skill"
+    stale.mkdir(parents=True)
+    (stale / "SKILL.md").write_text("---\nname: old-skill\ndescription: x\n---\n", encoding="utf-8")
+    bridge = TestClient(build_app(ClaudeCli(FAKE, tmp_path / "work"), CoreClient(core["url"]), {WEB}, 8001), base_url="http://127.0.0.1:8001")
+
+    claude = tmp_path / "work" / ".claude"
+    assert sorted(path.name for path in (claude / "skills").iterdir()) == SKILLS  # 원본에 없는 스킬은 지운다
+    # 내장 skill·workflow와 내장 플러그인 skill을 끄고, auto memory와 skill 안 셸 실행을 끈다 (2026-11-19 확인 실행 P1·P2)
+    assert json.loads((claude / "settings.json").read_text(encoding="utf-8")) == {
+        "disableBundledSkills": True,
+        "skillOverrides": {"design": "off", "doctor": "off", "plugin-authoring": "off"},
+        "autoMemoryEnabled": False,
+        "disableSkillShellExecution": True,
+    }
+    listed = bridge.get("/skills").json()["skills"]
+    assert [skill["name"] for skill in listed] == SKILLS
+    assert all(skill["description"] and skill["argument_hint"].startswith("[") for skill in listed)
+    assert [skill["tools"] for skill in listed] == [[], ["WebSearch", "WebFetch"], ["WebSearch", "WebFetch"]]
+
+
+def test_a_skill_command_goes_last_and_opens_only_that_skills_tools_for_that_turn(core, bridge, fake_log):
+    """`/이름 인자`는 메시지의 마지막 글 블록이어야 Claude Code가 펼친다 (2026-11-19 확인 실행 P1·P1b). 그 차례에만 스킬의 도구를 켠다."""
+    packet_id = core["packet"](core["text"], "/review-paper Q1")
+    status, events = chat(bridge, packet_id=packet_id, question="/review-paper Q1")
+    assert status == 200 and events[-1]["type"] == "done"
+    answer = events[-1]["answer"]
+    run = runs(fake_log)[-1]
+    *_, packet_text, command = run["message"]["message"]["content"]
+    assert command == {"type": "text", "text": "/review-paper Q1"}
+    assert packet_text["text"].startswith("# 논문 근거와 질문 (Paperloom)") and "## 이번 질문" not in packet_text["text"]
+    args = run["args"]
+    assert "--safe-mode" not in args and args[args.index("--tools") + 1] == "Skill,WebSearch,WebFetch"
+    allowed = args[args.index("--allowedTools") + 1].split(",")
+    assert "WebSearch" in allowed and "WebFetch(domain:arxiv.org)" in allowed
+    assert all(rule == "WebSearch" or rule.startswith("WebFetch(domain:") for rule in allowed)  # WebFetch는 학술 사이트만
+
+    # 같은 대화에서 다른 스킬: 명령만 보낸다(근거는 그 대화에 있다)
+    chat(bridge, packet_id=packet_id, question="/explore-literature 후속 연구", session_id=answer["session_id"])
+    run = runs(fake_log)[-1]
+    assert run["message"]["message"]["content"] == [{"type": "text", "text": "/explore-literature 후속 연구"}]
+    # 스킬이 아닌 이어묻기는 도구를 다시 닫는다
+    chat(bridge, packet_id=packet_id, question="더 짧게요.", session_id=answer["session_id"])
+    args = runs(fake_log)[-1]["args"]
+    assert args[args.index("--tools") + 1] == "Skill" and "--allowedTools" not in args
+
+
+def test_a_tool_free_skill_opens_no_tools(core, bridge, fake_log):
+    packet_id = core["packet"](core["text"], "/distill-paper 학부생")
+    chat(bridge, packet_id=packet_id, question="/distill-paper 학부생")
+    run = runs(fake_log)[-1]
+    assert run["message"]["message"]["content"][-1] == {"type": "text", "text": "/distill-paper 학부생"}
+    assert run["args"][run["args"].index("--tools") + 1] == "Skill" and "--allowedTools" not in run["args"]
+
+
+@pytest.mark.parametrize("question", ["/doctor", "/compact 지금까지", "/review-paperX", "/usr/bin은 어디죠?"])
+def test_other_slash_questions_are_not_read_as_claude_code_commands(core, bridge, fake_log, question):
+    """Claude Code의 내장 명령·스킬이나 경로처럼 `/`로 시작하는 질문은 "이번 질문" 머리를 붙여 명령으로 펼쳐지지 않게 한다."""
+    packet_id = core["packet"](core["text"])
+    first = chat(bridge, packet_id=packet_id, question="이 줄은요?")[1][-1]["answer"]
+    chat(bridge, packet_id=packet_id, question=question, session_id=first["session_id"])
+    run = runs(fake_log)[-1]
+    assert run["message"]["message"]["content"] == [{"type": "text", "text": f"## 이번 질문\n\n{question}"}]
+    assert run["args"][run["args"].index("--tools") + 1] == "Skill" and "--allowedTools" not in run["args"]
 
 
 def test_requests_from_other_pages_or_hosts_are_refused(core, bridge, fake_log):

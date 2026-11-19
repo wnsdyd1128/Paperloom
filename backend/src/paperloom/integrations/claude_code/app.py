@@ -9,6 +9,10 @@
 - 한 번에 한 차례만 실행한다(일반적인 개인 사용). 브라우저가 끊겨도 차례를 끝까지 실행해 답을 저장한다.
   첫 사건(start)의 실행 ID로 중단(/cancel)하면 Claude Code를 끝내고 답을 저장하지 않는다(2026-10-02 사용자 요청).
 - 갈래(fork): 저장된 대화를 이어받은 새 대화로 묻는다(Claude Code --fork-session). 원래 대화는 그대로다.
+- 스킬(2026-11-19 사용자 결정 "B+C", skills.py): 질문 맨 앞이 `/이름 인자`이고 그 이름이 Paperloom 스킬이면 그 줄을 메시지의
+  마지막 글 블록으로 따로 보낸다(Claude Code는 마지막 블록이 `/`로 시작할 때만 명령으로 펼친다, 2026-11-19 확인 실행). 그
+  차례에만 스킬의 도구를 켠다. 다른 `/`로 시작하는 질문은 명령으로 읽히지 않게 "이번 질문" 머리를 붙인다. `GET /skills`는
+  웹의 `/` 목록이다.
 - 쪽 번역(U7, `POST /translate-page`): 받는 것은 버전 ID와 쪽 번호뿐이다. 문단은 Core에서 읽어 문장으로 나누고, 문장마다
   번역을 JSON으로 받아 검사한 뒤 Core에 저장한다(읽지 못한 답은 같은 대화에 한 번 고쳐 달라고 한다). 저장된 쪽은 다시
   실행하지 않는다(다시 번역은 force). 대화와 같은
@@ -48,6 +52,7 @@ from paperloom.integrations.claude_code.page_translation import (
     translation_units,
 )
 from paperloom.integrations.claude_code.personalization import personalization
+from paperloom.integrations.claude_code.skills import Skill, install, invoked, load
 
 # 설정을 읽지 못했을 때(설정 REST가 없는 예전 Core)의 기본 모델. 설정의 처음 값과 같다(사용자 결정 D7).
 DEFAULT_MODEL = "sonnet"
@@ -118,6 +123,8 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
     running = _Running()  # 지금 실행 중인 차례들(중단용)
     informed: set[str] = set()  # 그림 목록을 보낸 대화(_content)
     shown: dict[str, set[tuple[str, str]]] = {}  # 대화마다 원본 그림을 붙인 (판본, 그림 번호)(_content)
+    catalog = load()  # Paperloom 스킬. 작업 폴더에 두어 Claude Code가 읽게 한다
+    install(cli.work_dir)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
@@ -146,6 +153,16 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
             error = {"code": not_ready.code, "message": not_ready.message}
         return {"bridge": "paperloom-claude-code", "ready": error is None, "claude": status, "error": error, "paperloom_url": core.base_url}
 
+    @app.get("/skills")
+    def skills() -> dict:
+        """대화창 `/` 목록에 보일 Paperloom 스킬. tools는 그 차례에만 켜는 도구다(웹이 알린다)."""
+        return {
+            "skills": [
+                {"name": skill.name, "description": skill.description, "argument_hint": skill.argument_hint, "tools": list(skill.tools)}
+                for skill in catalog.values()
+            ]
+        }
+
     @app.post("/chat")
     def chat(body: ChatIn):
         try:
@@ -154,8 +171,9 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
             return _error(503, not_ready.code, not_ready.message)
         if not busy.acquire(blocking=False):
             return _error(409, "BUSY", "앞 질문의 답을 만드는 중입니다. 끝난 뒤 다시 보내세요.")
+        skill = invoked(body.question, catalog)
         try:
-            content, resume_at, intent, sent = _content(core, body, informed, shown)
+            content, resume_at, intent, sent = _content(core, body, informed, shown, skill is not None)
             preferences = _preferences(core)
             core.hand_off(body.packet_id)
         except CoreUnavailable:
@@ -184,7 +202,10 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
                 informed.add(session_id)
             shown.setdefault(session_id, set()).update(figures)
 
-        turn = (cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent), remember)
+        turn = (
+            cli, core, body, content, resume_at, events, busy, running, run_id, cancel, model, personalization(preferences, intent), remember,
+            skill,
+        )
         threading.Thread(target=_turn, args=turn, daemon=True).start()
         return StreamingResponse(_stream(events), media_type="application/x-ndjson")
 
@@ -378,7 +399,7 @@ def _preferences(core: CoreClient) -> dict:
 
 
 def _content(
-    core: CoreClient, body: ChatIn, informed: set[str], shown: dict[str, set[tuple[str, str]]]
+    core: CoreClient, body: ChatIn, informed: set[str], shown: dict[str, set[tuple[str, str]]], skill: bool = False
 ) -> tuple[list[dict], str | None, str | None, tuple[bool, set[tuple[str, str]]]]:
     """(모델에 보낼 메시지, 갈래가 이어받을 마지막 메시지 ID, packet 요청 종류, (그림 목록을 붙였는지, 붙인 원본 그림)). 그 대화
     (갈래면 이어받는 차례)에 처음 보내는 packet이면 근거 글과 영역 이미지를 붙이고, 아니면 질문만.
@@ -387,7 +408,9 @@ def _content(
     브리지를 다시 켜면 대화마다 한 번 더 보낸다.
     질문에 쓴 그림 번호의 원본 그림과 사용자가 붙인 이미지는 근거 영역 이미지 뒤에 붙이고, 몇 번째 이미지인지 글로 알린다
     (2026-11-10 사용자 요청). shown은 대화마다 원본 그림을 붙인 (판본, 번호)다. 이미 붙인 그림은 다시 붙이지 않는다(갈래는
-    이어받은 차례에 그 그림이 없을 수 있어 다시 붙인다)."""
+    이어받은 차례에 그 그림이 없을 수 있어 다시 붙인다).
+    skill: 질문이 Paperloom 스킬 명령(`/이름 인자`)이다. 그 줄은 "이번 질문" 대신 메시지의 마지막 글 블록으로 따로 보낸다(그래야
+    Claude Code가 명령으로 펼친다). 스킬이 아닌데 `/`로 시작하는 질문은 "이번 질문" 머리를 붙여 명령으로 읽히지 않게 한다."""
     packet = core.packet(body.packet_id)
     if packet is None:
         raise _Refused(404, "PACKET_NOT_FOUND", "문맥을 찾을 수 없습니다.")
@@ -414,17 +437,23 @@ def _content(
     attached, skipped = _figure_images(core, version, figures, wanted, before)
     added = [*(image_block("image/png", data) for _, data in attached), *(image_block(image.media_type, image.data) for image in body.images)]
     sent = (bool(figure_list), {(version, figure["label"]) for figure, _ in attached})
+    command = [{"type": "text", "text": body.question}] if skill else []
     if again:
         note = attachment_note(1, [figure for figure, _ in attached], len(body.images), skipped)
         head = "\n\n".join(part for part in (figure_list.lstrip(), note) if part)
-        text = f"{head}\n\n## 이번 질문\n\n{body.question}" if head else body.question
+        if skill:
+            return [*added, *([{"type": "text", "text": head}] if head else []), *command], resume_at, packet.get("intent"), sent
+        if head or body.question.startswith("/"):
+            text = "\n\n".join(part for part in (head, f"## 이번 질문\n\n{body.question}") if part)
+        else:
+            text = body.question
         return [*added, {"type": "text", "text": text}], resume_at, packet.get("intent"), sent
     evidence = [image_block("image/png", base64.b64encode(core.image(item["image"]["url"])).decode()) for item in packet["evidence"] if item["image"]]
     note = attachment_note(len(evidence) + 1, [figure for figure, _ in attached], len(body.images), skipped)
     text = core.markdown(body.packet_id) + figure_list + (f"\n\n{note}" if note else "")
-    if body.question != packet["question"].strip() or note:  # 붙인 그림을 알렸으면 질문을 맨 끝에 다시 둔다
+    if not skill and (body.question != packet["question"].strip() or note):  # 붙인 그림을 알렸으면 질문을 맨 끝에 다시 둔다
         text += f"\n\n## 이번 질문\n\n{body.question}"
-    return [*evidence, *added, {"type": "text", "text": text}], resume_at, packet.get("intent"), sent
+    return [*evidence, *added, {"type": "text", "text": text}, *command], resume_at, packet.get("intent"), sent
 
 
 def _paper_version(packet: dict) -> str | None:
@@ -494,16 +523,16 @@ def _figure_list(figures: list[dict]) -> str:
 def _turn(
     cli: ClaudeCli, core: CoreClient, body: ChatIn, content: list[dict], resume_at: str | None, events: queue.Queue,
     busy: threading.Lock, running: "_Running", run_id: str, cancel: threading.Event, model: str | None, system_extra: str,
-    remember: Callable[[str], None],
+    remember: Callable[[str], None], skill: Skill | None,
 ) -> None:
     """답을 저장하면 그 대화 ID로 remember를 부른다(이 차례가 붙인 그림 목록·원본 그림을 그 대화가 받았다, build_app). 사용자가
-    질문에 붙인 이미지는 답과 함께 저장한다."""
+    질문에 붙인 이미지는 답과 함께 저장한다. 도구는 Paperloom 스킬(Skill)과, 사용자가 고른 스킬이면 그 스킬의 도구다."""
     started, outcome = time.monotonic(), "error"
     try:
         events.put({"type": "start", "run_id": run_id})
         run = cli.run(
             content, resume=body.session_id, model=model, fork=body.fork, resume_at=resume_at, cancel=cancel, system_extra=system_extra,
-            effort=CHAT_EFFORT,
+            effort=CHAT_EFFORT, tools=("Skill", *(skill.tools if skill else ())), allowed=skill.allowed_tools if skill else (),
         )
         for event in run:
             if event["type"] == "delta":
@@ -531,8 +560,8 @@ def _turn(
         busy.release()
         events.put(None)
         log.info(
-            "대화 차례 packet=%s 이어묻기=%s 갈래=%s 결과=%s %.1f초",
-            body.packet_id, body.session_id is not None, body.fork, outcome, time.monotonic() - started,
+            "대화 차례 packet=%s 이어묻기=%s 갈래=%s 스킬=%s 결과=%s %.1f초",
+            body.packet_id, body.session_id is not None, body.fork, skill.name if skill else "-", outcome, time.monotonic() - started,
         )
 
 

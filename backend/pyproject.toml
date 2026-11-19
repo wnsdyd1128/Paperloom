@@ -36,3 +36,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "paperloom.pdf_export" = ["fonts/*"]  # 번역본 PDF에 넣는 글꼴(Wanted Sans, OFL)
+"paperloom.integrations.claude_code" = ["skills/*/SKILL.md"]  # 대화창 스킬(브리지가 작업 폴더에 옮긴다)
