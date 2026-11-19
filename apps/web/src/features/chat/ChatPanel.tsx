@@ -11,7 +11,7 @@ import { type ContextPacket, createPacket, EVIDENCE_ROLE_LABELS, type Intent } f
 import { formatMathForCopy } from "../../shared/mathCopy";
 import { approxPages } from "../settings/api";
 import { usePreferences } from "../settings/PreferencesProvider";
-import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, MAX_QUESTION_CHARS } from "./api";
+import { askClaude, cancelClaude, CHAT_MODELS, type ChatModel, type ChatSkill, listSkills, MAX_QUESTION_CHARS } from "./api";
 import { type Bridge, BridgeStatus } from "./BridgeStatus";
 import { type AttachedImage, imageFiles, MAX_CHAT_IMAGES, prepareImage } from "./chatImages";
 import { PROMPT_STATUS_LABELS, type PromptStatus, usePromptBox } from "./promptBox";
@@ -27,6 +27,7 @@ import {
   type SessionMeta,
   sessionsOf,
 } from "./sessions";
+import { invokedSkill, matchingSkills, skillQuery } from "./skillCommand";
 import { MOTION_STYLE, StreamingAnswer } from "./StreamingAnswer";
 import { type ChatScope, planTurn } from "./turnPlan";
 
@@ -98,6 +99,8 @@ const LIST_LIMIT = 200;
  * 보인다.
  * 머리의 "새 탭으로 분리"는 지금 대화를 별도 탭(ChatTab.tsx)으로 옮긴다 (2026-11-09 사용자 요청). 그 탭도 이 칸을 쓴다.
  * 질문에 이미지를 붙일 수 있다: 입력칸에 붙여 넣기, 이 칸에 끌어 놓기, 이미지 단추 (2026-11-10 사용자 요청, chatImages.ts).
+ * 입력칸 첫 글자가 `/`이면 Paperloom 스킬 목록이 뜬다(↑↓로 고르고 Enter·Tab으로 넣고 Esc로 닫는다, 2026-11-19 사용자 결정
+ * "B+C", skillCommand.ts). 스킬 질문은 범위와 상관없이 논문 본문과 함께 보낸다(스킬이 논문 전체를 읽는다).
  */
 export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visible, hiddenSessions, onShowCitation, onShowAnchor, onShowPage, onOpenArtifact, onDiscarded, onSessionRenamed, onSessionDeleted, onDetach }: Props) {
   const [answers, setAnswers] = useState<readonly Answer[]>([]); // 이 논문의 대화 답, 오래된 것부터
@@ -119,6 +122,9 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   const [question, setQuestion] = useState("");
   const [scope, setScope] = useState<ChatScope>(storedScope);
   const [model, setModel] = useState<ChatModel | null>(null);
+  const [skills, setSkills] = useState<readonly ChatSkill[]>([]); // 브리지가 아는 Paperloom 스킬
+  const [skillIndex, setSkillIndex] = useState(0); // `/` 목록에서 고른 줄
+  const [skillsClosed, setSkillsClosed] = useState<string | null>(null); // Esc로 목록을 닫은 때의 입력칸 글
   const { preferences } = usePreferences();
   const [error, setError] = useState<string | null>(null);
   // 끝난 차례의 결과: 입력칸 위 상태 줄이 잠깐 보인다
@@ -218,6 +224,22 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     if (visible && !wasVisible.current) inputRef.current?.focus();
     wasVisible.current = visible;
   }, [visible]);
+
+  // 브리지가 준비되면 스킬 목록을 받는다(브리지를 다시 켜면 다시 받는다)
+  const bridgeReady = bridge.health !== "checking" && bridge.health?.ready === true;
+  useEffect(() => {
+    if (!bridgeReady) return;
+    let live = true;
+    void bridge
+      .resolveUrl()
+      .then(listSkills)
+      .then((found) => {
+        if (live) setSkills(found);
+      });
+    return () => {
+      live = false;
+    };
+  }, [bridgeReady]);
 
   // 갈래면 이어받은 차례도 대화의 일부다(모델이 그 차례를 안다). 범위 본문을 다시 보낼지도 그것까지 보고 정한다.
   const { inherited, own } = conversationTurns(answers, session, links, fork && { parent: fork.parent, at: fork.at });
@@ -362,8 +384,37 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
     }
     const sent = question;
     setQuestion("");
-    if (!(await ask(prompt, scope))) setQuestion(sent);
+    if (!(await ask(prompt, invokedSkill(prompt, skills) ? "paper" : scope))) setQuestion(sent);
   }
+
+  // `/`로 시작하고 빈칸이 아직 없으면 스킬 이름을 고르는 중이다. Esc로 닫으면 그 글이 바뀔 때까지 닫아 둔다
+  const query = skillQuery(question);
+  const skillOptions = query === null || skillsClosed === question ? [] : matchingSkills(skills, query);
+  const activeSkill = Math.min(skillIndex, Math.max(0, skillOptions.length - 1));
+  const typedSkill = skillOptions.length === 0 ? invokedSkill(question.trim(), skills) : null;
+
+  const pickSkill = (skill: ChatSkill) => {
+    setQuestion(`/${skill.name} `);
+    setSkillIndex(0);
+    inputRef.current?.focus();
+  };
+
+  /** 스킬 목록이 떠 있으면 ↑↓·Enter·Tab·Esc를 목록이 받는다 */
+  const onSkillKey = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (skillOptions.length === 0 || event.nativeEvent.isComposing) return false;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      setSkillIndex((activeSkill + (event.key === "ArrowDown" ? 1 : skillOptions.length - 1)) % skillOptions.length);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      pickSkill(skillOptions[activeSkill]);
+    } else if (event.key === "Escape") {
+      event.stopPropagation(); // 본문의 Esc(고른 표시 지우기)로 가지 않는다
+      setSkillsClosed(question);
+    } else {
+      return false;
+    }
+    event.preventDefault();
+    return true;
+  };
 
   const chooseScope = (value: ChatScope) => {
     setScope(value);
@@ -375,6 +426,7 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (onSkillKey(event)) return;
     // 한글 조합 중의 Enter는 글자를 마무리하는 것이므로 보내지 않는다.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -548,6 +600,34 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
         </p>
       )}
       <form className="chat-composer" onSubmit={(event) => void submit(event)}>
+        {skillOptions.length > 0 && (
+          <ul id="chat-skill-list" className="chat-skills" role="listbox" aria-label="스킬">
+            {skillOptions.map((skill, index) => (
+              <li
+                key={skill.name}
+                id={`chat-skill-${skill.name}`}
+                role="option"
+                aria-selected={index === activeSkill}
+                className={index === activeSkill ? "is-active" : undefined}
+                title={skill.description}
+                // 누르는 동안 입력칸 포커스를 잃지 않게 한다
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => pickSkill(skill)}
+              >
+                <span className="chat-skill-name">/{skill.name}</span>
+                <span className="chat-skill-hint">{skill.argument_hint}</span>
+                <span className="chat-skill-description">{skill.description}</span>
+                {skill.tools.length > 0 && <span className="chat-skill-tools">웹 검색과 학술 사이트 읽기를 씁니다</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {typedSkill && (
+          <p className="chat-skill-note" role="status">
+            /{typedSkill.name} 스킬: 논문 본문과 함께 보냅니다
+            {typedSkill.tools.length > 0 ? " · 검색어가 웹 검색으로 나갑니다" : ""}
+          </p>
+        )}
         <div className="chat-composer-box">
           {/* 답을 만드는 동안과 끝난 결과 (promptBox.ts). 같은 안내를 대화 칸이 알리므로 화면 낭독기에서는 숨긴다 */}
           <div ref={statusRef} className="chat-composer-status" data-tone={promptStatus ?? undefined} aria-hidden="true">
@@ -598,8 +678,13 @@ export function ChatPanel({ paperId, versionId, pageIndex, bridge, request, visi
             aria-label="질문"
             rows={1} // 높이는 글을 따라 promptBox.ts가 정한다(잴 때 한 줄부터)
             value={question}
-            placeholder="무엇이든 질문하세요"
-            onChange={(event) => setQuestion(event.target.value)}
+            placeholder={skills.length > 0 ? "무엇이든 질문하세요 (/로 스킬)" : "무엇이든 질문하세요"}
+            aria-controls={skillOptions.length > 0 ? "chat-skill-list" : undefined}
+            aria-activedescendant={skillOptions.length > 0 ? `chat-skill-${skillOptions[activeSkill].name}` : undefined}
+            onChange={(event) => {
+              setQuestion(event.target.value);
+              setSkillIndex(0);
+            }}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
           />

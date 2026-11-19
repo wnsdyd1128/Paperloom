@@ -864,6 +864,47 @@ test("한도(50,000자)를 넘는 질문은 보내지 않고 그 이유를 알�
   expect(fakeRuns().length).toBe(runsBefore);
 });
 
+test("스킬: 입력칸에 /를 치면 스킬 목록이 뜨고, 고른 스킬은 논문 본문과 함께 보내며 명령을 마지막에 둔다", async ({ page }, testInfo) => {
+  // 2026-11-19 사용자 결정 "B+C": Paperloom이 둔 Claude Code 스킬(SKILL.md)을 대화창에서 /이름으로 부른다
+  test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");
+  await openPaper(page, "text-digital.pdf");
+  await openPanel(page, "Claude와 대화");
+  const chat = page.locator(CHAT);
+  await startNewChat(chat);
+  await chat.getByLabel("범위").selectOption("page"); // 스킬은 고른 범위와 상관없이 논문 본문을 보낸다
+  const input = chat.getByRole("textbox", { name: "질문" });
+  const list = chat.getByRole("listbox", { name: "스킬" });
+
+  await input.fill("/");
+  await expect(list.getByRole("option")).toHaveCount(3);
+  await expect(list.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await input.fill("/re");
+  await expect(list.getByRole("option")).toHaveText([/^\/review-paper/, /^\/explore-literature/]);
+  await expect(list.getByRole("option").first()).toContainText("웹 검색과 학술 사이트 읽기를 씁니다");
+  await input.press("ArrowDown");
+  await expect(list.getByRole("option").nth(1)).toHaveAttribute("aria-selected", "true");
+  await input.press("Escape"); // 닫으면 글을 바꿀 때까지 닫혀 있다
+  await expect(list).toHaveCount(0);
+  await input.fill("/rev");
+  await input.press("Tab");
+  const note = chat.locator(".chat-skill-note");
+  await expect(list).toHaveCount(0);
+  await expect(note).toHaveText("/review-paper 스킬: 논문 본문과 함께 보냅니다 · 검색어가 웹 검색으로 나갑니다");
+  await input.fill("/review-paper Q1");
+
+  const before = fakeRuns().length;
+  await input.press("Enter");
+  const lastTurn = chat.locator(".chat-turn:not(.is-pending)").last();
+  await expect(lastTurn.locator(".chat-prompt")).toHaveText("/review-paper Q1", { timeout: 15_000 });
+  await expect(lastTurn.locator(".chat-answer strong").first()).toHaveText("가짜 답");
+  const [run] = fakeRuns().slice(before);
+  const content = run.message.message.content;
+  expect(content.at(-1)).toEqual({ type: "text", text: "/review-paper Q1" }); // Claude Code는 마지막 글 블록의 /만 명령으로 펼친다
+  expect(content.at(-2)!.text).toContain("- 범위: 논문 본문");
+  expect(run.args[run.args.indexOf("--tools") + 1]).toBe("Skill,WebSearch,WebFetch"); // 이 차례에만 웹 도구
+  await expect(chat.getByLabel("범위")).toHaveValue("page"); // 고른 범위는 그대로다
+});
+
 test("아티팩트 링크: 파일로 저장하고 새 탭에서 여는 링크와 파일 경로를 주며, 그 페이지도 격리한다", async ({ page, context }, testInfo) => {
   // 2026-11-08 사용자 요청: claude.ai 링크를 못 만들면 파일을 만들고 경로를 주면 된다. 결정: 링크+파일 경로
   test.skip(testInfo.project.name !== "dpr-1", "대화 흐름은 DPR과 무관하다");

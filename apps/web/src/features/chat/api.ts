@@ -28,6 +28,22 @@ export type ChatEvent =
   | Readonly<{ type: "error"; code: string; message: string }>
   | Readonly<{ type: "cancelled" }>; // 중단했다. 답은 저장하지 않았다
 
+/**
+ * 대화창 `/` 목록의 Paperloom 스킬 (브리지 `GET /skills`, 2026-11-19 사용자 결정 "B+C").
+ * tools: 그 스킬 차례에만 켜는 도구(WebSearch·WebFetch). 비었으면 도구 없이 받은 글로만 답한다.
+ */
+export type ChatSkill = Readonly<{ name: string; description: string; argument_hint: string; tools: readonly string[] }>;
+
+/** 브리지의 스킬 목록. 브리지가 꺼졌거나 스킬을 모르는 예전 브리지면 빈 목록이다 */
+export async function listSkills(url: string): Promise<readonly ChatSkill[]> {
+  try {
+    const response = await fetch(`${url}/skills`);
+    return response.ok ? ((await response.json()) as { skills: ChatSkill[] }).skills : [];
+  } catch {
+    return [];
+  }
+}
+
 /** 질문 글자 한도. Core packet·브리지의 MAX_QUESTION_CHARS와 같다(2026-11-11 사용자 결정) */
 export const MAX_QUESTION_CHARS = 50_000;
 
