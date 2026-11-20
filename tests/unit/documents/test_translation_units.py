@@ -1,11 +1,14 @@
 """쪽 번역 요청의 문장 (브리지 page_translation, 2026-10-03 사용자 요청): 그림 안 글자는 빼고, 원문의 굵게·기울임은
 <b>·<i> 표시로 감싸 보낸다(번역에서도 그 말을 같은 표시로 감싸게 한다)."""
 
+import json
+
 import pytest
 
 from paperloom.integrations.claude_code.page_translation import (
     TRANSLATION_PROMPT,
     BadTranslation,
+    continued_blocks,
     parse_translation,
     repair_request,
     split_units,
@@ -46,13 +49,48 @@ def test_the_prompt_asks_to_keep_the_marks():
 
 def test_a_paragraph_that_starts_mid_sentence_may_be_merged_into_the_paragraph_before():
     """PDF에서 문단이 문장 가운데서 나뉘면("… if it can be assigned" / "to a core. …") 모델은 앞 문단 끝 문장에 합쳐 옮기고
-    뒤 문단 첫 id를 비운다(2026-10-03 사용자 논문 13쪽). 쪽의 첫 id만은 비울 수 없다(합칠 앞 문장이 없다)."""
+    뒤 문단 첫 id를 비운다(2026-10-03 사용자 논문 13쪽). 묶음의 첫 id는 비울 수 없다(합칠 앞 문장이 없다). 이어지는 문단
+    (continued_blocks)이 아닌 문단의 첫 id도 비울 수 없다: 비우면 그 글이 번역에서 빠진다(2026-11-20 사용자 논문 AXLE)."""
     units = [("a", ["We assign it if it can be assigned"]), ("b", ["to a core.", "Then we repeat."])]
-    blocks = parse_translation('{"1.1": "코어에 할당할 수 있으면 할당한다.", "2.1": "", "2.2": "그다음 반복한다."}', units)
+    answer = '{"1.1": "코어에 할당할 수 있으면 할당한다.", "2.1": "", "2.2": "그다음 반복한다."}'
+    blocks = parse_translation(answer, units, {"b"})
     assert [block["sentences"] for block in blocks] == [["코어에 할당할 수 있으면 할당한다."], ["", "그다음 반복한다."]]
     with pytest.raises(BadTranslation):
-        parse_translation('{"1.1": "", "2.1": "코어에.", "2.2": "그다음 반복한다."}', units)
-    assert "앞 문단" in TRANSLATION_PROMPT
+        parse_translation('{"1.1": "", "2.1": "코어에.", "2.2": "그다음 반복한다."}', units, {"b"})
+    with pytest.raises(BadTranslation) as emptied:
+        parse_translation(answer, units)
+    assert str(emptied.value).startswith('"continues": true가 없는 문단의 첫 문장을 비운 id: 2.1.')
+    assert "앞 문단" in TRANSLATION_PROMPT and '"continues": true' in TRANSLATION_PROMPT
+
+
+def body(block_id: str, text: str, flags=()) -> dict:
+    return {"block_id": block_id, "text": text, "styles": [], "quality_flags": list(flags)}
+
+
+def test_only_a_short_lowercase_rest_of_an_unfinished_paragraph_may_be_merged_into_it():
+    """앞 문단 끝 문장에 합쳐 옮겨도 되는 문단(2026-11-20 사용자 논문): 앞 본문 문단이 문장 가운데서 끝나고(단이 바뀜) 그림·표
+    제목이 아니며, 이 문단이 소문자로 시작하고 이어지는 첫 문장이 앞 문단 글의 절반까지일 때다. 한 줄 문단에 문장 전체 번역을
+    합치면 그 자리에 맞추느라 글자가 아주 작아졌고(EdgePace), 끝난 제목·표 제목 뒤의 조각은 비워져 글이 빠졌다(AXLE·Capuchin)."""
+    long = "Fig. 1 provides an overview of the communication process. A message is passed through threads as follows: the thread on the side"
+    blocks = [
+        body("a", long),
+        body("b", "generates a message. It stores it."),  # 이어진다
+        body("fig", "Axis label", ["in_figure"]),  # 본문이 아닌 문단은 건너뛴다
+        body("c", "Then the DDS thread runs."),  # 대문자로 시작: 새 문장
+        body("d", "BACK-STREAMING IN LEVERAGING THE STRENGTHS OF BOTH MODES."),
+        body("e", "ing hardware still fall short. Instead we simulate."),  # 앞 문단이 끝난 문장
+        body("f", "Figure 1. Synchronization Overhead of vDNN on Vgg16"),
+        body("g", "scale. We profile execution."),  # 앞 문단이 그림 제목
+        body("h", "Monitoring overhead. On Orin Nano Super,"),
+        body("i", "median reads take 80.9 and 130.8 us at the two sampling intervals, respectively (Table 2). These consume 4%."),  # 앞보다 길다
+        body("j", "The weights of the graph layer are computed for every node of the graph as follows, for unweighted graphs, as:"),
+        body("eq", "h = sigma(W x)", ["math"]),
+        body("k", "with W the trainable weight matrix. It is learned."),  # 사이에 따로 놓인 수식
+    ]
+    assert continued_blocks(blocks) == {"b"}
+    request = translation_request(translation_units(blocks[:2]), continued={"a", "b"})
+    paragraphs = json.loads(request.split("```json")[1].split("```")[0])["paragraphs"]
+    assert ["continues" in paragraph for paragraph in paragraphs] == [False, True]  # 묶음의 첫 문단은 합칠 앞 문단이 없다
 
 
 def test_an_unreadable_answer_says_what_is_wrong_so_it_can_be_asked_again():
