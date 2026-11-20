@@ -235,10 +235,15 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
             if not units:
                 outcome = "no_text"
                 return _error(422, "NO_TEXT", "이 쪽에는 번역할 글이 없습니다(그림·이미지뿐인 쪽).")
+            # 쪽 첫 묶음의 앞 문맥은 앞 쪽의 마지막 문단이다: 쪽에서 문장 가운데서 넘어온 조각을 이어 읽히게 옮긴다(2026-11-20 사용자 요청)
+            previous = translation_units(core.page_text(body.version_id, body.page_index - 1)["blocks"]) if body.page_index > 0 else []
             model = preferences.get("default_model") or DEFAULT_MODEL  # D9: 설정의 기본 모델
             parts = split_units(units) if body.split else [units]
             groups = len(parts)
-            blocks = _translate_groups(cli, parts, model, cancel, personalization(preferences, "translate"))
+            blocks = _translate_groups(
+                cli, parts, model, cancel, personalization(preferences, "translate"),
+                group_context(previous[-1]) if previous else None,
+            )
             translation = core.save_page_translation(body.version_id, body.page_index, language, model, blocks)
             outcome = "ok"
             return {"translation": translation, "cached": False}
@@ -275,10 +280,12 @@ class _ClaudeFailed(Exception):
         self.message = message
 
 
-def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threading.Event, system_extra: str) -> list[dict]:
-    """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을
-    참고로 붙인다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이 틀렸는지 알려 한 번만 다시 받는다
-    (2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
+def _translate_groups(
+    cli: ClaudeCli, groups: list, model: str, cancel: threading.Event, system_extra: str, first_context: str | None
+) -> list[dict]:
+    """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을,
+    첫 묶음에는 first_context(앞 쪽의 마지막 문단, 없으면 None)를 참고로 붙인다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이
+    틀렸는지 알려 한 번만 다시 받는다 (2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
     묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다). 실행마다 걸린 시간·토큰을 남긴다
     (_log_run)."""
 
@@ -303,7 +310,7 @@ def _translate_groups(cli: ClaudeCli, groups: list, model: str, cancel: threadin
         return result
 
     def translate(index: int) -> list[dict]:
-        context = group_context(groups[index - 1][-1]) if index else None
+        context = group_context(groups[index - 1][-1]) if index else first_context
         chars, sentences = _size(groups[index])
         label = f"{index + 1}/{len(groups)} 글자={chars} 문장={sentences}"
         result = ask(translation_request(groups[index], context), None, label)

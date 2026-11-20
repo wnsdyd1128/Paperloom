@@ -201,6 +201,18 @@ def test_the_viewed_page_is_translated_in_parallel_groups_and_saved_as_one_page(
     assert [item["text"] for block in translation["blocks"] for item in block["sentences"]] == [f"[번역] {text}" for text in expected]
 
 
+def test_a_page_after_the_first_carries_the_last_paragraph_of_the_page_before_as_context(core, bridge, fake_log):
+    """쪽 첫 묶음에는 앞 쪽의 마지막 본문 문단을 참고로 붙인다: 문장 가운데서 쪽을 넘어온 조각을 앞 쪽에 이어 읽히게 옮긴다
+    (2026-11-20 사용자 요청: 쪽마다 따로 번역해 앞 쪽 문맥이 없었다). 앞 문맥은 번역할 JSON에 들지 않는다."""
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 1})
+    assert response.status_code == 200, response.text
+    [run] = runs(fake_log)
+    head, payload = message_text(run).split("## 번역할 쪽")
+    before = page_translation.translation_units(page_blocks(core, core["navigation"], 0))[-1]
+    assert "## 앞 문맥" in head and page_translation.group_context(before) in head
+    assert before[1][-1] not in payload
+
+
 def test_every_translation_run_logs_its_size_time_and_tokens(core, bridge, fake_log, monkeypatch, caplog):
     """2026-10-22 사용자 요청("시간 측정부터"): 번역 속도를 높이기 전에 시간이 어디 드는지 본다. 쪽마다 나눔·글자·문장 수를,
     실행마다 묶음의 글자·문장 수와 실행 시작·첫 답 글자·끝까지의 시간, Claude Code가 잰 모델 호출 시간, 토큰을 남긴다.
