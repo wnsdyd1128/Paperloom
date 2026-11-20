@@ -9,11 +9,13 @@ from paperloom.integrations.claude_code.page_translation import (
     TRANSLATION_PROMPT,
     BadTranslation,
     continued_blocks,
+    following_context,
     parse_translation,
     repair_request,
     split_units,
     translation_request,
     translation_units,
+    unfinished,
 )
 
 TEXT = "Real-time Scheduling. To run deg2rad tasks we use both cores."
@@ -47,30 +49,32 @@ def test_the_prompt_asks_to_keep_the_marks():
     assert "<b>Real-time</b>" in translation_request([("b1", ["<b>Real-time</b> work."])])
 
 
-def test_a_paragraph_that_starts_mid_sentence_may_be_merged_into_the_paragraph_before():
-    """PDF에서 문단이 문장 가운데서 나뉘면("… if it can be assigned" / "to a core. …") 모델은 앞 문단 끝 문장에 합쳐 옮기고
-    뒤 문단 첫 id를 비운다(2026-10-03 사용자 논문 13쪽). 묶음의 첫 id는 비울 수 없다(합칠 앞 문장이 없다). 이어지는 문단
-    (continued_blocks)이 아닌 문단의 첫 id도 비울 수 없다: 비우면 그 글이 번역에서 빠진다(2026-11-20 사용자 논문 AXLE)."""
-    units = [("a", ["We assign it if it can be assigned"]), ("b", ["to a core.", "Then we repeat."])]
-    answer = '{"1.1": "코어에 할당할 수 있으면 할당한다.", "2.1": "", "2.2": "그다음 반복한다."}'
-    blocks = parse_translation(answer, units, {"b"})
-    assert [block["sentences"] for block in blocks] == [["코어에 할당할 수 있으면 할당한다."], ["", "그다음 반복한다."]]
-    with pytest.raises(BadTranslation):
-        parse_translation('{"1.1": "", "2.1": "코어에.", "2.2": "그다음 반복한다."}', units, {"b"})
+def test_a_sentence_split_between_two_paragraphs_is_shared_between_their_ids_and_no_first_id_is_empty():
+    """PDF에서 단이 바뀌어 한 문장이 두 문단에 나뉘면("… the backend adds graph" / "splits at Fine Plan boundaries, …") 한 문장으로
+    옮겨 앞부분은 앞 문단 끝 id, 뒷부분은 뒤 문단 첫 id에 나눠 담는다. 문단의 첫 id는 비울 수 없다: 비우면 그 글이 빠지거나
+    (2026-11-20 사용자 논문 AXLE·Capuchin) 앞 문단 상자에 합쳐져 글자가 아주 작아진다(EdgePace)."""
+    units = [("a", ["After the copy, the backend adds graph"]), ("b", ["splits at Fine Plan boundaries.", "Then we repeat."])]
+    shared = '{"1.1": "복사를 마치면 백엔드는 Fine Plan 경계에서", "2.1": "그래프 분할을 추가한다.", "2.2": "그다음 반복한다."}'
+    blocks = parse_translation(shared, units)
+    assert [block["sentences"] for block in blocks] == [["복사를 마치면 백엔드는 Fine Plan 경계에서"], ["그래프 분할을 추가한다.", "그다음 반복한다."]]
     with pytest.raises(BadTranslation) as emptied:
-        parse_translation(answer, units)
-    assert str(emptied.value).startswith('"continues": true가 없는 문단의 첫 문장을 비운 id: 2.1.')
-    assert "앞 문단" in TRANSLATION_PROMPT and '"continues": true' in TRANSLATION_PROMPT
+        parse_translation('{"1.1": "복사를 마치면 백엔드는 Fine Plan 경계에서 그래프 분할을 추가한다.", "2.1": "", "2.2": "그다음 반복한다."}', units)
+    assert str(emptied.value).startswith("문단의 첫 문장을 비운 id: 2.1.")
+    with pytest.raises(BadTranslation, match="1.1"):
+        parse_translation('{"1.1": "", "2.1": "추가한다.", "2.2": "그다음 반복한다."}', units)
+    merged = parse_translation('{"1.1": "복사를 마치면 추가한다.", "2.1": "분할한다. 그다음 반복한다.", "2.2": ""}', units)
+    assert merged[1]["sentences"] == ["분할한다. 그다음 반복한다.", ""]  # 문단 안에서 뒤 문장을 앞 문장에 합치는 것은 된다
+    assert '"continues": true' in TRANSLATION_PROMPT and "뒷부분" in TRANSLATION_PROMPT
 
 
 def body(block_id: str, text: str, flags=()) -> dict:
     return {"block_id": block_id, "text": text, "styles": [], "quality_flags": list(flags)}
 
 
-def test_only_a_short_lowercase_rest_of_an_unfinished_paragraph_may_be_merged_into_it():
-    """앞 문단 끝 문장에 합쳐 옮겨도 되는 문단(2026-11-20 사용자 논문): 앞 본문 문단이 문장 가운데서 끝나고(단이 바뀜) 그림·표
-    제목이 아니며, 이 문단이 소문자로 시작하고 이어지는 첫 문장이 앞 문단 글의 절반까지일 때다. 한 줄 문단에 문장 전체 번역을
-    합치면 그 자리에 맞추느라 글자가 아주 작아졌고(EdgePace), 끝난 제목·표 제목 뒤의 조각은 비워져 글이 빠졌다(AXLE·Capuchin)."""
+def test_a_lowercase_rest_of_an_unfinished_paragraph_continues_it():
+    """두 문단에 나뉜 한 문장(2026-11-20 사용자 논문): 앞 본문 문단이 문장 가운데서 끝나고(단이 바뀜) 그림·표 제목이 아니며, 이
+    문단이 소문자로 시작하고 사이에 따로 놓인 수식이 없을 때다. 이어지는 조각이 길어도 이어진다(EdgePace 5쪽 "adds graph" /
+    "splits at Fine Plan boundaries, …"를 따로 옮겨 문장이 끊겼다). 끝난 제목·그림 제목 뒤의 조각은 아니다(AXLE·Capuchin)."""
     long = "Fig. 1 provides an overview of the communication process. A message is passed through threads as follows: the thread on the side"
     blocks = [
         body("a", long),
@@ -82,15 +86,35 @@ def test_only_a_short_lowercase_rest_of_an_unfinished_paragraph_may_be_merged_in
         body("f", "Figure 1. Synchronization Overhead of vDNN on Vgg16"),
         body("g", "scale. We profile execution."),  # 앞 문단이 그림 제목
         body("h", "Monitoring overhead. On Orin Nano Super,"),
-        body("i", "median reads take 80.9 and 130.8 us at the two sampling intervals, respectively (Table 2). These consume 4%."),  # 앞보다 길다
+        body("i", "median reads take 80.9 and 130.8 us at the two sampling intervals, respectively (Table 2). These consume 4%."),  # 길어도 이어진다
         body("j", "The weights of the graph layer are computed for every node of the graph as follows, for unweighted graphs, as:"),
         body("eq", "h = sigma(W x)", ["math"]),
         body("k", "with W the trainable weight matrix. It is learned."),  # 사이에 따로 놓인 수식
     ]
-    assert continued_blocks(blocks) == {"b"}
+    assert continued_blocks(blocks) == {"b", "i"}
     request = translation_request(translation_units(blocks[:2]), continued={"a", "b"})
     paragraphs = json.loads(request.split("```json")[1].split("```")[0])["paragraphs"]
-    assert ["continues" in paragraph for paragraph in paragraphs] == [False, True]  # 묶음의 첫 문단은 합칠 앞 문단이 없다
+    assert ["continues" in paragraph for paragraph in paragraphs] == [False, True]  # 묶음의 첫 문단은 앞 문단이 묶음에 없다
+
+
+def test_a_sentence_cut_at_the_end_of_the_page_gets_the_start_of_the_next_page_as_context():
+    """쪽 끝에서 끊긴 문장(2026-11-20 사용자 논문 EdgePace 5–6쪽 "… 𝑟𝑘, MPKI" / "𝑚𝑘, and the memory-stall fraction 𝑠𝑘:"): 그 쪽만
+    보고 옮기면 끝맺은 문장이 되어 다음 쪽과 이어지지 않았다. 문장 가운데서 끝나는 쪽은 다음 쪽에서 이어지는 조각(그림·표 제목은
+    건너뛴 첫 본문 문단, 소문자로 시작할 때만)의 첫머리를 "뒤 문맥"으로 받는다."""
+    assert unfinished(("a", ["For a valid window, it computes <i>r</i>, MPKI"]))
+    assert not unfinished(("a", ["It ends here.</b>"])) and not unfinished(("a", ["the callback function.1"]))
+    next_page = [
+        body("head", "Teng Mei et al.", ["page_header"]),
+        body("cap", "Figure 5. Risk-dependent LLM submission."),
+        body("rest", "mk, and the memory-stall fraction sk:"),
+    ]
+    assert following_context(next_page) == "mk, and the memory-stall fraction sk:"
+    assert following_context([body("new", "Windows with nonpositive duration are invalid.")]) is None  # 새 문장으로 시작
+    assert following_context([]) is None
+    request = translation_request([("a", ["it computes MPKI"])], following="mk, and the stall fraction")
+    head, payload = request.split("## 번역할 쪽")
+    assert "## 뒤 문맥" in head and "mk, and the stall fraction" in head and "stall fraction" not in payload
+    assert "## 뒤 문맥" not in translation_request([("a", ["It ends."])]) and "뒤 문맥" in TRANSLATION_PROMPT
 
 
 def test_an_unreadable_answer_says_what_is_wrong_so_it_can_be_asked_again():
@@ -135,6 +159,14 @@ def test_groups_are_balanced_so_the_slowest_group_is_as_short_as_possible():
     groups = split_units(units)
     assert group_sizes(groups) == [1638, 1639, 1025, 992]  # 넷으로 나눌 수 있는 가장 고른 것(가장 큰 묶음 1,639자)
     assert [unit for group in groups for unit in group] == units
+
+
+def test_a_paragraph_that_continues_the_one_before_stays_in_its_group():
+    """두 문단에 나뉜 한 문장은 한 번에 옮기므로(2026-11-20 사용자 논문) 이어지는 문단(continued) 앞에서는 묶음을 자르지 않는다."""
+    units = [(f"b{index}", ["x" * 300]) for index in range(4)]  # 1,200자 → 둘
+    assert [[unit[0] for unit in group] for group in split_units(units)] == [["b0", "b1"], ["b2", "b3"]]
+    assert [[unit[0] for unit in group] for group in split_units(units, {"b2"})] == [["b0"], ["b1", "b2", "b3"]]
+    assert split_units(units[:2], {"b1"}) == [units[:2]]  # 이어진 두 문단뿐이면 나누지 않는다
 
 
 def test_a_group_after_the_first_carries_the_paragraph_before_as_context_only():

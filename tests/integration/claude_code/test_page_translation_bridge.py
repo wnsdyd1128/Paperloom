@@ -213,6 +213,26 @@ def test_a_page_after_the_first_carries_the_last_paragraph_of_the_page_before_as
     assert before[1][-1] not in payload
 
 
+def test_a_page_ending_mid_sentence_sends_the_start_of_the_next_page_to_its_last_group(core, bridge, fake_log, monkeypatch):
+    """쪽이 문장 가운데서 끝나면 마지막 묶음에 다음 쪽에서 이어지는 조각의 첫머리를 "뒤 문맥"으로 붙인다: 끊긴 문장을 끝맺지 않고
+    다음 쪽으로 이어지게 옮긴다(2026-11-20 사용자 요청). 다른 묶음에는 붙이지 않고, 마지막 쪽은 다음 쪽이 없어 붙이지 않는다.
+    합성 쪽은 문장이 끝나므로 끝 판정과 이어지는 조각 찾기를 바꿔 배선만 확인한다."""
+    monkeypatch.setattr(page_translation, "GROUP_CHARS", 40)
+    monkeypatch.setattr(bridge_app, "unfinished", lambda unit: True)
+    monkeypatch.setattr(bridge_app, "following_context", lambda blocks: "continues on the next page")
+    response = bridge.post("/translate-page", json={"version_id": core["navigation"], "page_index": 1, "split": True})
+    assert response.status_code == 200, response.text
+    texts = [message_text(run) for run in runs(fake_log)]
+    assert len(texts) >= 2
+    last = page_blocks(core, core["navigation"], 1)[-1]["text"]
+    following = [text for text in texts if "## 뒤 문맥" in text]
+    assert len(following) == 1 and "continues on the next page" in following[0] and last[-20:] in following[0]  # 마지막 묶음만
+    pages = core["client"].get(f"/api/v1/versions/{core['parts']}").json()["page_count"]  # 마지막 쪽에도 글이 있다
+    response = bridge.post("/translate-page", json={"version_id": core["parts"], "page_index": pages - 1, "split": True})
+    assert response.status_code == 200, response.text
+    assert not any("## 뒤 문맥" in message_text(run) for run in runs(fake_log)[len(texts):])
+
+
 def test_every_translation_run_logs_its_size_time_and_tokens(core, bridge, fake_log, monkeypatch, caplog):
     """2026-10-22 사용자 요청("시간 측정부터"): 번역 속도를 높이기 전에 시간이 어디 드는지 본다. 쪽마다 나눔·글자·문장 수를,
     실행마다 묶음의 글자·문장 수와 실행 시작·첫 답 글자·끝까지의 시간, Claude Code가 잰 모델 호출 시간, 토큰을 남긴다.
