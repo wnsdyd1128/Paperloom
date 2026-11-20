@@ -49,7 +49,9 @@ Box = tuple[float, float, float, float]  # left, bottom, right, top (PDF 사용�
 #     사용자 논문 Resource-Aware Task Scheduling 5쪽: 그림 둘이 쪽의 79%로 잡혀 오른쪽 단 본문이 그림 안 글자가 되었다)
 # 19: 쪽 글줄과 다른 방향의 글자가 대부분인 문단은 side_text(2026-11-16 사용자 보고: Attention Is All You Need의 세로 arXiv
 #     표기, CROS-RT의 세로 IEEE 표기가 한 글자씩 문단이 되어 글로 읽기에 줄줄이 나왔다)
-LAYOUT_VERSION = "19"
+# 20: 굵은 run-in 제목으로 시작하는 첫 줄은 글자 상자 높이가 달라도 글꼴 크기가 같으면 다음 줄과 한 문단(_after_run_in_heading,
+#     2026-11-20 사용자 논문 EdgePace: 첫 줄만 떨어져 그 번역이 아주 작아졌다)
+LAYOUT_VERSION = "20"
 SIDE_SHARE = 0.5  # 문단 글자의 이만큼 넘게 쪽 글줄과 다른 방향이면 side_text
 MIN_FONT_SIZE = 1.5  # pt. 이보다 작은 크기는 글자 행렬이 없는 공백 등이라 크기 셈에서 뺀다
 FIGURE_TEXT_SHARE = 0.5  # 문단 상자의 이만큼이 그림 후보 안이면 그림 안 글자다
@@ -432,7 +434,7 @@ def _continues(block: _Block, line: Line) -> bool:
     previous = block.lines[-1].flow
     current = line.flow
     height = block.height
-    if abs(line.height - height) > SIZE_CHANGE * height:
+    if abs(line.height - height) > SIZE_CHANGE * height and not _after_run_in_heading(block, line):
         return False
     below = block.lines[-1].core[0] if block.lines[-1].core else previous[1]
     above = line.core[1] if line.core else current[3]
@@ -455,6 +457,20 @@ def _continues(block: _Block, line: Line) -> bool:
     if first.drop_cap and abs(current[0] - first.box[0]) <= INDENT * height:
         return True  # 큰 글자 아래로 내려와 큰 글자 왼쪽 끝에서 시작하는 줄
     return abs(shift) <= INDENT * height  # 문단 안의 줄은 같은 곳에서 시작한다
+
+
+def _after_run_in_heading(block: _Block, line: Line) -> bool:
+    """이 줄이 굵은 run-in 제목으로 시작해 본문 글자로 끝나는 끝까지 찬 첫 줄("Monitoring and decision overhead. On …")의
+    다음 줄이고 글꼴 크기(pt)가 같은지. 굵은 글꼴의 글자 상자(ascent·descent)가 본문 글꼴보다 낮아, 굵은 글자가 반을 넘는 줄은
+    줄 높이로 재면 크기가 바뀐 것처럼 보여 첫 줄만 따로 떨어졌고, 문장 전체의 번역이 그 한 줄 자리에 눌려 아주 작아졌다
+    (2026-11-20 사용자 논문 EdgePace 8쪽: 줄 높이 9.41 대 13.77, 글꼴은 둘 다 9.96pt). 제목 줄 앞에서 나누는 것은 그대로다:
+    들여쓰기·문단 간격이 없는 조판에서는 그 높이 차이가 문단 경계다."""
+    first = block.lines[0]
+    if len(block.lines) != 1 or not first.marks or "b" not in first.marks[0] or "b" in first.marks[-1]:
+        return False
+    if first.size <= MIN_FONT_SIZE or abs(first.size - line.size) > HEADING_SIZE * line.size:
+        return False
+    return first.flow[2] >= line.flow[2] - SHORT_LINE * line.height  # 짧게 끝난 한 줄 문단 뒤는 새 문단이다
 
 
 def reading_order(blocks: list[_Block], view_box: Box) -> tuple[list[_Block], bool]:

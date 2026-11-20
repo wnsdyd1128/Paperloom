@@ -215,6 +215,28 @@ class TestBlocks:
             f"Full first line of the paragraph with many symbols in it ok {joined}"
         ]
 
+    def test_a_line_starting_with_a_bold_run_in_heading_stays_with_the_rest_of_its_paragraph(self):
+        """2026-11-20 사용자 논문 EdgePace 8쪽: 굵은 글꼴의 글자 상자가 본문 글꼴보다 낮아(같은 9.96pt인데 9.41 대 13.77), 굵은
+        run-in 제목이 반을 넘는 첫 줄 "Monitoring and decision overhead. On Orin Nano Super,"만 따로 문단이 되었다. 글꼴 크기가 같으면
+        다음 줄과 잇는다. 그 줄 앞(짧게 끝난 앞 문단)에서는 그대로 나눈다: 들여쓰기·문단 간격이 없는 조판의 문단 경계다."""
+
+        def styled(chars, style="", height=H):
+            return [replace(ch, style=style, size=10.0, box=(ch.box[0], ch.box[1], ch.box[2], ch.box[1] + height)) if ch.box else ch for ch in chars]
+
+        before = styled(line("Previous paragraph line that runs to the margin", 0, 712) + line("ends short.", 0, 700))
+        heading = styled(word("Monitoring and decision overhead.", 0, 688), "b", 7.0)  # 굵은 글자가 줄의 반을 넘는다
+        run_in = heading + [Char(" ", None)] + styled(line(" On Orin Super,", 170, 688))
+        after = styled(line("median reads take long at small intervals in all", 0, 676) + line("total.", 0, 664))
+        assert self.blocks(before + run_in + after) == [
+            "Previous paragraph line that runs to the margin ends short.",
+            "Monitoring and decision overhead. On Orin Super, median reads take long at small intervals in all total.",
+        ]
+        # 줄 전체가 굵은 한 줄(제목)과 짧게 끝난 run-in 한 줄 문단은 다음 줄과 잇지 않는다
+        bold_line = styled(line("Monitoring and decision overhead of the scheme", 0, 688), "b", 7.0)
+        assert len(self.blocks(bold_line + after)) == 2
+        short_run_in = heading + [Char(" ", None)] + styled(line(" On it.", 170, 688))
+        assert len(self.blocks(short_run_in + after)) == 2
+
     def test_size_change_and_large_gap_split(self):
         chars = line("Title", 0, 700, 18) + line("body line", 0, 686) + line("after gap", 0, 660)
         assert self.blocks(chars) == ["Title", "body line", "after gap"]
