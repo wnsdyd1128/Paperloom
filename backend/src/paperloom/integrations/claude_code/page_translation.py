@@ -18,15 +18,17 @@ TRANSLATION_PROMPT = """당신은 논문 번역가입니다. 사용자는 Paperl
 - 수식·기호·변수·인용 번호([12])·그림과 표 번호·코드는 원문 그대로 두세요. LaTeX나 Markdown으로 바꾸지 마세요.
 - 고유명사·알고리즘 이름·약어는 원문 그대로 쓰거나 처음 나올 때 괄호로 원문을 붙이세요.
 - PDF에서 뽑은 글이라 문장이 어색하게 나뉘었거나 머리말·쪽 번호가 섞였을 수 있습니다. 쪽 번호·저자 이름처럼 옮길 것이 없는 글은 원문을 그대로 두세요.
-- "앞 문맥"이 있으면 이 묶음 바로 앞 문단(쪽의 첫 묶음이면 앞 쪽의 마지막 문단)입니다. 이어서 읽히게 참고만 하고, 번역하거나 답에 넣거나 그쪽에 합치지 마세요. 앞 문맥이 문장 가운데서 끝나면 이 묶음에서 그 문장의 나머지(맨 앞 문단, 또는 그림·표 제목 뒤 문단의 첫 문장)를 앞 문맥에 이어 읽히게 옮기세요."""
+- "앞 문맥"이 있으면 이 묶음 바로 앞 문단(쪽의 첫 묶음이면 앞 쪽의 마지막 문단)입니다. 이어서 읽히게 참고만 하고, 번역하거나 답에 넣거나 그쪽에 합치지 마세요. 앞 문맥이 문장 가운데서 끝나면 이 묶음에서 그 문장의 뒷부분인 조각(맨 앞 문단, 또는 그림·표 제목 뒤 문단의 첫 문장)이 있습니다. 앞 문맥 쪽은 그 문장의 앞부분만 끝맺지 않고 옮겼으니, 이 조각은 그 앞부분에 이어 문장을 끝맺는 뒷부분으로 옮기세요(앞부분을 다시 옮기지 마세요).
+- "뒤 문맥"이 있으면 다음 쪽에서 이 쪽 마지막 문장에 이어지는 조각의 첫머리입니다. 참고만 하고 번역하거나 답에 넣지 마세요. 이 묶음의 마지막 문단은 문장 가운데서 끝나 뒤 문맥으로 이어집니다. 그 끝 문장은 뒤 문맥까지 한 문장으로 생각해, 이 쪽에 있는 앞부분만 문장을 끝맺지 말고 뒤 문맥으로 이어지게 옮기세요(끝맺는 서술어는 다음 쪽이 옮깁니다)."""
 
 # 쪽을 문단 묶음으로 나눠 동시에 번역한다 (2026-10-03 사용자 결정 D12: 보는 쪽, 2026-10-22: 모든 쪽 번역의 쪽도): 묶음 하나가
 # 이만큼(글자)은 되게, 묶음은 이만큼까지. 2026-10-04: 셋 → 넷, 1,200 → 600자(사용자 논문 추정: 2,000–2,400자 쪽이 나뉘지 않아
 # 가장 느렸다. 600자 아래로는 더 빨라지지 않는다)
 GROUP_CHARS = 600
 MAX_GROUPS = 4
-CONTEXT_CHARS = 400  # 묶음 앞에 참고로 붙이는 앞 문단(끝부분) 길이
+CONTEXT_CHARS = 400  # 묶음 앞뒤에 참고로 붙이는 앞 문단(끝부분)·뒤 조각(첫머리) 길이
 _FINISHED = re.compile(r"[.!?。！？][\"'”’)\]]*\d*$")  # 끝난 문장의 끝(닫는 따옴표·괄호, 각주 번호까지)
+_TAG = re.compile(r"</?(?:b|i|sub|sup)>")  # 문장에 붙인 모양 표시(_marked)
 # 그림·표 제목: 번호 뒤에 마침표·쌍점이 온다("Figure 1. …", "Fig. 1: …"). block_kinds.is_caption은 머리만 보아 "Fig. 1 provides …"로
 # 시작하는 본문 문단도 제목으로 본다
 _CAPTION = re.compile(r"^(?:table|tab\.|fig\.|figure|algorithm|pseudocode|listing)\s*[A-Z]?\d+\s*[.:]", re.IGNORECASE)
@@ -72,6 +74,21 @@ def continued_blocks(blocks: list[dict]) -> set[str]:
             joined.add(block["block_id"])
         before, math_between = block, False
     return joined
+
+
+def unfinished(unit: Unit) -> bool:
+    """문단(번역 단위)이 문장 가운데서 끝나는지(끝 문장 부호가 없다)."""
+    return not _FINISHED.search(_TAG.sub("", unit[1][-1]).rstrip())
+
+
+def following_context(blocks: list[dict]) -> str | None:
+    """다음 쪽 문단(읽는 차례)에서 앞 쪽 끝 문장에 이어지는 조각의 첫머리(뒤 문맥): 그림·표 제목을 건너뛴 첫 본문 문단이 소문자로
+    시작할 때만이다. 쪽 끝에서 끊긴 문장을 그 쪽만 보고 옮기면 끝맺은 문장이 되어("… 𝑟𝑘와 MPKI를 계산한다." / "𝑚𝑘, 그리고 …
+    는 다음과 같다:") 다음 쪽 조각과 이어지지 않았다(2026-11-20 사용자 논문 EdgePace 5–6쪽)."""
+    for block in filter(_is_body, blocks):
+        if not _CAPTION.match(block["text"]):
+            return block["text"][:CONTEXT_CHARS] if _starts_lower(block["text"]) else None
+    return None
 
 
 def _starts_lower(text: str) -> bool:
@@ -149,10 +166,12 @@ def group_context(unit: Unit) -> str:
     return " ".join(unit[1])[-CONTEXT_CHARS:]
 
 
-def translation_request(units: list[Unit], context: str | None = None, continued: set[str] = frozenset()) -> str:
-    """모델에 보낼 글. 문단 i의 문장 j는 id "i.j"(1부터)다. context는 묶음 바로 앞 문단(참고용, 번역하지 않는다).
-    continued(continued_blocks)의 문단은 "continues": true로 표시한다(앞 문단 끝 문장과 나눠 옮긴다). 묶음의 첫 문단은
-    앞 문단이 묶음에 없어 표시하지 않는다."""
+def translation_request(
+    units: list[Unit], context: str | None = None, continued: set[str] = frozenset(), following: str | None = None
+) -> str:
+    """모델에 보낼 글. 문단 i의 문장 j는 id "i.j"(1부터)다. context는 묶음 바로 앞 문단, following은 다음 쪽에서 이 묶음 끝
+    문장에 이어지는 조각의 첫머리다(following_context, 둘 다 참고용, 번역하지 않는다). continued(continued_blocks)의 문단은
+    "continues": true로 표시한다(앞 문단 끝 문장과 나눠 옮긴다). 묶음의 첫 문단은 앞 문단이 묶음에 없어 표시하지 않는다."""
     payload = {
         "paragraphs": [
             {
@@ -164,6 +183,7 @@ def translation_request(units: list[Unit], context: str | None = None, continued
         ]
     }
     preface = f"## 앞 문맥 (참고만, 번역하지 마세요)\n\n> {context}\n\n" if context else ""
+    preface += f"## 뒤 문맥 (참고만, 번역하지 마세요)\n\n> {following}\n\n" if following else ""
     return (
         preface
         + "## 번역할 쪽 (JSON)\n\n```json\n"

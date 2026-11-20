@@ -9,11 +9,13 @@ from paperloom.integrations.claude_code.page_translation import (
     TRANSLATION_PROMPT,
     BadTranslation,
     continued_blocks,
+    following_context,
     parse_translation,
     repair_request,
     split_units,
     translation_request,
     translation_units,
+    unfinished,
 )
 
 TEXT = "Real-time Scheduling. To run deg2rad tasks we use both cores."
@@ -93,6 +95,26 @@ def test_a_lowercase_rest_of_an_unfinished_paragraph_continues_it():
     request = translation_request(translation_units(blocks[:2]), continued={"a", "b"})
     paragraphs = json.loads(request.split("```json")[1].split("```")[0])["paragraphs"]
     assert ["continues" in paragraph for paragraph in paragraphs] == [False, True]  # 묶음의 첫 문단은 앞 문단이 묶음에 없다
+
+
+def test_a_sentence_cut_at_the_end_of_the_page_gets_the_start_of_the_next_page_as_context():
+    """쪽 끝에서 끊긴 문장(2026-11-20 사용자 논문 EdgePace 5–6쪽 "… 𝑟𝑘, MPKI" / "𝑚𝑘, and the memory-stall fraction 𝑠𝑘:"): 그 쪽만
+    보고 옮기면 끝맺은 문장이 되어 다음 쪽과 이어지지 않았다. 문장 가운데서 끝나는 쪽은 다음 쪽에서 이어지는 조각(그림·표 제목은
+    건너뛴 첫 본문 문단, 소문자로 시작할 때만)의 첫머리를 "뒤 문맥"으로 받는다."""
+    assert unfinished(("a", ["For a valid window, it computes <i>r</i>, MPKI"]))
+    assert not unfinished(("a", ["It ends here.</b>"])) and not unfinished(("a", ["the callback function.1"]))
+    next_page = [
+        body("head", "Teng Mei et al.", ["page_header"]),
+        body("cap", "Figure 5. Risk-dependent LLM submission."),
+        body("rest", "mk, and the memory-stall fraction sk:"),
+    ]
+    assert following_context(next_page) == "mk, and the memory-stall fraction sk:"
+    assert following_context([body("new", "Windows with nonpositive duration are invalid.")]) is None  # 새 문장으로 시작
+    assert following_context([]) is None
+    request = translation_request([("a", ["it computes MPKI"])], following="mk, and the stall fraction")
+    head, payload = request.split("## 번역할 쪽")
+    assert "## 뒤 문맥" in head and "mk, and the stall fraction" in head and "stall fraction" not in payload
+    assert "## 뒤 문맥" not in translation_request([("a", ["It ends."])]) and "뒤 문맥" in TRANSLATION_PROMPT
 
 
 def test_an_unreadable_answer_says_what_is_wrong_so_it_can_be_asked_again():
