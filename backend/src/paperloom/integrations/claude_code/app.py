@@ -45,12 +45,14 @@ from paperloom.integrations.claude_code.page_translation import (
     TRANSLATION_PROMPT,
     BadTranslation,
     continued_blocks,
+    following_context,
     group_context,
     parse_translation,
     repair_request,
     split_units,
     translation_request,
     translation_units,
+    unfinished,
 )
 from paperloom.integrations.claude_code.personalization import personalization
 from paperloom.integrations.claude_code.skills import Skill, install, invoked, load
@@ -237,14 +239,17 @@ def build_app(cli: ClaudeCli, core: CoreClient, origins: set[str], port: int) ->
             if not units:
                 outcome = "no_text"
                 return _error(422, "NO_TEXT", "이 쪽에는 번역할 글이 없습니다(그림·이미지뿐인 쪽).")
-            # 쪽 첫 묶음의 앞 문맥은 앞 쪽의 마지막 문단이다: 쪽에서 문장 가운데서 넘어온 조각을 이어 읽히게 옮긴다(2026-11-20 사용자 요청)
+            # 쪽 경계에서 끊긴 문장은 두 쪽이 따로 옮긴다(2026-11-20 사용자 요청): 쪽 첫 묶음에는 앞 쪽의 마지막 문단을, 쪽이 문장
+            # 가운데서 끝나면 마지막 묶음에 다음 쪽에서 이어지는 조각을 참고로 붙여, 앞 쪽은 끝맺지 않은 앞부분을, 뒤 쪽은 끝맺는 뒷부분을 옮긴다
             previous = translation_units(core.page_text(body.version_id, body.page_index - 1)["blocks"]) if body.page_index > 0 else []
+            following = _next_page_start(core, body.version_id, body.page_index) if unfinished(units[-1]) else None
+            continued = continued_blocks(page_blocks)
             model = preferences.get("default_model") or DEFAULT_MODEL  # D9: 설정의 기본 모델
-            parts = split_units(units) if body.split else [units]
+            parts = split_units(units, continued) if body.split else [units]
             groups = len(parts)
             blocks = _translate_groups(
                 cli, parts, model, cancel, personalization(preferences, "translate"),
-                group_context(previous[-1]) if previous else None, continued_blocks(page_blocks),
+                group_context(previous[-1]) if previous else None, following, continued,
             )
             translation = core.save_page_translation(body.version_id, body.page_index, language, model, blocks)
             outcome = "ok"
@@ -283,12 +288,20 @@ class _ClaudeFailed(Exception):
 
 
 def _translate_groups(
-    cli: ClaudeCli, groups: list, model: str, cancel: threading.Event, system_extra: str, first_context: str | None, continued: set[str]
+    cli: ClaudeCli,
+    groups: list,
+    model: str,
+    cancel: threading.Event,
+    system_extra: str,
+    first_context: str | None,
+    last_following: str | None,
+    continued: set[str],
 ) -> list[dict]:
     """문단 묶음마다 Claude Code를 동시에 실행해(묶음 하나면 하나) 번역을 받아 쪽 차례대로 잇는다. 둘째 묶음부터는 앞 문단을,
-    첫 묶음에는 first_context(앞 쪽의 마지막 문단, 없으면 None)를 참고로 붙인다. continued는 첫 문장을 앞 문단에 합쳐 옮겨도
-    되는 문단(page_translation.continued_blocks)이다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이
-    틀렸는지 알려 한 번만 다시 받는다 (2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
+    첫 묶음에는 first_context(앞 쪽의 마지막 문단, 없으면 None)를 참고로 붙이고, 마지막 묶음에는 last_following(다음 쪽에서
+    이어지는 조각의 첫머리, 없으면 None)을 붙인다. continued는 앞 문단 끝 문장과 나눠 옮기는 문단
+    (page_translation.continued_blocks)이다. 묶음의 답을 읽지 못하면(JSON 문법 오류·id 빠짐) 같은 대화에 무엇이 틀렸는지 알려
+    한 번만 다시 받는다(2026-10-16 사용자 요청). 로그인 토큰 갱신이 겹쳐 끝난 실행은 실패로 보지 않고 잠시 뒤 다시 실행한다(REFRESH_RACE).
     묶음 하나라도 끝내 실패하면 나머지를 멈추고 그 실패를 낸다(쪽 전체를 저장하지 않는다). 실행마다 걸린 시간·토큰을 남긴다
     (_log_run)."""
 
@@ -314,17 +327,18 @@ def _translate_groups(
 
     def translate(index: int) -> list[dict]:
         context = group_context(groups[index - 1][-1]) if index else first_context
+        following = last_following if index == len(groups) - 1 else None
         chars, sentences = _size(groups[index])
         label = f"{index + 1}/{len(groups)} 글자={chars} 문장={sentences}"
-        result = ask(translation_request(groups[index], context, continued), None, label)
+        result = ask(translation_request(groups[index], context, continued, following), None, label)
         try:
-            return parse_translation(result["text"], groups[index], continued)
+            return parse_translation(result["text"], groups[index])
         except BadTranslation as bad:
             if not result["session_id"]:
                 raise
             log.info("쪽 번역 묶음 %d/%d의 답을 읽지 못해 같은 대화에 다시 묻는다", index + 1, len(groups))
             again = ask(repair_request(str(bad)), result["session_id"], f"{label} 다시 묻기")
-            return parse_translation(again["text"], groups[index], continued)
+            return parse_translation(again["text"], groups[index])
 
     with ThreadPoolExecutor(max_workers=len(groups)) as pool:
         futures = [pool.submit(translate, index) for index in range(len(groups))]
@@ -334,6 +348,17 @@ def _translate_groups(
             cancel.set()  # 아직 도는 묶음을 멈춘다
             raise failed
         return [block for future in futures for block in future.result()]
+
+
+def _next_page_start(core: CoreClient, version_id: str, page_index: int) -> str | None:
+    """다음 쪽에서 이 쪽 끝 문장에 이어지는 조각의 첫머리(page_translation.following_context). 마지막 쪽이면 None."""
+    try:
+        blocks = core.page_text(version_id, page_index + 1)["blocks"]
+    except CoreRefused as refused:
+        if refused.status == 404:  # 다음 쪽이 없다
+            return None
+        raise
+    return following_context(blocks)
 
 
 def _size(units: list) -> tuple[int, int]:
