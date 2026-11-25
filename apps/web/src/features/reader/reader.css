@@ -1,6 +1,6 @@
 /*
- * Reader (시안 Reader v3, docs/UI_PLAN.md U1·U2). 값은 디자인 시스템 토큰만 쓴다: 모서리 0, 큰 구분선 2px,
- * 띄운 것(메뉴·창)은 위 테두리 2px 글자색과 shadow-lg.
+ * Reader (docs/UI_PLAN.md U1·U2). 값은 디자인 토큰만 쓴다: 구분선 1px, 조작 요소 모서리 6px,
+ * 띄운 것(메뉴·창)은 1px 테두리와 둥근 모서리(--radius-lg), shadow-lg.
  */
 
 .reader {
@@ -19,7 +19,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-3);
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .reader-head-left {
@@ -31,7 +31,7 @@
 
 .head-rule {
   flex: none;
-  width: 2px;
+  width: 1px;
   height: 20px;
   background: var(--color-divider);
 }
@@ -77,8 +77,9 @@
   align-items: center;
   height: 32px;
   border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
   background: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -109,7 +110,7 @@
   height: 30px;
   padding: 0 6px;
   border: 0;
-  border-right: 1px solid var(--color-divider);
+  border-radius: calc(var(--radius-md) - 1px) 0 0 calc(var(--radius-md) - 1px);
   background: var(--color-surface);
   font-weight: 600;
   text-align: center;
@@ -123,7 +124,7 @@
 .page-text-status {
   overflow: hidden;
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -139,10 +140,10 @@
   min-width: 190px;
   max-height: 60vh;
   overflow: auto;
-  padding: 4px 0;
+  padding: 4px;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
-  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
   box-shadow: var(--shadow-lg);
 }
 
@@ -151,10 +152,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 7px 10px;
   border: 0;
+  border-radius: var(--radius-sm);
   background: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   text-align: left;
   cursor: pointer;
@@ -162,12 +164,12 @@
 
 .menu-popover button:not(.btn):hover,
 .menu-popover button:not(.btn):focus-visible {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 .menu-popover button[aria-checked="true"] {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .menu-rule {
@@ -187,7 +189,7 @@
   padding: 6px 16px;
   border-bottom: 1px solid var(--color-divider);
   background: var(--color-surface);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /*
@@ -220,8 +222,12 @@
   overflow: auto;
 }
 
-/* 키보드로 본문에 들어왔음을 보이되, 머리·사이드바 위로 번지지 않게 안쪽에 그린다. */
+/*
+ * 키보드로 본문에 들어왔음을 보이되, 머리·사이드바 위로 번지지 않게 안쪽에 그린다. 본문 영역은 화면의 대부분이라
+ * 강조색 테두리가 화면 전체를 두르지 않게 무채색으로 그린다(쪽 뒤 바탕과 3:1을 넘는다).
+ */
 .reader-scroll:focus-visible {
+  outline-color: var(--color-neutral-600);
   outline-offset: -2px;
 }
 
@@ -303,6 +309,7 @@
   height: 22px;
   padding: 0;
   border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
   color: #2d2b2b;
   cursor: pointer;
 }
@@ -319,7 +326,7 @@
 }
 
 .color-swatch.is-small[aria-pressed="true"] {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-text);
   outline-offset: 1px;
 }
 
@@ -387,11 +394,12 @@
   z-index: 50;
   display: flex;
   align-items: stretch;
+  padding: 3px;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
-  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
   box-shadow: var(--shadow-lg);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.3;
 }
 
@@ -407,21 +415,22 @@
   z-index: 50;
   display: flex;
   align-items: stretch;
+  padding: 3px;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
-  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
   box-shadow: var(--shadow-lg);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .region-toolbar .seg {
-  border: 0;
-  border-right: 1px solid var(--color-divider);
+  align-self: center;
+  margin-right: 4px;
 }
 
 /*
  * 영역 도구줄의 동작 단추 (MorphTools.tsx, Motion Studies Morph Tooltip). 아이콘 단추 뒤의 강조와 위의 말풍선·꼬리는
- * 자리·너비·투명도를 spring으로 받는다. 말풍선은 글자색 바탕에 바탕색 글자이고 모서리는 0이다.
+ * 자리·너비·투명도를 spring으로 받는다. 말풍선은 글자색 바탕에 바탕색 글자다.
  */
 .morph-tools {
   position: relative;
@@ -455,7 +464,7 @@
 
 .morph-tool.is-primary,
 .morph-tool.is-primary:hover:not(:disabled) {
-  color: var(--color-accent);
+  color: var(--color-text);
 }
 
 .morph-tool:disabled {
@@ -479,6 +488,7 @@
   width: 14px;
   height: 14px;
   border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
 }
 
 .morph-swatch[data-color="c1"] {
@@ -514,6 +524,7 @@
   top: 0;
   bottom: 0;
   left: 0;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   opacity: 0;
   pointer-events: none;
@@ -527,6 +538,7 @@
   z-index: 2;
   height: 30px;
   overflow: hidden;
+  border-radius: var(--radius-md);
   background: var(--color-text);
   color: var(--color-bg);
   opacity: 0;
@@ -544,7 +556,7 @@
   gap: 8px;
   height: 30px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
   opacity: 0;
@@ -558,9 +570,10 @@
   height: 18px;
   margin-right: -3px;
   padding: 0 5px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-bg) 16%, transparent);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .morph-tail {
@@ -599,7 +612,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
+  border-radius: var(--radius-lg);
   background: var(--color-bg);
   box-shadow: var(--shadow-lg);
   color: var(--color-text);
@@ -655,14 +668,14 @@
 .inline-font-size .inline-tool {
   width: 26px;
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
 .inline-font-value {
   min-width: 20px;
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -688,9 +701,10 @@
   max-width: 80%;
   margin: 0;
   padding: 8px 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-text);
   color: var(--color-bg);
-  font-size: 13.5px;
+  font-size: var(--text-sm);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -702,7 +716,7 @@
   border-top: 1px solid var(--color-divider);
   color: var(--color-neutral-700);
   font-family: var(--font-paper);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .inline-window-foot {
@@ -710,17 +724,17 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px 12px 14px;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-divider);
 }
 
 .inline-window-foot.is-translation {
   padding: 8px 14px 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .inline-window-foot.is-translation .btn-ghost {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .inline-input {
@@ -730,7 +744,7 @@
   border: 0;
   background: none;
   color: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   resize: none;
   outline: none;
 }
@@ -748,13 +762,14 @@
   height: 32px;
   padding: 0;
   border: 0;
-  background: var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-text);
   color: var(--color-bg);
   cursor: pointer;
 }
 
 .send-button:hover:not(:disabled) {
-  background: var(--color-accent-600);
+  background: color-mix(in srgb, var(--color-text) 86%, var(--color-bg));
 }
 
 .send-button:disabled {
@@ -780,7 +795,7 @@
 /* 원문 위 창의 중단 (답을 만드는 중인 차례 아래) */
 .inline-stop {
   align-self: flex-start;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* 갈래가 이어받은 차례와 그 뒤의 경계 */
@@ -794,7 +809,7 @@
   gap: 8px;
   margin: 4px 0;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .chat-fork-divider::before,
@@ -811,7 +826,7 @@
   border: 0;
   background: none;
   color: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.5;
   resize: vertical;
   outline: none;
@@ -829,13 +844,13 @@
   gap: 6px;
   padding: 2px 4px;
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .ask-hint {
   margin-left: auto;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 /* 펼친 주석의 메모 */
@@ -881,6 +896,7 @@
   order: 2;
   width: 28px;
   height: 16px;
+  border-radius: var(--radius-pill);
   background: var(--color-neutral-400);
 }
 
@@ -891,11 +907,12 @@
   left: 2px;
   width: 12px;
   height: 12px;
+  border-radius: 50%;
   background: var(--color-bg);
 }
 
 .switch input:checked + .switch-track {
-  background: var(--color-accent);
+  background: var(--color-text);
 }
 
 .switch input:checked + .switch-track::after {
@@ -921,16 +938,14 @@
   padding: 7px 14px;
   border: 0;
   background: none;
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: left;
   cursor: pointer;
 }
 
 .evidence-kicker {
   color: var(--color-neutral-700);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--text-2xs);
 }
 
 .evidence-roles {
@@ -941,7 +956,7 @@
   max-height: 260px;
   overflow: auto;
   padding: 0 14px 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .evidence-list {
@@ -960,13 +975,13 @@
   padding-left: 8px;
   border-left: 3px solid var(--color-neutral-400);
   font-family: var(--font-paper);
-  font-size: 13px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 
 .evidence-notes {
   margin: 2px 0;
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .evidence-image {
@@ -978,14 +993,14 @@
 }
 
 .evidence-show {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .packet-limits,
 .packet-excluded {
   margin: 6px 0 0;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 /* 접은 창: 원문 위 제목 칩 (시안 3i) */
@@ -996,11 +1011,12 @@
   gap: 8px;
   max-width: 360px;
   padding: 5px 8px 5px 10px;
-  border: 1px solid var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   background: var(--color-bg);
   box-shadow: var(--shadow-md);
   color: var(--color-text);
-  font: 600 12.5px/1.2 var(--font-body);
+  font: 600 var(--text-xs) / 1.2 var(--font-body);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1092,7 +1108,7 @@
   flex-direction: column;
   width: 420px; /* 끌어 바꾼 너비는 style로 온다(SideResizer) */
   min-height: 0;
-  border-left: 2px solid var(--color-divider);
+  border-left: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
@@ -1126,7 +1142,7 @@
 .side-resizer:hover::after,
 .side-resizer:focus-visible::after,
 body.is-resizing-side .side-resizer::after {
-  background: var(--color-accent);
+  background: var(--color-neutral-600);
 }
 
 .side-resizer:focus-visible {
@@ -1164,19 +1180,15 @@ body.is-resizing-side {
   border-bottom: 1px solid var(--color-divider);
 }
 
-.side-head.is-strong {
-  border-bottom-width: 2px;
-}
-
 .side-title {
   flex: 1;
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-lg);
 }
 
 .side-note {
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .side-tool {
@@ -1189,7 +1201,7 @@ body.is-resizing-side {
   flex-direction: column;
   gap: 10px;
   padding: 10px var(--space-4);
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .side-filters .seg {
@@ -1201,7 +1213,7 @@ body.is-resizing-side {
   align-items: center;
   gap: 8px;
   color: var(--color-neutral-600);
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: text;
 }
 
@@ -1211,7 +1223,7 @@ body.is-resizing-side {
   border: 0;
   background: none;
   color: var(--color-text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   outline: none;
 }
 
@@ -1222,7 +1234,7 @@ body.is-resizing-side {
 .side-empty {
   margin: 0;
   padding: var(--space-4);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* 주석 목록 */
@@ -1242,14 +1254,13 @@ body.is-resizing-side {
 }
 
 .note-item.is-focused {
-  background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 .note-page,
 .thread-page {
   color: var(--color-text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
@@ -1272,26 +1283,26 @@ body.is-resizing-side {
   padding-left: 8px;
   border-left: 3px solid var(--color-text);
   font-family: var(--font-paper);
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .display-quote {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .badge {
   display: inline-block;
   padding: 0 5px;
   border: 1px solid currentColor;
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
 .note-main .comment {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1302,7 +1313,7 @@ body.is-resizing-side {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .color-filter > span {
@@ -1334,12 +1345,12 @@ body.is-resizing-side {
   align-items: center;
   gap: 6px;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .note-edit {
   padding: 0 2px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .note-remove {
@@ -1365,7 +1376,7 @@ body.is-resizing-side {
   padding: 2px 4px;
   border: 1px solid var(--color-divider);
   background: var(--color-surface);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .comment-form {
@@ -1398,8 +1409,7 @@ body.is-resizing-side {
 }
 
 .thread-row.is-active {
-  background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 .thread-main {
@@ -1414,16 +1424,16 @@ body.is-resizing-side {
   align-items: center;
   gap: 6px;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .thread-meta .tag {
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
 .thread-title {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -1431,7 +1441,7 @@ body.is-resizing-side {
 .thread-quote {
   overflow: hidden;
   color: var(--color-neutral-800);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1477,8 +1487,8 @@ body.is-resizing-side {
   flex: none;
   align-items: center;
   gap: 2px;
-  padding: 4px var(--space-2) 0;
-  border-bottom: 2px solid var(--color-divider);
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .dock-button,
@@ -1490,6 +1500,7 @@ body.is-resizing-side {
   height: 36px;
   padding: 0;
   border: 0;
+  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text);
   cursor: pointer;
@@ -1501,8 +1512,7 @@ body.is-resizing-side {
 }
 
 .side-tab[aria-pressed="true"] {
-  box-shadow: inset 0 -3px 0 var(--color-accent);
-  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
 }
 
 .side-tab-close {
@@ -1516,10 +1526,11 @@ body.is-resizing-side {
   right: 2px;
   min-width: 15px;
   height: 15px;
-  padding: 0 3px;
-  background: var(--color-accent);
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-700);
   color: var(--color-bg);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   line-height: 15px;
   text-align: center;
@@ -1532,7 +1543,7 @@ body.is-resizing-side {
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-4);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .chat-detached-body p {
@@ -1557,7 +1568,7 @@ body.is-resizing-side {
   border: 0;
   border-bottom: 1px solid var(--color-divider);
   background: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -1579,7 +1590,7 @@ body.is-resizing-side {
   overflow: auto;
   margin: 0;
   padding: 4px 0;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
   list-style: none;
 }
 
@@ -1591,7 +1602,7 @@ body.is-resizing-side {
   padding: 7px var(--space-4);
   border: 0;
   background: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -1601,8 +1612,7 @@ body.is-resizing-side {
 }
 
 .chat-history button.is-active {
-  background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
   font-weight: 600;
 }
 
@@ -1640,12 +1650,12 @@ body.is-resizing-side {
 .chat-rename {
   margin: 2px var(--space-4);
   min-height: 30px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .chat-panel > .bridge-status {
   margin: 8px var(--space-4) 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .bridge-status p {
@@ -1664,7 +1674,7 @@ body.is-resizing-side {
 
 .chat-guide {
   color: var(--color-neutral-700);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .chat-guide ul {
@@ -1693,9 +1703,10 @@ body.is-resizing-side {
   max-width: 86%;
   margin: 0;
   padding: 10px 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-text);
   color: var(--color-bg);
-  font-size: 13.5px;
+  font-size: var(--text-sm);
   font-weight: 400;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -1704,14 +1715,14 @@ body.is-resizing-side {
 
 /*
  * 보낸 질문의 스킬 이름 (2026-11-19 사용자 요청): 입력칸 칩처럼 따로 보인다. 말풍선은 글자색과 바탕을 뒤집어 그리므로
- * 강조색을 바탕에만 섞고 글자는 말풍선 글자색 그대로 둔다(밝은 판·어두운 판 모두 읽힌다).
+ * 바탕색을 옅게 섞어 칩을 띄우고 글자는 말풍선 글자색 그대로 둔다(밝은 판·어두운 판 모두 읽힌다).
  */
 .chat-prompt-skill {
   display: inline-block;
   padding: 0 7px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-accent) 38%, transparent);
-  font-size: 12.5px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 24%, transparent);
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.6;
 }
@@ -1724,9 +1735,9 @@ body.is-resizing-side {
   max-width: 86%;
   padding: 6px 10px;
   border: 0;
-  border-left: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   text-align: left;
   cursor: pointer;
 }
@@ -1757,12 +1768,12 @@ body.is-resizing-side {
   gap: 8px;
   margin-top: 6px;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .chat-answer-bar .btn-ghost {
   padding: 0 2px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 /* 답 도구(복사·여기서 갈래·버리기): 아이콘 단추, 이름은 title과 화면 낭독기로 (2026-10-02 사용자 요청) */
@@ -1773,7 +1784,7 @@ body.is-resizing-side {
 }
 
 .chat-answer-bar .answer-tool:hover:not(:disabled) {
-  color: var(--color-accent);
+  color: var(--color-text);
 }
 
 .chat-thinking::after {
@@ -1793,7 +1804,7 @@ body.is-resizing-side {
 
 .chat-error {
   margin: 0 var(--space-4) 8px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /*
@@ -1810,16 +1821,16 @@ body.is-resizing-side {
   container-type: inline-size;
 }
 
-/* `/` 스킬 목록 (2026-11-19 사용자 결정 "B+C"): 입력부 바로 위에 뜬다. 고른 줄은 강조색 바탕이다 */
+/* `/` 스킬 목록 (2026-11-19 사용자 결정 "B+C"): 입력부 바로 위에 뜬다. 고른 줄은 옅은 잉크 바탕이다 */
 .chat-skills {
   max-height: 260px;
   margin: 0;
   padding: 4px;
   overflow-y: auto;
-  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
-  border-radius: 12px;
-  background: var(--color-bg);
-  box-shadow: 0 6px 18px color-mix(in srgb, #2d2b2b 10%, transparent);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-md);
   list-style: none;
 }
 
@@ -1828,14 +1839,14 @@ body.is-resizing-side {
   grid-template-columns: auto 1fr;
   gap: 2px 8px;
   padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 12.5px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
   line-height: 1.45;
   cursor: pointer;
 }
 
 .chat-skills li.is-active {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
 .chat-skill-name {
@@ -1863,7 +1874,7 @@ body.is-resizing-side {
 
 .chat-skill-note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .chat-composer-box {
@@ -1871,12 +1882,10 @@ body.is-resizing-side {
   flex-direction: column;
   gap: 6px;
   padding: 8px 8px 6px;
-  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
-  border-radius: 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
   background: var(--color-bg);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, #2d2b2b 8%, transparent),
-    0 6px 18px color-mix(in srgb, #2d2b2b 7%, transparent);
+  box-shadow: var(--shadow-md);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -1885,8 +1894,8 @@ body.is-resizing-side {
 .chat-composer-box:focus-within {
   border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
   box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent),
-    0 8px 24px color-mix(in srgb, #2d2b2b 10%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent),
+    var(--shadow-md);
 }
 
 /* 글이 늘면 높이도 spring으로 늘어난다(chat/promptBox.ts, 아래 최소·최대 높이 안에서). 크기 조절 손잡이는 없다 */
@@ -1901,7 +1910,7 @@ body.is-resizing-side {
   color: var(--color-text);
   caret-color: var(--color-accent);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--text-sm);
   line-height: 1.55;
   resize: none;
 }
@@ -1932,10 +1941,10 @@ body.is-resizing-side {
   height: 24px;
   margin: 5px 0 0 4px;
   overflow: hidden;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent-700);
-  font-size: 12.5px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
   will-change: transform, opacity, width;
@@ -1955,14 +1964,14 @@ body.is-resizing-side {
   height: 18px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   cursor: pointer;
 }
 
 .chat-skill-chip button:hover {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
 /* 칸이 모자라면 칩을 줄이지 않고 보내기 단추를 다음 줄 오른쪽으로 내린다 */
@@ -2006,9 +2015,9 @@ body.is-resizing-side {
   flex: none;
   align-items: center;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface);
-  font-size: 12px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   transition: background 0.15s ease;
 }
@@ -2029,7 +2038,7 @@ body.is-resizing-side {
   background: transparent;
   color: var(--color-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   appearance: none;
   cursor: pointer;
 }
@@ -2082,7 +2091,7 @@ body.is-resizing-side {
   margin: 0;
   padding: 0 4px;
   color: var(--color-neutral-600);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   line-height: 1.45;
   text-align: center;
 }
@@ -2101,10 +2110,9 @@ body.is-resizing-side {
   align-items: flex-start;
   gap: 8px;
   padding: 8px 10px;
-  border-left: 2px solid var(--color-accent);
   border-radius: 10px;
   background: var(--color-surface);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 
@@ -2180,7 +2188,7 @@ body.is-resizing-side {
 
 .chat-composer-bar .chat-attach:hover:not(:disabled) {
   background: var(--color-surface);
-  color: var(--color-accent);
+  color: var(--color-text);
 }
 
 /* 대화 기록의 질문 위에 붙인 이미지 */
@@ -2228,10 +2236,10 @@ body.is-resizing-side {
   width: 280px;
   padding: var(--space-3);
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
-  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
   box-shadow: var(--shadow-lg);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .pdf-export-title {
@@ -2242,7 +2250,7 @@ body.is-resizing-side {
 .pdf-export-hint {
   margin: 0;
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 
@@ -2266,7 +2274,7 @@ body.is-resizing-side {
 }
 
 .pdf-export-pages {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   opacity: 0.8;
 }
@@ -2304,7 +2312,7 @@ body.is-resizing-side {
   width: 360px;
   padding: var(--space-3);
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .paper-info-title {
@@ -2347,7 +2355,7 @@ body.is-resizing-side {
 }
 
 .paper-info-form .field-error {
-  color: var(--color-accent-700);
+  color: var(--color-danger);
   font-weight: 400;
 }
 
@@ -2364,7 +2372,7 @@ body.is-resizing-side {
   flex-direction: column;
   width: 232px;
   min-height: 0;
-  border-right: 2px solid var(--color-divider);
+  border-right: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
@@ -2377,7 +2385,7 @@ body.is-resizing-side {
 }
 
 .toc-title {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2390,7 +2398,7 @@ body.is-resizing-side {
   margin: 0;
   padding: var(--space-3);
   color: var(--color-neutral-700);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 
@@ -2431,8 +2439,7 @@ body.is-resizing-side {
 }
 
 .toc-entry[aria-current="location"] {
-  background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
   font-weight: 600;
 }
 
@@ -2448,7 +2455,7 @@ body.is-resizing-side {
   padding: 8px var(--space-3);
   border-top: 1px solid var(--color-divider);
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .toc-thumbs {
@@ -2480,17 +2487,17 @@ body.is-resizing-side {
 }
 
 .toc-thumb[aria-current="page"] canvas {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-text);
   outline-offset: 3px;
 }
 
 .toc-thumb-number {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .toc-thumb[aria-current="page"] .toc-thumb-number {
-  color: var(--color-accent-700);
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -2505,8 +2512,8 @@ body.is-resizing-side {
   gap: 2px;
   padding: 4px;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
-  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
   box-shadow: var(--shadow-md);
 }
 
@@ -2514,14 +2521,14 @@ body.is-resizing-side {
   width: 220px;
   height: 30px;
   padding: 4px 8px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .find-count {
   min-width: 56px;
   padding: 0 6px;
   color: var(--color-neutral-700);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }

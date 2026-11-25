@@ -12,28 +12,29 @@
 
 .settings-dialog {
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr);
   width: min(880px, 100%);
   height: min(720px, 100%);
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
-  border-top: 4px solid var(--color-accent);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .settings-head {
   display: flex;
   align-items: center;
-  padding: 0 var(--space-4) 0 var(--space-6);
-  border-bottom: 2px solid var(--color-divider);
+  padding: 0 var(--space-3) 0 var(--space-6);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .settings-head h2 {
   flex: 1;
   margin: 0;
-  font-size: 20px;
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
 }
 
 .settings-body {
@@ -45,27 +46,33 @@
 .settings-tabs {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) 0;
-  border-right: 2px solid var(--color-divider);
+  gap: 2px;
+  padding: var(--space-3);
+  border-right: 1px solid var(--color-divider);
+  background: var(--color-surface);
 }
 
 .settings-tabs button {
-  padding: 10px var(--space-6);
+  padding: 7px var(--space-3);
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-neutral-700);
   text-align: left;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .settings-tabs button:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
   color: var(--color-text);
 }
 
 .settings-tabs button[aria-selected="true"] {
-  background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
   font-weight: 600;
 }
@@ -101,22 +108,24 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  font-size: 15px;
-  font-weight: 800;
+  color: var(--color-neutral-700);
+  font-size: var(--text-md);
+  font-weight: 700;
 }
 
 .settings-section-head h3 {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0;
 }
 
 .settings-section-head .muted {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .settings-aside {
@@ -143,7 +152,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -151,7 +160,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  overflow: hidden;
   border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
 }
 
 .settings-options .radio {
@@ -168,11 +179,12 @@
 
 .settings-option-note {
   margin: 0 0 0 auto;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 code.settings-option-note {
   padding: 2px 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -187,13 +199,13 @@ code.settings-option-note {
 }
 
 .settings-limit-pages {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   opacity: 0.75;
 }
 
 .settings-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .settings-section-body .bridge-status {
@@ -207,8 +219,10 @@ code.settings-option-note {
   height: 22px;
   padding: 0;
   border: 0;
+  border-radius: var(--radius-pill);
   background: var(--color-neutral-400);
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .settings-switch::after {
@@ -218,11 +232,13 @@ code.settings-option-note {
   left: 3px;
   width: 16px;
   height: 16px;
+  border-radius: 50%;
   background: var(--color-bg);
+  transition: left 0.15s ease;
 }
 
 .settings-switch[aria-checked="true"] {
-  background: var(--color-accent);
+  background: var(--color-text);
 }
 
 .settings-switch[aria-checked="true"]::after {
@@ -238,13 +254,13 @@ code.settings-option-note {
 
 .settings-range-value {
   width: 40px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .settings-range input {
   flex: 1;
-  accent-color: var(--color-accent);
+  accent-color: var(--color-text);
 }
 
 /* 프롬프트 개인화: 아래 막대는 늘 보인다 */
@@ -257,7 +273,7 @@ code.settings-option-note {
 
 .settings-prompts > .muted {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .settings-prompt {
@@ -270,19 +286,19 @@ code.settings-option-note {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
 }
 
 .settings-prompt-label .tag {
   padding: 1px 7px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 400;
 }
 
 .settings-prompt textarea {
   min-height: 62px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 
@@ -294,14 +310,14 @@ code.settings-option-note {
   gap: var(--space-3);
   margin: auto calc(-1 * var(--space-8)) calc(-1 * var(--space-6));
   padding: var(--space-3) var(--space-8);
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
 .settings-foot > .muted {
   flex: 1;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .settings-foot .btn-primary {

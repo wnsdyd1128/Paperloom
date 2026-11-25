@@ -41,7 +41,7 @@ button.artifact-card:hover {
 .artifact-card-text small,
 .artifact-card-open {
   color: var(--color-neutral-600);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* ── 사이드바의 아티팩트 탭: 이 논문 대화의 아티팩트 목록 ── */
@@ -83,7 +83,7 @@ button.artifact-card:hover {
 
 .artifact-row-title {
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -95,18 +95,18 @@ button.artifact-card:hover {
   align-items: center;
   gap: 6px;
   color: var(--color-neutral-700);
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 
 .artifact-row-meta .tag {
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
 .artifact-row-prompt {
   overflow: hidden;
   color: var(--color-neutral-800);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -118,8 +118,9 @@ button.artifact-card:hover {
   z-index: 25;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--color-divider);
-  border-top: 2px solid var(--color-text);
+  border-radius: var(--radius-lg);
   background: var(--color-bg);
   box-shadow: var(--shadow-md);
 }
@@ -137,7 +138,7 @@ button.artifact-card:hover {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: var(--text-md);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -148,13 +149,13 @@ button.artifact-card:hover {
 
 .artifact-views .btn {
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .artifact-copied {
   min-width: 5em;
   color: var(--color-neutral-600);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: right;
 }
 
@@ -167,7 +168,7 @@ button.artifact-card:hover {
   margin: 0;
   padding: 6px 12px;
   border-bottom: 1px solid var(--color-divider);
-  font-size: 13px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 
