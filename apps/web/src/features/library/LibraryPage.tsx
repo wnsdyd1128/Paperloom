@@ -5,6 +5,7 @@
  * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
+ * 저자 검색 결과(authorHits)가 있으면 저자가 맞는 논문만 보이고, 제목 아래 줄에 찾은 저자를 표시한다(2026-11-25 사용자 요청).
  * 거르고 찾은 논문은 페이지로 나눠 보이고, 표 아래에서 페이지를 옮기거나 페이지당 편 수를 고른다(2026-11-25 사용자 요청).
  */
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -14,8 +15,9 @@ import { formatTime, relativeTime } from "../../shared/time";
 import { MAX_PAPERS } from "../export/draft";
 import type { SnippetPart } from "../search/api";
 import { firstPageThumbnailUrl, type Paper, type SourceVersion } from "./api";
+import type { AuthorHit } from "./authorSearch";
 import { clampPage, pageAfterResize, pageSlice, rememberPageSize, storedPageSize } from "./pagination";
-import { paperMeta } from "./paperMeta";
+import { paperFacts, paperMeta } from "./paperMeta";
 import { ShelfPager } from "./ShelfPager";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
 import { matchesTags, NO_TAG_FILTER, type TagFilter, tagCounts } from "./tagFilter";
@@ -56,6 +58,8 @@ type Props = Readonly<{
   library: Library;
   /** 머리의 제목 검색 결과(논문 → 찾은 낱말을 표시한 제목). 검색하지 않았으면 null */
   hits: ReadonlyMap<string, readonly SnippetPart[]> | null;
+  /** 머리의 저자 검색 결과(논문 → 찾은 저자). 저자로 검색하지 않았으면 null */
+  authorHits: ReadonlyMap<string, AuthorHit> | null;
   /** Wiki로 내보내기 단추와 논문 고르기 칸을 보일지 (설정 wiki.enabled, 개발 중이라 기본으로 숨긴다) */
   wikiExport: boolean;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
@@ -66,7 +70,7 @@ type Props = Readonly<{
   onExport: (papers: readonly Paper[]) => void;
 }>;
 
-export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone, onOpen, onExport }: Props) {
+export function LibraryPage({ library, hits, authorHits, wikiExport, exportProblem, dropZone, onOpen, onExport }: Props) {
   const [filter, setFilter] = useState<TagFilter>(NO_TAG_FILTER);
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const { list, papers } = library;
@@ -79,14 +83,15 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
   const exportBlocked =
     exportProblem ?? (chosenPapers.length === 0 ? "내보낼 논문을 고르세요." : chosenPapers.length > MAX_PAPERS ? `한 번에 ${MAX_PAPERS}편까지 내보낼 수 있습니다. 지금 ${chosenPapers.length}편을 골랐습니다.` : null);
   const counts = tagCounts(papers);
-  const searched = hits ? papers.filter((paper) => hits.has(paper.paper_id)) : papers;
+  const found = hits ?? authorHits; // 머리의 검색은 제목과 저자 가운데 하나다
+  const searched = found ? papers.filter((paper) => found.has(paper.paper_id)) : papers;
   const shown = searched.filter((paper) => matchesTags(paper, filter));
   const filtering = filter.untagged || filter.tags.length > 0;
   // 페이지: 거르기·검색이 바뀌면 첫 페이지로 돌아가고, 논문을 지워 페이지가 줄면 마지막 페이지를 보인다(clampPage)
   const [pageSize, setPageSize] = useState(storedPageSize);
   const [page, setPage] = useState(1);
   const section = useRef<HTMLElement>(null);
-  useEffect(() => setPage(1), [hits, filter]);
+  useEffect(() => setPage(1), [hits, authorHits, filter]);
   const currentPage = clampPage(page, shown.length, pageSize);
   const visible = pageSlice(shown, currentPage, pageSize);
   const goToPage = (next: number) => {
@@ -121,7 +126,7 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
         <div className="shelf-title">
           <h2 id="library-heading">서재</h2>
           <span className="shelf-count" data-testid="shelf-count">
-            {filtering || hits ? `${shown.length} / ${papers.length}편` : `${papers.length}편`}
+            {filtering || found ? `${shown.length} / ${papers.length}편` : `${papers.length}편`}
           </span>
         </div>
         <div className="shelf-tools">
@@ -214,6 +219,7 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
                 key={paper.paper_id}
                 paper={paper}
                 title={hits?.get(paper.paper_id) ?? null}
+                author={authorHits?.get(paper.paper_id) ?? null}
                 filter={filter}
                 known={counts.map((item) => item.name)}
                 chosen={chosen.has(paper.paper_id)}
@@ -248,6 +254,8 @@ type RowProps = Readonly<{
   paper: Paper;
   /** 제목 검색에서 찾은 낱말을 표시한 제목 */
   title: readonly SnippetPart[] | null;
+  /** 저자 검색에서 찾은 저자. 제목 아래 줄의 저자 자리에 표시한다 */
+  author: AuthorHit | null;
   filter: TagFilter;
   known: readonly string[];
   /** 내보내려고 골랐는지 */
@@ -295,7 +303,7 @@ function PaperThumb({ versionId, onOpen }: Readonly<{ versionId: string; onOpen:
   );
 }
 
-function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
+function PaperRow({ paper, title, author, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
   const version = paper.current_version;
   const status = statusLabel(version);
   const reason = version.status_reason ? (REASON_LABELS[version.status_reason] ?? version.status_reason) : null;
@@ -316,7 +324,15 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
                 {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
               </span>
             </button>
-            <p className="paper-meta">{paperMeta(paper)}</p>
+            {author ? (
+              // 찾은 저자가 첫 저자가 아닐 수 있다: 줄인 저자 목록 대신 그 저자를 보이고 나머지는 수로 센다
+              <p className="paper-meta">
+                {author.name.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>))}
+                {author.others > 0 && ` 외 ${author.others}명`} · {paperFacts(paper)}
+              </p>
+            ) : (
+              <p className="paper-meta">{paperMeta(paper)}</p>
+            )}
           </div>
         </div>
       </td>

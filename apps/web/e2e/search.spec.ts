@@ -140,6 +140,60 @@ test("서재에서 Ctrl+F는 브라우저 찾기 대신 제목 검색 칸으로 
   await expect(input).not.toBeFocused();
 });
 
+test("저자 검색: 검색 대상을 저자로 바꾸면 저자 이름으로 찾아 그 저자를 표시하고, 제목으로 되돌리면 적어 둔 검색어로 제목을 찾는다", async ({ page }, testInfo) => {
+  // 2026-11-25 사용자 요청. 저자는 받아 둔 서재 목록에서 찾으므로 목록 응답에 저자를 넣어 만든다(공유 E2E 데이터의 논문 정보는 바꾸지 않는다)
+  test.skip(testInfo.project.name !== "dpr-1", "목록 표시는 DPR과 무관하다");
+  const uploaded = await uploadAll(page);
+  const stored: { papers: { paper_id: string }[] } = await (await page.request.get("/api/v1/papers")).json();
+  const authors: Record<string, string[]> = {
+    [uploaded["text-digital.pdf"].paperId]: ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar"],
+    [uploaded["text-mixed.pdf"].paperId]: ["Jun Xiao", "Andy D. Pimentel"],
+  };
+  const papers = stored.papers.map((paper) => ({ ...paper, authors: authors[paper.paper_id] ?? [] }));
+  await page.route("**/api/v1/papers", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { papers } }) : route.continue()));
+  await page.goto("/");
+  const meta = (name: string) => page.locator(`tr[data-paper-id="${uploaded[name].paperId}"] .paper-meta`);
+  const rows = page.locator(".shelf-table tbody tr");
+  const field = page.getByLabel("검색 대상");
+  // 평소에는 첫 저자와 나머지 수로 줄여 보인다
+  await expect(meta("text-digital.pdf")).toContainText("Ashish Vaswani 외 2명");
+
+  // 1) 저자로 바꾸면 입력 칸의 이름과 안내 글이 바뀌고, 이름의 일부로 찾는다. 찾은 저자가 첫 저자 자리에 표시된다
+  await field.selectOption("author");
+  const input = page.getByLabel("저자 검색어");
+  await expect(input).toHaveAttribute("placeholder", "저자 검색");
+  await input.fill("shaz");
+  await input.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "저자에서 1편을 찾았습니다." })).toBeVisible();
+  await expect(rows).toHaveCount(1);
+  await expect(meta("text-digital.pdf")).toContainText("Noam Shazeer 외 2명");
+  await expect(meta("text-digital.pdf").locator("mark")).toHaveText(["Shaz"]);
+  await expect(page.getByTestId("shelf-count")).toHaveText(`1 / ${papers.length}편`);
+
+  // 2) 낱말의 차례는 상관없지만 한 저자의 이름에 모두 있어야 한다
+  await input.fill("xiao jun");
+  await input.press("Enter");
+  await expect(meta("text-mixed.pdf").locator("mark")).toHaveText(["Jun", "Xiao"]);
+  await expect(rows).toHaveCount(1);
+  await input.fill("jun andy"); // 두 저자에 나뉘어 있다
+  await input.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "저자에서 찾은 논문이 없습니다. 모든 낱말이 한 저자의 이름에 있어야 합니다." })).toBeVisible();
+  await expect(rows).toHaveCount(0);
+
+  // 3) 제목으로 되돌리면 적어 둔 검색어로 제목을 바로 찾는다
+  await input.fill("synth mix");
+  await field.selectOption("title");
+  await expect(page.getByLabel("제목 검색어")).toHaveValue("synth mix");
+  await expect(titleButton(page, uploaded["text-mixed.pdf"].paperId).locator("mark")).toHaveText(["mixed", "synthetic"]);
+  await expect(page.getByRole("status").filter({ hasText: /제목에서 \d+편을 찾았습니다/ })).toBeVisible();
+
+  // 4) 검색을 지우면 서재 표가 모두 돌아오고 저자 줄도 평소대로다
+  await page.getByRole("button", { name: "검색 지우기" }).click();
+  await expect(rows).toHaveCount(papers.length);
+  await expect(meta("text-digital.pdf")).toContainText("Ashish Vaswani 외 2명");
+  await expect(meta("text-digital.pdf").locator("mark")).toHaveCount(0);
+});
+
 test("쪽만 연 주소는 그 쪽으로 가고, 이미지뿐인 쪽은 본문이 없다고 알린다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "상태 표시는 DPR과 무관하다");
   const { paperId, versionId } = (await uploadAll(page))["text-mixed.pdf"];
