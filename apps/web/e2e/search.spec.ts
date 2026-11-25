@@ -93,6 +93,53 @@ test("제목 검색: 앞부분만 써도 찾고, 본문 낱말은 찾지 않고,
   await expect(page.locator(".paper-open mark")).toHaveCount(0);
 });
 
+test("서재에서 Ctrl+F는 브라우저 찾기 대신 제목 검색 칸으로 가고(적어 둔 검색어를 고른다), 설정 창·답변 화면에서는 받지 않는다", async ({ page }, testInfo) => {
+  // 2026-11-25 사용자 요청
+  test.skip(testInfo.project.name !== "dpr-1", "단축키는 DPR과 무관하다");
+  const uploaded = await uploadAll(page);
+  await page.goto("/");
+  await expect(titleButton(page, uploaded["text-mixed.pdf"].paperId)).toBeVisible();
+  await page.evaluate(() => {
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "KeyF") (window as unknown as { ctrlF: boolean }).ctrlF = event.defaultPrevented;
+    });
+  });
+  const prevented = () => page.evaluate(() => (window as unknown as { ctrlF: boolean }).ctrlF);
+  const input = page.getByLabel("제목 검색어");
+
+  // 1) 서재: 검색 칸에 포커스가 가고, 바로 적어 Enter로 찾는다
+  await page.keyboard.press("Control+KeyF");
+  await expect(input).toBeFocused();
+  expect(await prevented(), "브라우저 찾기 대신").toBe(true);
+  await page.keyboard.type("synth mix");
+  await page.keyboard.press("Enter");
+  await expect(titleButton(page, uploaded["text-mixed.pdf"].paperId).locator("mark")).toHaveText(["mixed", "synthetic"]);
+
+  // 2) 다른 곳에 포커스가 있다가 다시 누르면 적어 둔 검색어가 골라져 바로 바꿔 쓴다
+  await titleButton(page, uploaded["text-mixed.pdf"].paperId).focus();
+  await page.keyboard.press("Control+KeyF");
+  await expect(input).toBeFocused();
+  await page.keyboard.type("digital");
+  await expect(input).toHaveValue("digital");
+
+  // 3) 설정 창이 열려 있으면 창 뒤의 칸으로 가지 않고 브라우저 찾기를 그대로 둔다
+  await page.getByRole("navigation", { name: "화면" }).getByRole("button", { name: "설정" }).click();
+  const settings = page.getByRole("dialog", { name: "설정" });
+  await expect(settings).toBeVisible();
+  await page.keyboard.press("Control+KeyF");
+  expect(await prevented()).toBe(false);
+  await expect(input).not.toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
+
+  // 4) 답변 화면에서도 받지 않는다(제목 검색은 서재 표만 거른다)
+  await page.getByRole("navigation", { name: "화면" }).getByRole("button", { name: "답변" }).click();
+  await expect(page).toHaveURL(/\/answers$/);
+  await page.keyboard.press("Control+KeyF");
+  expect(await prevented()).toBe(false);
+  await expect(input).not.toBeFocused();
+});
+
 test("쪽만 연 주소는 그 쪽으로 가고, 이미지뿐인 쪽은 본문이 없다고 알린다", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "dpr-1", "상태 표시는 DPR과 무관하다");
   const { paperId, versionId } = (await uploadAll(page))["text-mixed.pdf"];
