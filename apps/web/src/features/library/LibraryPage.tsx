@@ -5,15 +5,18 @@
  * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
+ * 거르고 찾은 논문은 페이지로 나눠 보이고, 표 아래에서 페이지를 옮기거나 페이지당 편 수를 고른다(2026-11-25 사용자 요청).
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { formatTime, relativeTime } from "../../shared/time";
 import { MAX_PAPERS } from "../export/draft";
 import type { SnippetPart } from "../search/api";
 import { firstPageThumbnailUrl, type Paper, type SourceVersion } from "./api";
+import { clampPage, pageAfterResize, pageSlice, rememberPageSize, storedPageSize } from "./pagination";
 import { paperMeta } from "./paperMeta";
+import { ShelfPager } from "./ShelfPager";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
 import { matchesTags, NO_TAG_FILTER, type TagFilter, tagCounts } from "./tagFilter";
 import type { Library } from "./useLibrary";
@@ -79,6 +82,22 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
   const searched = hits ? papers.filter((paper) => hits.has(paper.paper_id)) : papers;
   const shown = searched.filter((paper) => matchesTags(paper, filter));
   const filtering = filter.untagged || filter.tags.length > 0;
+  // 페이지: 거르기·검색이 바뀌면 첫 페이지로 돌아가고, 논문을 지워 페이지가 줄면 마지막 페이지를 보인다(clampPage)
+  const [pageSize, setPageSize] = useState(storedPageSize);
+  const [page, setPage] = useState(1);
+  const section = useRef<HTMLElement>(null);
+  useEffect(() => setPage(1), [hits, filter]);
+  const currentPage = clampPage(page, shown.length, pageSize);
+  const visible = pageSlice(shown, currentPage, pageSize);
+  const goToPage = (next: number) => {
+    setPage(next);
+    section.current?.closest(".library-main")?.scrollTo({ top: 0 }); // 새 페이지는 맨 위부터 본다
+  };
+  const changePageSize = (next: number) => {
+    setPage(pageAfterResize(currentPage, pageSize, next));
+    setPageSize(next);
+    rememberPageSize(next);
+  };
   const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
   // 태그 이름을 바꾸면 고른 거르기도 새 이름으로(이미 고른 태그로 합쳤으면 하나로), 지우면 거르기에서 뺀다
   const renameTag = async (name: string, next: string) => {
@@ -97,7 +116,7 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
   };
 
   return (
-    <section className="shelf" aria-labelledby="library-heading">
+    <section className="shelf" aria-labelledby="library-heading" ref={section}>
       <div className="shelf-head">
         <div className="shelf-title">
           <h2 id="library-heading">서재</h2>
@@ -190,7 +209,7 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
             </tr>
           </thead>
           <tbody>
-            {shown.map((paper) => (
+            {visible.map((paper) => (
               <PaperRow
                 key={paper.paper_id}
                 paper={paper}
@@ -208,6 +227,9 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
             ))}
           </tbody>
         </table>
+      )}
+      {list.kind === "ready" && !dropZone && shown.length > 0 && (
+        <ShelfPager total={shown.length} page={currentPage} size={pageSize} onPage={goToPage} onSize={changePageSize} />
       )}
       {list.kind === "ready" && papers.length > 0 && shown.length === 0 && filtering && (
         <p className="muted shelf-empty">

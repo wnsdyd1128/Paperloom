@@ -304,3 +304,71 @@ test("논문 삭제: 확인 창에서 취소하면 그대로, 확인하면 서�
   await page.reload();
   await expect(row(page, uploaded.paperId)).toHaveCount(0);
 });
+
+test("페이지 나누기: 페이지당 편 수를 고르면(새로고침해도 남는다) 표가 그만큼씩 나뉘고, 페이지를 옮기며, 거르면 첫 페이지로 돌아간다", async ({ page }, testInfo) => {
+  // 2026-11-25 사용자 요청
+  test.skip(testInfo.project.name !== "dpr-1", "서재 표는 DPR과 무관하다");
+  const { paperId } = (await uploadAll(page))["text-digital.pdf"];
+  const stored = await (await page.request.get(`/api/v1/papers/${paperId}`)).json();
+  // 논문 12편의 서재를 목록 응답으로 만든다(공유 E2E 데이터의 논문 수에 기대지 않는다). 9번째부터는 태그가 붙어 있다
+  const name = (index: number) => `Paged paper ${String(index).padStart(2, "0")}`;
+  const papers = Array.from({ length: 12 }, (_, index) => ({
+    ...stored,
+    paper_id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    title: name(index + 1),
+    tags: index >= 8 ? ["Later"] : [],
+    current_version: { ...stored.current_version, status: "INDEXED", status_reason: null },
+  }));
+  await page.route("**/api/v1/papers", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { papers } }) : route.continue()));
+  await page.goto("/");
+  const rows = page.locator(".shelf-table tbody tr");
+  const titles = () => rows.locator(".paper-open").allInnerTexts();
+  const range = page.getByTestId("pager-range");
+  const pager = page.getByRole("navigation", { name: "페이지 이동" });
+  const size = page.getByLabel("페이지당 논문 수");
+
+  // 1) 시험은 페이지당 100편으로 시작한다(playwright.config.ts): 한 페이지라 페이지 단추가 없다
+  await expect(rows).toHaveCount(12);
+  await expect(size).toHaveValue("100");
+  await expect(range).toHaveText("1–12 / 12편");
+  await expect(pager).toHaveCount(0);
+
+  // 2) 5편씩: 세 페이지로 나뉘고 첫 페이지에서는 이전이 막힌다
+  await size.selectOption("5");
+  await expect(rows).toHaveCount(5);
+  await expect(range).toHaveText("1–5 / 12편");
+  await expect(pager.getByRole("button", { name: /^\d+페이지$/ })).toHaveCount(3);
+  await expect(pager.getByRole("button", { name: "1페이지" })).toHaveAttribute("aria-current", "page");
+  await expect(pager.getByRole("button", { name: "이전 페이지" })).toBeDisabled();
+  expect(await titles()).toEqual([1, 2, 3, 4, 5].map(name));
+
+  // 3) 다음·번호로 옮긴다. 마지막 페이지는 남은 두 편이고 다음이 막힌다. 머리의 편 수는 서재 전체다
+  await pager.getByRole("button", { name: "다음 페이지" }).click();
+  await expect(range).toHaveText("6–10 / 12편");
+  expect(await titles()).toEqual([6, 7, 8, 9, 10].map(name));
+  await pager.getByRole("button", { name: "3페이지" }).click();
+  await expect(rows).toHaveCount(2);
+  await expect(range).toHaveText("11–12 / 12편");
+  await expect(pager.getByRole("button", { name: "3페이지" })).toHaveAttribute("aria-current", "page");
+  await expect(pager.getByRole("button", { name: "다음 페이지" })).toBeDisabled();
+  await expect(page.getByTestId("shelf-count")).toHaveText("12편");
+
+  // 4) 편 수를 바꾸면 보던 첫 논문(11번째)이 든 페이지로 간다. 새로고침해도 편 수가 남는다(페이지는 처음부터)
+  await size.selectOption("10");
+  await expect(range).toHaveText("11–12 / 12편");
+  await expect(pager.getByRole("button", { name: "2페이지" })).toHaveAttribute("aria-current", "page");
+  await page.reload();
+  await expect(size).toHaveValue("10");
+  await expect(rows).toHaveCount(10);
+  await expect(range).toHaveText("1–10 / 12편");
+
+  // 5) 2페이지에서 태그로 거르면 첫 페이지로 돌아가고, 범위는 거른 논문 수다(한 페이지라 페이지 단추가 없다)
+  await pager.getByRole("button", { name: "2페이지" }).click();
+  await expect(rows).toHaveCount(2);
+  await rows.first().getByRole("button", { name: "Later", exact: true }).click();
+  await expect(rows).toHaveCount(4);
+  expect(await titles()).toEqual([9, 10, 11, 12].map(name));
+  await expect(range).toHaveText("1–4 / 4편");
+  await expect(page.getByTestId("shelf-count")).toHaveText("4 / 12편");
+  await expect(pager).toHaveCount(0);
+});
