@@ -258,8 +258,12 @@ test("논문을 열면 마지막 열람이 오늘이 되고 맨 위로 온다. �
   const first = page.locator(".shelf-table tbody tr").first();
   await expect(first).toHaveAttribute("data-paper-id", uploaded["text-references.pdf"].paperId);
   await expect(page.locator(".shelf-table tbody tr").nth(1)).toHaveAttribute("data-paper-id", uploaded["text-mixed.pdf"].paperId);
-  const today = await page.evaluate(() => new Date().toLocaleDateString("ko-KR"));
-  await expect(first.locator("td").nth(6)).toHaveText(today);
+  // 마지막 열람은 답변·주석 목록과 같은 짧은 시각이다(방금 연 논문이므로 "방금"이나 몇 분 전)
+  await expect(first.locator("td").nth(6)).toHaveText(/^(방금|\d+분 전)$/);
+  expect(await first.locator("td").nth(6).locator("time").getAttribute("datetime")).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  // 제목 곁의 썸네일은 그 논문의 첫 쪽을 그리고, 제목 아래에는 쪽 수가 든 한 줄이 있다
+  await expect.poll(() => first.locator(".paper-thumb img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await expect(first.locator(".paper-meta")).toHaveText(/\d+쪽$/);
 
   for (const name of FILES) {
     const paper = await (await page.request.get(`/api/v1/papers/${uploaded[name].paperId}`)).json();

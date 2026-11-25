@@ -64,7 +64,7 @@ export function TagEditor({ title, tags, known, onChange }: EditorProps) {
           setOpen(!open);
         }}
       >
-        +
+        <Icon name="plus" size={13} />
       </button>
       {open && (
         <div className="tag-popover" role="dialog" aria-label="태그 붙이기">
