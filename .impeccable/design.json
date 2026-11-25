@@ -1,0 +1,491 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T00:00:00+09:00",
+  "title": "Design System: Paperloom",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "주홍",
+        "canonical": "#ec3013",
+        "dark": "#ff563c",
+        "tonalRamp": [
+          "#4d170e",
+          "#7c1405",
+          "#ae1800",
+          "#dd2b0f",
+          "#ff563c",
+          "#ff9783",
+          "#ffc4b8",
+          "#ffe0d9",
+          "#fff2ef"
+        ],
+        "darkRamp": [
+          "#3b1b15",
+          "#5a2418",
+          "#7d2c1c",
+          "#c43a22",
+          "#ff563c",
+          "#ff7a63",
+          "#ff9783",
+          "#ffc4b8",
+          "#ffe0d9"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "종이 흰색",
+        "canonical": "#ffffff",
+        "dark": "#171716",
+        "tonalRamp": [
+          "#272725",
+          "#3f3f3b",
+          "#5c5c57",
+          "#73736d",
+          "#a1a19b",
+          "#c8c8c3",
+          "#e2e2de",
+          "#eeeeeb",
+          "#f6f6f4"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "한 단계 어두운 면",
+        "canonical": "#f6f6f4",
+        "dark": "#1f1f1e",
+        "tonalRamp": [
+          "#272725",
+          "#3f3f3b",
+          "#5c5c57",
+          "#73736d",
+          "#a1a19b",
+          "#c8c8c3",
+          "#e2e2de",
+          "#eeeeeb",
+          "#f6f6f4"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "떠 있는 면",
+        "canonical": "#ffffff",
+        "dark": "#2a2a28",
+        "tonalRamp": [
+          "#272725",
+          "#3f3f3b",
+          "#5c5c57",
+          "#73736d",
+          "#a1a19b",
+          "#c8c8c3",
+          "#e2e2de",
+          "#eeeeeb",
+          "#f6f6f4"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "잉크",
+        "canonical": "#1c1b19",
+        "dark": "#ecece9",
+        "tonalRamp": [
+          "#272725",
+          "#3f3f3b",
+          "#5c5c57",
+          "#73736d",
+          "#a1a19b",
+          "#c8c8c3",
+          "#e2e2de",
+          "#eeeeeb",
+          "#f6f6f4"
+        ],
+        "darkRamp": [
+          "#1f1f1e",
+          "#272726",
+          "#323230",
+          "#4b4b48",
+          "#6e6e6a",
+          "#92928d",
+          "#b0b0ab",
+          "#d0d0cc",
+          "#ecece9"
+        ]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "구분선",
+        "canonical": "color-mix(in srgb, #1c1b19 12%, transparent)",
+        "dark": "color-mix(in srgb, #ecece9 13%, transparent)"
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "모양 테두리",
+        "canonical": "color-mix(in srgb, #1c1b19 22%, transparent)",
+        "dark": "color-mix(in srgb, #ecece9 24%, transparent)"
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "확인",
+        "canonical": "#1a7f37",
+        "dark": "#4ac26b",
+        "tonalRamp": [
+          "#0b2e15",
+          "#11501f",
+          "#1a7f37",
+          "#2da44e",
+          "#4ac26b",
+          "#7fd697",
+          "#b4e8c1",
+          "#e3f6e8"
+        ],
+        "rampSynthesized": true
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "주의",
+        "canonical": "#b25e09",
+        "dark": "#e0a13c",
+        "tonalRamp": [
+          "#3a1f03",
+          "#6b3906",
+          "#b25e09",
+          "#cf8420",
+          "#e0a13c",
+          "#ecc179",
+          "#f5dcb0",
+          "#fbf1df"
+        ],
+        "rampSynthesized": true
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "위험",
+        "canonical": "#ae1800",
+        "dark": "#ff9783",
+        "tonalRamp": [
+          "#4d170e",
+          "#7c1405",
+          "#ae1800",
+          "#dd2b0f",
+          "#ff563c",
+          "#ff9783",
+          "#ffc4b8",
+          "#ffe0d9",
+          "#fff2ef"
+        ]
+      },
+      "reader-stage": {
+        "role": "neutral",
+        "displayName": "PDF 쪽 뒤의 바탕",
+        "canonical": "#e2e2de",
+        "dark": "#0f0f0e"
+      },
+      "mark-selection": {
+        "role": "secondary",
+        "displayName": "쪽 위 선택",
+        "canonical": "rgb(236 48 19 / 18%)",
+        "line": "rgb(236 48 19 / 70%)",
+        "themeIndependent": true
+      },
+      "mark-note": {
+        "role": "secondary",
+        "displayName": "쪽 위 주석",
+        "canonical": "rgb(255 151 131 / 28%)",
+        "line": "#ff9783",
+        "themeIndependent": true
+      },
+      "mark-focus": {
+        "role": "secondary",
+        "displayName": "쪽 위 초점",
+        "canonical": "rgb(236 48 19 / 30%)",
+        "line": "#ec3013",
+        "themeIndependent": true
+      },
+      "mark-c1": {
+        "role": "secondary",
+        "displayName": "하이라이트 1",
+        "canonical": "#ffe0d9",
+        "themeIndependent": true
+      },
+      "mark-c2": {
+        "role": "secondary",
+        "displayName": "하이라이트 2",
+        "canonical": "#ff9783",
+        "themeIndependent": true
+      },
+      "mark-c3": {
+        "role": "secondary",
+        "displayName": "하이라이트 3",
+        "canonical": "#d7d3d3",
+        "themeIndependent": true
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "화면 제목. 서재의 \"서재\" 한 줄 (--text-xl)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "창·패널 제목, 화면 안 작은 제목 (--text-lg)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "본문과 기본 글자 (--text-md)."
+      },
+      "body-strong": {
+        "displayName": "Body strong",
+        "purpose": "표의 논문 제목, 기본 단추의 글."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "머리 탭, 표 안의 글, 검색 칸, 메뉴, 구간 선택 (--text-sm)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "메타 줄, 표 머리글, 칩, 상태 글 (--text-xs). 대문자·넓은 자간 없음."
+      },
+      "quote": {
+        "displayName": "Quote",
+        "purpose": "리더의 원문 인용 (--font-paper)."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "쪽 링크, 코드 (--font-mono)."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "개수 딱지, 단축키 표시, 촘촘한 보조 글 (--text-2xs)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-sm",
+        "value": "0 1px 2px rgb(0 0 0 / 7%)",
+        "dark": "0 0 0 1px color-mix(in srgb, #ecece9 10%, transparent)",
+        "purpose": "구간 선택의 고른 칸, 쪽 미리보기."
+      },
+      {
+        "name": "shadow-md",
+        "value": "0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px rgb(0 0 0 / 8%)",
+        "dark": "0 0 0 1px color-mix(in srgb, #ecece9 12%, transparent), 0 4px 14px rgb(0 0 0 / 40%)",
+        "purpose": "본문 위의 작은 도구 막대와 칩."
+      },
+      {
+        "name": "shadow-lg",
+        "value": "0 2px 6px rgb(0 0 0 / 6%), 0 16px 40px rgb(0 0 0 / 14%)",
+        "dark": "0 0 0 1px color-mix(in srgb, #ecece9 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%)",
+        "purpose": "펼친 메뉴, 창, 원문 위 창, 끌어 놓기 받침."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--color-accent); outline-offset: 2px",
+        "purpose": "모든 조작 요소의 키보드 포커스."
+      },
+      {
+        "name": "input-focus-ring",
+        "value": "0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent)",
+        "purpose": "입력 칸·검색 칸의 포커스 고리 (주홍 테두리와 함께)."
+      },
+      {
+        "name": "thumb-edge",
+        "value": "0 0 0 1px var(--color-border-strong)",
+        "purpose": "첫 쪽 썸네일의 종이 가장자리."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "0.15s ease",
+        "purpose": "단추·탭·칩·검색 칸의 바탕·테두리·글자색 변화."
+      },
+      {
+        "name": "row-hover",
+        "value": "0.12s ease",
+        "purpose": "표 줄의 바탕 변화."
+      },
+      {
+        "name": "thumb-fade",
+        "value": "opacity 0.2s ease",
+        "purpose": "썸네일이 그려지면 떠오른다."
+      },
+      {
+        "name": "spinner",
+        "value": "0.9s linear infinite",
+        "purpose": "본문 추출 중 고리. prefers-reduced-motion에서는 멈춘다."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "reader-overlay",
+        "value": "1100px",
+        "purpose": "이 아래에서 리더의 오른쪽 패널과 목차가 본문 위에 겹쳐 뜬다. 그 밖의 좁은 창·모바일 대응은 없다."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "잉크 바탕의 주 단추. 한 화면에 하나 (서재의 PDF 등록).",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M12 3v12\"/></svg>PDF 등록</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-family: var(--font-body); font-weight: 600; font-size: 14px; line-height: 1.2; color: var(--color-text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); padding: 8px 14.4px; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease; } .ds-btn:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); } .ds-btn:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); } .ds-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; } .ds-btn-primary { background: var(--color-text); color: var(--color-bg); } .ds-btn-primary:hover { background: color-mix(in srgb, var(--color-text) 86%, var(--color-bg)); } .ds-btn-primary:active { background: color-mix(in srgb, var(--color-text) 74%, var(--color-bg)); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "테두리 단추. 주 단추 곁의 보조 동작.",
+      "html": "<button class=\"ds-btn2\">다시 확인</button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-family: var(--font-body); font-weight: 600; font-size: 14px; line-height: 1.2; color: var(--color-text); background: transparent; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); padding: 8px 14.4px; transition: background-color 0.15s ease; } .ds-btn2:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); } .ds-btn2:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); } .ds-btn2:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Row Delete (Icon Button)",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "줄 끝의 삭제. 마우스를 올리면 위험 색 12% 바탕과 위험 색 글자.",
+      "html": "<button class=\"ds-icon-danger\" aria-label=\"논문 삭제\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg></button>",
+      "css": ".ds-icon-danger { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; cursor: pointer; background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--color-neutral-600); transition: background-color 0.15s ease, color 0.15s ease; } .ds-icon-danger:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); } .ds-icon-danger:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "테두리가 모양인 입력 칸. 포커스는 주홍 테두리와 22% 고리.",
+      "html": "<label class=\"ds-field\"><span>제목</span><input class=\"ds-input\" placeholder=\"논문 제목\" /></label>",
+      "css": ".ds-field { display: block; font-family: var(--font-body); } .ds-field > span { display: block; font-size: 12px; margin-bottom: 5px; color: color-mix(in srgb, var(--color-text) 70%, transparent); } .ds-input { width: 100%; min-height: 36px; padding: 6px 10px; font-family: var(--font-body); font-size: 14px; color: var(--color-text); caret-color: var(--color-accent); background: var(--color-bg); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); } .ds-input:hover { border-color: color-mix(in srgb, var(--color-text) 40%, transparent); } .ds-input:focus-visible { border-color: var(--color-accent); outline: 3px solid color-mix(in srgb, var(--color-accent) 22%, transparent); outline-offset: 0; } .ds-input::placeholder { color: var(--color-neutral-600); }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "머리의 제목 검색. 테두리 없는 면이고 포커스가 오면 바탕색과 주홍 테두리.",
+      "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-3.5-3.5\"/></svg><input placeholder=\"논문 제목 검색\" /></label>",
+      "css": ".ds-search { display: flex; align-items: center; gap: 8px; width: 280px; height: 32px; padding: 0 10px; color: var(--color-neutral-700); background: var(--color-surface); border: 1px solid transparent; border-radius: var(--radius-md); transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; } .ds-search:hover { border-color: var(--color-divider); } .ds-search:focus-within { background: var(--color-bg); border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent); } .ds-search svg { flex: none; } .ds-search input { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--color-text); caret-color: var(--color-accent); font-family: var(--font-body); font-size: var(--text-sm); outline: none; } .ds-search input::placeholder { color: var(--color-neutral-700); }"
+    },
+    {
+      "name": "Header Tabs",
+      "kind": "nav",
+      "refersTo": "nav-tab",
+      "description": "머리의 화면 탭. 지금 화면은 잉크 8% 바탕과 굵기 600.",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">서재</button><button>답변</button><button>설정</button></nav>",
+      "css": ".ds-nav { display: flex; gap: 2px; font-family: var(--font-body); font-size: var(--text-sm); } .ds-nav button { padding: 6px 10px; border: 0; border-radius: var(--radius-md); background: none; color: var(--color-neutral-700); font: inherit; font-weight: 500; cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; } .ds-nav button:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); color: var(--color-text); } .ds-nav button[aria-current=\"page\"] { background: color-mix(in srgb, var(--color-text) 8%, transparent); color: var(--color-text); font-weight: 600; } .ds-nav button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Tag Chip",
+      "kind": "chip",
+      "refersTo": "tag-chip",
+      "description": "논문의 태그. 거르기에 쓰이는 중이면 잉크 바탕.",
+      "html": "<span class=\"ds-tags\"><button class=\"ds-tag\">스케줄링</button><button class=\"ds-tag ds-tag-on\">GPU</button></span>",
+      "css": ".ds-tags { display: inline-flex; gap: 4px; } .ds-tag { max-width: 120px; overflow: hidden; padding: 2px 8px; border: 0; border-radius: var(--radius-sm); background: var(--color-neutral-200); color: var(--color-neutral-800); font-family: var(--font-body); font-size: var(--text-xs); line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; transition: background-color 0.15s ease; } .ds-tag:hover { background: var(--color-neutral-300); } .ds-tag-on, .ds-tag-on:hover { background: var(--color-text); color: var(--color-bg); } .ds-tag:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segmented",
+      "description": "두세 가지 가운데 하나 고르기. 고른 칸은 떠 있는 면과 작은 그림자.",
+      "html": "<div class=\"ds-seg\"><label class=\"ds-seg-opt\"><input type=\"radio\" name=\"ds-seg\" checked />모두</label><label class=\"ds-seg-opt\"><input type=\"radio\" name=\"ds-seg\" />하나라도</label></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); } .ds-seg-opt { position: relative; display: inline-flex; align-items: center; padding: 5px 10px; border-radius: var(--radius-sm); color: var(--color-neutral-700); font-size: 13px; cursor: pointer; } .ds-seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; } .ds-seg-opt:has(input:checked) { background: var(--color-raised); color: var(--color-text); font-weight: 600; box-shadow: var(--shadow-sm); } .ds-seg-opt:not(:has(input:checked)):hover { color: var(--color-text); } .ds-seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }"
+    },
+    {
+      "name": "Paper Row",
+      "kind": "custom",
+      "refersTo": "table-cell",
+      "description": "서재 표의 한 줄: 첫 쪽 썸네일, 제목(여는 단추), 저자·연도·쪽 수, 상태.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-thumb\"></span><span class=\"ds-row-text\"><a class=\"ds-row-title\" href=\"#\">Attention Is All You Need</a><span class=\"ds-row-meta\">Ashish Vaswani 외 7명 · 2017 · 15쪽</span></span><span class=\"ds-row-status\"><i></i>본문 추출 실패</span><span class=\"ds-row-when\">44분 전</span></div>",
+      "css": ".ds-row { display: flex; align-items: center; gap: var(--space-3); padding: 10px; border-bottom: 1px solid var(--color-divider); font-family: var(--font-body); color: var(--color-text); transition: background-color 0.12s ease; } .ds-row:hover { background: color-mix(in srgb, var(--color-text) 3.5%, transparent); } .ds-thumb { flex: none; width: 48px; height: 64px; border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border-strong); } .ds-row-text { display: grid; gap: 2px; min-width: 0; flex: 1; } .ds-row-title { color: inherit; font-size: var(--text-md); font-weight: 600; line-height: 1.4; text-decoration: none; } .ds-row-title:hover { text-decoration: underline; text-underline-offset: 3px; } .ds-row-title:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; } .ds-row-meta { color: var(--color-neutral-600); font-size: var(--text-xs); line-height: 1.4; } .ds-row-status { flex: none; color: var(--color-danger); font-size: var(--text-xs); } .ds-row-status i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--color-danger); } .ds-row-when { flex: none; width: 96px; text-align: right; color: var(--color-neutral-600); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Popover Menu",
+      "kind": "card",
+      "refersTo": "popover",
+      "description": "펼친 메뉴(태그 고르기). 떠 있는 면, 10px 모서리, 큰 그림자.",
+      "html": "<div class=\"ds-pop\"><label class=\"ds-pop-row\"><input type=\"checkbox\" checked /><span>스케줄링</span><em>3</em></label><label class=\"ds-pop-row\"><input type=\"checkbox\" /><span>GPU</span><em>1</em></label></div>",
+      "css": ".ds-pop { display: flex; flex-direction: column; width: 264px; padding: 4px 0; background: var(--color-raised); border: 1px solid var(--color-divider); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); color: var(--color-text); font-family: var(--font-body); font-size: var(--text-sm); } .ds-pop-row { display: flex; align-items: center; gap: 10px; margin: 0 4px; padding: 7px 8px; border-radius: var(--radius-sm); cursor: pointer; } .ds-pop-row:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); } .ds-pop-row input { flex: none; width: 14px; height: 14px; margin: 0; accent-color: var(--color-text); } .ds-pop-row span { flex: 1; min-width: 0; } .ds-pop-row em { font-style: normal; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Switch",
+      "kind": "custom",
+      "refersTo": "switch",
+      "description": "설정 창의 켜기·끄기. 켜짐은 잉크.",
+      "html": "<button class=\"ds-switch\" role=\"switch\" aria-checked=\"true\" aria-label=\"다크 모드\"></button>",
+      "css": ".ds-switch { position: relative; width: 40px; height: 22px; padding: 0; border: 0; border-radius: 999px; background: var(--color-neutral-400); cursor: pointer; transition: background-color 0.15s ease; } .ds-switch::after { content: \"\"; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--color-bg); transition: left 0.15s ease; } .ds-switch[aria-checked=\"true\"] { background: var(--color-text); } .ds-switch[aria-checked=\"true\"]::after { left: 21px; } .ds-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Citation Chip",
+      "kind": "custom",
+      "refersTo": "accent",
+      "description": "답 안의 근거 번호. 주홍이 쓰이는 대표 자리.",
+      "html": "<span class=\"ds-cite-line\">근거를 봤고 <button class=\"ds-cite\">근거 1</button> 에서 확인했습니다.</span>",
+      "css": ".ds-cite-line { font-family: var(--font-body); font-size: 14px; color: var(--color-text); } .ds-cite { display: inline; margin: 0 1px; padding: 0; border: none; border-bottom: 1px solid var(--color-accent); background: none; color: var(--color-accent-700); font: inherit; font-size: 12px; cursor: pointer; } .ds-cite:hover { background: var(--color-accent-100); } .ds-cite:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "기준 제품의 표준 화면",
+    "overview": "Paperloom의 화면은 무언가를 닮으려 하지 않는다. 문헌 관리 도구와 리더의 표준 화면을 Linear·Notion·Readwise Reader·Zotero 7과 나란히 놓일 수준으로 만든 것이 전부다. 도서관 라벨이나 노선도 같은 은유를 화면에 입히지 않고, 타이포그래피·여백·정렬만으로 만든다. 그래서 이 문서의 북극성은 은유가 아니라 기준이다.\n\n바탕은 흰색, 그 위에 한 단계 어두운 무채색 면, 구분은 1px 선이다. 주 단추와 고른 상태는 잉크색(글자색)으로 드러낸다. 로고 색인 주홍은 근거와 \"지금 가리키는 자리\"에만 쓴다. 글꼴은 Wanted Sans 한 벌이고 본문은 14px이다. 밝은 판과 어두운 판이 같은 토큰 이름으로 함께 배포된다. 어두운 판은 단계를 뒤집고 그림자 대신 가는 테두리로 면을 띄운다.\n\nPDF 쪽과 그 위의 표시(선택·하이라이트·주석)는 이 시스템의 바깥이다. 쪽은 원문 색 그대로이고 `--mark-*` 값은 테마와 상관없이 같다.",
+    "keyCharacteristics": [
+      "흰 바탕, 무채색 면 한 단계, 1px 구분선",
+      "주 단추·고른 상태는 잉크색, 주홍은 근거·포커스·검색 표시",
+      "Wanted Sans 한 벌, 굵기 400·500·600·700, 크기 11·12·13·14·16·20px",
+      "모서리 6px(조작 요소) / 4px(칩·썸네일) / 10px(떠 있는 면·창)",
+      "문제가 있는 줄만 색으로 드러나고, 정상 상태는 조용하다",
+      "줄의 보조 동작(삭제·태그 붙이기)은 마우스를 올리거나 포커스가 올 때만 보인다",
+      "밝은 판·어두운 판 동시 지원, PDF 쪽은 테마 밖"
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Accent Rule",
+        "body": "주홍은 근거와 지금 가리키는 자리(포커스 테두리, 커서, 글 선택, 검색 표시, 끌어 놓을 자리)에만 쓴다. 주 단추도, 고른 탭도, 켜진 스위치도 주홍이 아니다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Selection Rule",
+        "body": "골랐다는 뜻은 잉크로 말한다. 고른 탭은 잉크 8–9% 바탕에 굵기 600, 고른 칩과 켜진 스위치는 잉크 바탕에 바탕색 글자다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Quiet Normal Rule",
+        "body": "정상 상태는 색을 쓰지 않는다. 검색 가능한 논문은 흐린 확인 표시(`neutral-500`)뿐이고, 일부·실패만 `warn`·`danger` 점과 글로 드러난다. 색만으로 알리지 않고 언제나 글이 함께 간다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Six Sizes Rule",
+        "body": "글자 크기는 `--text-xs`(12) · `--text-sm`(13) · `--text-md`(14) · `--text-lg`(16) · `--text-xl`(20) 여섯 단계에서 고른다. 새 화면에 그 사이 값을 만들지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight-Not-Case Rule",
+        "body": "위계는 굵기 400·500·600·700과 색 단계(`text` → `neutral-700` → `neutral-600`)로 만든다. 대문자 변환과 넓힌 자간으로 머리글을 만들지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-Until-Floating Rule",
+        "body": "문서 흐름 안에 있는 것은 그림자를 갖지 않는다. 그림자는 다른 내용 위에 겹쳐 뜬 면에만 붙고, 그 면은 10px 모서리와 1px 구분선을 함께 갖는다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 주 단추와 고른 상태를 잉크(`text`)로 만든다. 주 단추는 잉크 바탕, 고른 탭은 잉크 8–9% 바탕 + 굵기 600.",
+      "Do 주홍을 근거 표시, 포커스(2px 테두리 · 입력 칸의 22% 고리 3px), 커서, 글 선택, 검색 표시, 끌어 놓을 자리에만 쓴다.",
+      "Do 실패·삭제는 `danger`, 주의는 `warn`, 확인은 `ok`로 가르고, 색 옆에 언제나 글을 쓴다.",
+      "Do 구분은 1px 선(`divider`)과 `surface` 한 단계로 한다.",
+      "Do 모서리는 6px(조작 요소) · 4px(칩·썸네일) · 10px(떠 있는 면·창)에서 고른다.",
+      "Do 글자 크기는 11·12·13·14·16·20px, 굵기는 400·500·600·700에서 고른다.",
+      "Do 색·그림자·모서리·글자 크기는 `tokens.css`의 변수로만 쓰고, 밝은 판과 어두운 판을 함께 확인한다.",
+      "Do 줄의 보조 동작은 마우스를 올리거나 포커스가 올 때만 보이게 하고, 키보드 포커스(`:focus-within`)로도 나타나게 한다.",
+      "Do 수가 세로로 맞아야 하는 곳에는 `tabular-nums`와 오른쪽 맞춤을 쓴다."
+    ],
+    "donts": [
+      "Don't 주홍을 단추 바탕, 고른 탭·줄, 켜진 스위치, 실패 알림에 쓰지 않는다.",
+      "Don't 한쪽 변에만 두꺼운 색 띠를 두른 카드·줄·알림을 만들지 않는다.",
+      "Don't 대문자로 바꾸고 자간을 넓힌 작은 머리글을 만들지 않는다.",
+      "Don't 은유나 컨셉(도서관 라벨, 노선도 같은 것)을 화면에 입히지 않는다.",
+      "Don't 목록을 카드 줄이나 알약 단추로 바꾸지 않는다. 표와 1px 줄 선이 기본이다.",
+      "Don't 예전 Modernist 모양(모서리 0, 2px 구분선, 빨강 주 단추)으로 돌아가지 않는다.",
+      "Don't PDF 쪽과 `--mark-*` 표시의 색을 테마에 따라 바꾸지 않는다.",
+      "Don't 흐름 안의 면에 그림자를 붙이지 않는다. 그림자는 떠 있는 면의 것이다.",
+      "Don't 글꼴·아이콘을 외부 CDN에서 불러오지 않는다."
+    ]
+  }
+}
