@@ -1,6 +1,7 @@
 /*
- * Modernist 디자인 시스템 토큰 (Claude Design "Paperloom UI mockups", _ds/modernist-…/styles.css, docs/UI_PLAN.md).
- * 색·글꼴·간격·그림자는 모두 여기 변수에서 가져온다. 모서리는 0이고, 큰 구분선은 2px이다.
+ * 디자인 토큰. 색·글꼴·간격·모서리·그림자는 모두 여기 변수에서 가져온다.
+ * 흰 바탕과 한 단계 어두운 무채색 면, 1px 구분선, 모서리 6px. 주 단추와 고른 상태는 잉크색이고,
+ * 주홍(로고 색)은 근거·포커스·검색 표시에만 쓴다. 실패·삭제는 --color-danger, 주의는 --color-warn이다.
  *
  * 테마: data-theme="dark"면 어두운 판, "light"면 밝은 판이다. 지정하지 않으면 운영체제 설정을 따른다.
  * PDF 쪽과 그 위의 표시(선택·주석)는 테마와 상관없이 원래 색으로 둔다(--mark-*).
@@ -16,21 +17,25 @@
 }
 
 :root {
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
-  --color-text: #201e1d;
+  --color-bg: #ffffff;
+  --color-surface: #f6f6f4;
+  /* 떠 있는 면: 펼친 메뉴, 구간 선택의 고른 칸 */
+  --color-raised: #ffffff;
+  --color-text: #1c1b19;
   --color-accent: #ec3013;
-  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+  --color-divider: color-mix(in srgb, #1c1b19 12%, transparent);
+  /* 입력 칸·테두리 단추처럼 테두리가 곧 모양인 곳 */
+  --color-border-strong: color-mix(in srgb, #1c1b19 22%, transparent);
 
-  --color-neutral-100: #f8f4f4;
-  --color-neutral-200: #eae7e7;
-  --color-neutral-300: #d7d3d3;
-  --color-neutral-400: #bab6b6;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #7d7979;
-  --color-neutral-700: #605d5d;
-  --color-neutral-800: #444141;
-  --color-neutral-900: #2d2b2b;
+  --color-neutral-100: #f6f6f4;
+  --color-neutral-200: #eeeeeb;
+  --color-neutral-300: #e2e2de;
+  --color-neutral-400: #c8c8c3;
+  --color-neutral-500: #a1a19b;
+  --color-neutral-600: #73736d;
+  --color-neutral-700: #5c5c57;
+  --color-neutral-800: #3f3f3b;
+  --color-neutral-900: #272725;
 
   --color-accent-100: #fff2ef;
   --color-accent-200: #ffe0d9;
@@ -43,12 +48,23 @@
   --color-accent-900: #4d170e;
 
   --color-ok: #1a7f37;
+  --color-warn: #b25e09;
+  /* 실패·삭제. 강조색(주홍)은 근거·포커스·검색 표시에만 쓰고 위험은 이 색으로 가른다 */
+  --color-danger: #ae1800;
 
   --font-heading: "Wanted Sans Variable", "Wanted Sans", system-ui, sans-serif;
-  --font-heading-weight: 800;
+  --font-heading-weight: 700;
   --font-body: "Wanted Sans Variable", "Wanted Sans", system-ui, sans-serif;
   --font-paper: "Times New Roman", Times, serif; /* 원문 인용 */
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  /* 글자 크기 단계: 딱지·단축키·촘촘한 보조 글 / 메타·머리글 / 표·조작 요소 / 본문·제목 줄 / 창 제목 / 화면 제목 */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -57,11 +73,14 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --radius-md: 0px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px; /* 개수 딱지, 스위치, 알약 칩 */
 
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 7%);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px rgb(0 0 0 / 8%);
+  --shadow-lg: 0 2px 6px rgb(0 0 0 / 6%), 0 16px 40px rgb(0 0 0 / 14%);
 
   /* PDF 쪽 뒤의 바탕 */
   --reader-stage: var(--color-neutral-300);
@@ -91,23 +110,25 @@
   color-scheme: light;
 }
 
-/* 어두운 판: 밝은 판의 단계를 뒤집고, 강조색은 한 단계 밝힌다(readme: 어두운 바탕에서는 accent-400 쪽). */
+/* 어두운 판: 밝은 판의 단계를 뒤집고, 강조색은 한 단계 밝힌다. 그림자 대신 가는 테두리로 면을 띄운다. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #1c1b1a;
-    --color-surface: #272524;
-    --color-text: #ecebea;
+    --color-bg: #171716;
+    --color-surface: #1f1f1e;
+    --color-raised: #2a2a28;
+    --color-text: #ecece9;
     --color-accent: #ff563c;
-    --color-divider: color-mix(in srgb, #ecebea 32%, transparent);
-    --color-neutral-100: #2d2b2b;
-    --color-neutral-200: #343131;
-    --color-neutral-300: #3d3a3a;
-    --color-neutral-400: #5a5757;
-    --color-neutral-500: #7d7979;
-    --color-neutral-600: #9b9797;
-    --color-neutral-700: #b4b0b0;
-    --color-neutral-800: #d0cccc;
-    --color-neutral-900: #ece9e9;
+    --color-divider: color-mix(in srgb, #ecece9 13%, transparent);
+    --color-border-strong: color-mix(in srgb, #ecece9 24%, transparent);
+    --color-neutral-100: #1f1f1e;
+    --color-neutral-200: #272726;
+    --color-neutral-300: #323230;
+    --color-neutral-400: #4b4b48;
+    --color-neutral-500: #6e6e6a;
+    --color-neutral-600: #92928d;
+    --color-neutral-700: #b0b0ab;
+    --color-neutral-800: #d0d0cc;
+    --color-neutral-900: #ecece9;
     --color-accent-100: #3b1b15;
     --color-accent-200: #5a2418;
     --color-accent-300: #7d2c1c;
@@ -118,29 +139,33 @@
     --color-accent-800: #ffc4b8;
     --color-accent-900: #ffe0d9;
     --color-ok: #4ac26b;
-    --shadow-sm: 0 0 0 1px color-mix(in srgb, #ecebea 10%, transparent);
-    --shadow-md: 0 0 0 1px color-mix(in srgb, #ecebea 12%, transparent), 0 4px 14px rgb(0 0 0 / 40%);
-    --shadow-lg: 0 0 0 1px color-mix(in srgb, #ecebea 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
-    --reader-stage: #121110;
+    --color-warn: #e0a13c;
+    --color-danger: #ff9783;
+    --shadow-sm: 0 0 0 1px color-mix(in srgb, #ecece9 10%, transparent);
+    --shadow-md: 0 0 0 1px color-mix(in srgb, #ecece9 12%, transparent), 0 4px 14px rgb(0 0 0 / 40%);
+    --shadow-lg: 0 0 0 1px color-mix(in srgb, #ecece9 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
+    --reader-stage: #0f0f0e;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --color-bg: #1c1b1a;
-  --color-surface: #272524;
-  --color-text: #ecebea;
+  --color-bg: #171716;
+  --color-surface: #1f1f1e;
+  --color-raised: #2a2a28;
+  --color-text: #ecece9;
   --color-accent: #ff563c;
-  --color-divider: color-mix(in srgb, #ecebea 32%, transparent);
-  --color-neutral-100: #2d2b2b;
-  --color-neutral-200: #343131;
-  --color-neutral-300: #3d3a3a;
-  --color-neutral-400: #5a5757;
-  --color-neutral-500: #7d7979;
-  --color-neutral-600: #9b9797;
-  --color-neutral-700: #b4b0b0;
-  --color-neutral-800: #d0cccc;
-  --color-neutral-900: #ece9e9;
+  --color-divider: color-mix(in srgb, #ecece9 13%, transparent);
+  --color-border-strong: color-mix(in srgb, #ecece9 24%, transparent);
+  --color-neutral-100: #1f1f1e;
+  --color-neutral-200: #272726;
+  --color-neutral-300: #323230;
+  --color-neutral-400: #4b4b48;
+  --color-neutral-500: #6e6e6a;
+  --color-neutral-600: #92928d;
+  --color-neutral-700: #b0b0ab;
+  --color-neutral-800: #d0d0cc;
+  --color-neutral-900: #ecece9;
   --color-accent-100: #3b1b15;
   --color-accent-200: #5a2418;
   --color-accent-300: #7d2c1c;
@@ -151,9 +176,11 @@
   --color-accent-800: #ffc4b8;
   --color-accent-900: #ffe0d9;
   --color-ok: #4ac26b;
-  --shadow-sm: 0 0 0 1px color-mix(in srgb, #ecebea 10%, transparent);
-  --shadow-md: 0 0 0 1px color-mix(in srgb, #ecebea 12%, transparent), 0 4px 14px rgb(0 0 0 / 40%);
-  --shadow-lg: 0 0 0 1px color-mix(in srgb, #ecebea 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
-  --reader-stage: #121110;
+  --color-warn: #e0a13c;
+  --color-danger: #ff9783;
+  --shadow-sm: 0 0 0 1px color-mix(in srgb, #ecece9 10%, transparent);
+  --shadow-md: 0 0 0 1px color-mix(in srgb, #ecece9 12%, transparent), 0 4px 14px rgb(0 0 0 / 40%);
+  --shadow-lg: 0 0 0 1px color-mix(in srgb, #ecece9 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
+  --reader-stage: #0f0f0e;
   color-scheme: dark;
 }

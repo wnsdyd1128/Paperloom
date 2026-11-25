@@ -1,10 +1,12 @@
 /**
  * 서재·답변 화면의 틀 (U6, 시안 Library): 머리(로고, 서재/답변/설정, Claude Code 상태, 제목 검색, PDF 등록)와
  * 화면 어디에나 PDF를 끌어다 놓는 받침. 제목 검색은 서재 표를 거르고 찾은 낱말을 표시한다(D1: 검색 패널을 뺐다).
+ * 검색 대상을 저자로 바꾸면 저자 이름으로 찾는다. 서재에서 Ctrl+F(Mac은 Cmd+F)는 브라우저 찾기 대신 검색 칸으로 간다
+ * (2026-11-25 사용자 요청).
  */
 import "./library.css";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError } from "../../shared/http";
 import { Icon } from "../../shared/Icon";
@@ -16,18 +18,30 @@ import { BundlesPage } from "../export/BundlesPage";
 import { ExportDialog } from "../export/ExportDialog";
 import { wikiExportShown } from "../export/draft";
 import { useOutbox } from "../export/useOutbox";
+import { navigationKeyAction } from "../reader/navigationKeys";
 import { search, type SnippetPart } from "../search/api";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import type { Conversation } from "../threads/api";
 import type { Paper } from "./api";
+import { searchAuthors } from "./authorSearch";
 import { FileDrop } from "./FileDrop";
 import { LibraryPage } from "./LibraryPage";
 import { useLibrary } from "./useLibrary";
+
+/** 검색 대상 (2026-11-25 사용자 요청). 제목은 서버가 찾고(IMPL §7.1), 저자는 받아 둔 서재 목록에서 찾는다(authorSearch.ts) */
+type SearchField = "title" | "author";
+
+const FIELD_COPY: Record<SearchField, Readonly<{ option: string; label: string; placeholder: string; hint: string }>> = {
+  title: { option: "제목", label: "제목 검색어", placeholder: "논문 제목 검색", hint: "제목의 낱말 (앞부분만 써도 됩니다). Enter로 찾습니다 (Ctrl+F)" },
+  author: { option: "저자", label: "저자 검색어", placeholder: "저자 검색", hint: "저자 이름의 일부. Enter로 찾습니다 (Ctrl+F)" },
+};
 
 type Search =
   | Readonly<{ kind: "idle" }>
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "ready"; hits: ReadonlyMap<string, readonly SnippetPart[]> }>
+  /** 저자 검색: 찾은 논문은 지금 서재 목록에서 그때그때 셈한다(논문을 지우거나 저자를 고치면 따라 바뀐다) */
+  | Readonly<{ kind: "authors"; query: string }>
   | Readonly<{ kind: "failed"; message: string }>;
 
 type View = "library" | "answers" | "bundles";
@@ -50,10 +64,27 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState<readonly Paper[] | null>(null);
   const [query, setQuery] = useState("");
+  const [field, setField] = useState<SearchField>("title");
   const [found, setFound] = useState<Search>({ kind: "idle" });
+  const authorHits = useMemo(() => (found.kind === "authors" ? searchAuthors(library.papers, found.query) : null), [found, library.papers]);
   const dragging = useFileDrop((files) => startUpload(files));
   const fileInput = useRef<HTMLInputElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   const state = bridgeState(bridge);
+  // 리더의 본문 찾기와 같은 키다. 답변·bundle 화면과 설정·내보내기 창이 열려 있는 동안에는 브라우저 찾기를 그대로 둔다
+  // (제목 검색은 서재 표만 거르고, 창 뒤의 칸으로 포커스가 가면 안 된다).
+  const findsTitles = shown === "library" && !settingsOpen && exporting === null;
+  useEffect(() => {
+    if (!findsTitles) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (navigationKeyAction(event) !== "find") return;
+      event.preventDefault();
+      searchInput.current?.focus();
+      searchInput.current?.select(); // 다시 누르면 적어 둔 검색어를 골라 바로 바꿔 쓸 수 있다
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [findsTitles]);
   // 빈 서재의 받침에서 시작한 올리기는 첫 논문이 표에 들어와도 결과를 다 보여 줄 때까지 받침을 둔다
   const [heldInline, setHeldInline] = useState(false);
   const emptyShelf = shown === "library" && library.list.kind === "ready" && library.papers.length === 0;
@@ -70,16 +101,30 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
     library.settleUpload();
   }
 
-  async function onSearch(event: FormEvent) {
+  function onSearch(event: FormEvent) {
     event.preventDefault();
-    if (!query.trim()) {
+    void runSearch(field, query);
+  }
+
+  /** 검색 대상을 바꾸면 적어 둔 검색어로 바로 다시 찾는다 */
+  function changeField(next: SearchField) {
+    setField(next);
+    void runSearch(next, query);
+  }
+
+  async function runSearch(target: SearchField, text: string) {
+    if (!text.trim()) {
       setFound({ kind: "idle" });
       return;
     }
     onView("library");
+    if (target === "author") {
+      setFound({ kind: "authors", query: text });
+      return;
+    }
     setFound({ kind: "loading" });
     try {
-      const result = await search(query);
+      const result = await search(text);
       setFound({ kind: "ready", hits: new Map(result.papers.map((hit) => [hit.paper_id, hit.title])) });
     } catch (error) {
       const message =
@@ -130,11 +175,17 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
           </button>
           <form role="search" className="title-search" onSubmit={(event) => void onSearch(event)}>
             <Icon name="search" size={15} />
+            <select className="input search-field" aria-label="검색 대상" value={field} onChange={(event) => changeField(event.target.value as SearchField)}>
+              <option value="title">{FIELD_COPY.title.option}</option>
+              <option value="author">{FIELD_COPY.author.option}</option>
+            </select>
             <input
+              ref={searchInput}
               type="search"
-              aria-label="제목 검색어"
-              placeholder="논문 제목 검색"
-              title="제목의 낱말 (앞부분만 써도 됩니다). Enter로 찾습니다"
+              aria-label={FIELD_COPY[field].label}
+              aria-keyshortcuts="Control+F"
+              placeholder={FIELD_COPY[field].placeholder}
+              title={FIELD_COPY[field].hint}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -162,13 +213,14 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
         </div>
       </header>
       <div className="library-notices">
-        {shown === "library" && <SearchStatus found={found} onClear={clearSearch} />}
+        {shown === "library" && <SearchStatus found={found} authorCount={authorHits?.size ?? 0} onClear={clearSearch} />}
       </div>
       <main className="library-main">
         {shown === "library" && (
           <LibraryPage
             library={library}
             hits={found.kind === "ready" ? found.hits : null}
+            authorHits={authorHits}
             wikiExport={wikiExport}
             exportProblem={outbox.problem}
             dropZone={
@@ -204,7 +256,7 @@ export function LibraryShell({ view, onView, onOpenPaper, onOpenConversation, on
   );
 }
 
-function SearchStatus({ found, onClear }: Readonly<{ found: Search; onClear: () => void }>) {
+function SearchStatus({ found, authorCount, onClear }: Readonly<{ found: Search; authorCount: number; onClear: () => void }>) {
   if (found.kind === "idle") return null;
   if (found.kind === "loading") return <p className="status pending">찾는 중…</p>;
   if (found.kind === "failed") {
@@ -214,9 +266,11 @@ function SearchStatus({ found, onClear }: Readonly<{ found: Search; onClear: () 
       </p>
     );
   }
+  const [place, count, rule] =
+    found.kind === "authors" ? ["저자", authorCount, "모든 낱말이 한 저자의 이름에 있어야 합니다."] : ["제목", found.hits.size, "모든 낱말이 제목에 있어야 합니다."];
   return (
     <p className="search-status" role="status">
-      {found.hits.size === 0 ? "제목에서 찾은 논문이 없습니다. 모든 낱말이 제목에 있어야 합니다." : `제목에서 ${found.hits.size}편을 찾았습니다.`}
+      {count === 0 ? `${place}에서 찾은 논문이 없습니다. ${rule}` : `${place}에서 ${count}편을 찾았습니다.`}
       <button type="button" className="btn btn-ghost" onClick={onClear}>
         검색 지우기
       </button>

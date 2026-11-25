@@ -1,16 +1,24 @@
 /**
  * 서재 표 (U6, 시안 Library): 고르기 · 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람 · 삭제. 최근에 연 논문이 먼저다(서버 차례).
+ * 제목 칸에는 첫 쪽 썸네일과 저자·연도·쪽 수 한 줄을 함께 두어 논문을 알아보게 한다(2026-11-25 사용자 결정).
  * 고른 논문은 머리의 "Wiki로 내보내기"로 한 번에 내보낸다(20편까지, 각 논문의 지금 판본).
  * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
  * 머리의 제목 검색 결과(hits)가 있으면 그 논문만 보이고 찾은 낱말을 표시한다. 모든 상태에서 원본은 읽을 수 있다 (IMPL §5.2).
+ * 저자 검색 결과(authorHits)가 있으면 저자가 맞는 논문만 보이고, 제목 아래 줄에 찾은 저자를 표시한다(2026-11-25 사용자 요청).
+ * 거르고 찾은 논문은 페이지로 나눠 보이고, 표 아래에서 페이지를 옮기거나 페이지당 편 수를 고른다(2026-11-25 사용자 요청).
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
+import { formatTime, relativeTime } from "../../shared/time";
 import { MAX_PAPERS } from "../export/draft";
 import type { SnippetPart } from "../search/api";
-import type { Paper, SourceVersion } from "./api";
+import { firstPageThumbnailUrl, type Paper, type SourceVersion } from "./api";
+import type { AuthorHit } from "./authorSearch";
+import { clampPage, pageAfterResize, pageSlice, rememberPageSize, storedPageSize } from "./pagination";
+import { paperFacts, paperMeta } from "./paperMeta";
+import { ShelfPager } from "./ShelfPager";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
 import { matchesTags, NO_TAG_FILTER, type TagFilter, tagCounts } from "./tagFilter";
 import type { Library } from "./useLibrary";
@@ -50,6 +58,8 @@ type Props = Readonly<{
   library: Library;
   /** 머리의 제목 검색 결과(논문 → 찾은 낱말을 표시한 제목). 검색하지 않았으면 null */
   hits: ReadonlyMap<string, readonly SnippetPart[]> | null;
+  /** 머리의 저자 검색 결과(논문 → 찾은 저자). 저자로 검색하지 않았으면 null */
+  authorHits: ReadonlyMap<string, AuthorHit> | null;
   /** Wiki로 내보내기 단추와 논문 고르기 칸을 보일지 (설정 wiki.enabled, 개발 중이라 기본으로 숨긴다) */
   wikiExport: boolean;
   /** Wiki로 내보내기를 막는 이유. 막지 않으면 null */
@@ -60,7 +70,7 @@ type Props = Readonly<{
   onExport: (papers: readonly Paper[]) => void;
 }>;
 
-export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone, onOpen, onExport }: Props) {
+export function LibraryPage({ library, hits, authorHits, wikiExport, exportProblem, dropZone, onOpen, onExport }: Props) {
   const [filter, setFilter] = useState<TagFilter>(NO_TAG_FILTER);
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const { list, papers } = library;
@@ -73,9 +83,26 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
   const exportBlocked =
     exportProblem ?? (chosenPapers.length === 0 ? "내보낼 논문을 고르세요." : chosenPapers.length > MAX_PAPERS ? `한 번에 ${MAX_PAPERS}편까지 내보낼 수 있습니다. 지금 ${chosenPapers.length}편을 골랐습니다.` : null);
   const counts = tagCounts(papers);
-  const searched = hits ? papers.filter((paper) => hits.has(paper.paper_id)) : papers;
+  const found = hits ?? authorHits; // 머리의 검색은 제목과 저자 가운데 하나다
+  const searched = found ? papers.filter((paper) => found.has(paper.paper_id)) : papers;
   const shown = searched.filter((paper) => matchesTags(paper, filter));
   const filtering = filter.untagged || filter.tags.length > 0;
+  // 페이지: 거르기·검색이 바뀌면 첫 페이지로 돌아가고, 논문을 지워 페이지가 줄면 마지막 페이지를 보인다(clampPage)
+  const [pageSize, setPageSize] = useState(storedPageSize);
+  const [page, setPage] = useState(1);
+  const section = useRef<HTMLElement>(null);
+  useEffect(() => setPage(1), [hits, authorHits, filter]);
+  const currentPage = clampPage(page, shown.length, pageSize);
+  const visible = pageSlice(shown, currentPage, pageSize);
+  const goToPage = (next: number) => {
+    setPage(next);
+    section.current?.closest(".library-main")?.scrollTo({ top: 0 }); // 새 페이지는 맨 위부터 본다
+  };
+  const changePageSize = (next: number) => {
+    setPage(pageAfterResize(currentPage, pageSize, next));
+    setPageSize(next);
+    rememberPageSize(next);
+  };
   const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
   // 태그 이름을 바꾸면 고른 거르기도 새 이름으로(이미 고른 태그로 합쳤으면 하나로), 지우면 거르기에서 뺀다
   const renameTag = async (name: string, next: string) => {
@@ -94,12 +121,12 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
   };
 
   return (
-    <section className="shelf" aria-labelledby="library-heading">
+    <section className="shelf" aria-labelledby="library-heading" ref={section}>
       <div className="shelf-head">
         <div className="shelf-title">
           <h2 id="library-heading">서재</h2>
           <span className="shelf-count" data-testid="shelf-count">
-            {filtering || hits ? `${shown.length} / ${papers.length}편` : `${papers.length}편`}
+            {filtering || found ? `${shown.length} / ${papers.length}편` : `${papers.length}편`}
           </span>
         </div>
         <div className="shelf-tools">
@@ -125,12 +152,14 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
           <span className="muted">필터 · {filter.untagged ? "태그 없음" : filter.mode === "all" ? "모두 포함" : "하나라도"}</span>
           {filter.untagged ? (
             <button type="button" className="filter-chip" aria-label="태그 없음 거르기 빼기" onClick={() => setFilter({ ...filter, untagged: false })}>
-              태그 없음 ×
+              태그 없음
+              <Icon name="x" size={11} />
             </button>
           ) : (
             filter.tags.map((tag) => (
               <button key={tag} type="button" className="filter-chip" aria-label={`${tag} 거르기 빼기`} onClick={() => toggleTag(tag)}>
-                {tag} ×
+                {tag}
+                <Icon name="x" size={11} />
               </button>
             ))
           )}
@@ -185,11 +214,12 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
             </tr>
           </thead>
           <tbody>
-            {shown.map((paper) => (
+            {visible.map((paper) => (
               <PaperRow
                 key={paper.paper_id}
                 paper={paper}
                 title={hits?.get(paper.paper_id) ?? null}
+                author={authorHits?.get(paper.paper_id) ?? null}
                 filter={filter}
                 known={counts.map((item) => item.name)}
                 chosen={chosen.has(paper.paper_id)}
@@ -203,6 +233,9 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
             ))}
           </tbody>
         </table>
+      )}
+      {list.kind === "ready" && !dropZone && shown.length > 0 && (
+        <ShelfPager total={shown.length} page={currentPage} size={pageSize} onPage={goToPage} onSize={changePageSize} />
       )}
       {list.kind === "ready" && papers.length > 0 && shown.length === 0 && filtering && (
         <p className="muted shelf-empty">
@@ -221,6 +254,8 @@ type RowProps = Readonly<{
   paper: Paper;
   /** 제목 검색에서 찾은 낱말을 표시한 제목 */
   title: readonly SnippetPart[] | null;
+  /** 저자 검색에서 찾은 저자. 제목 아래 줄의 저자 자리에 표시한다 */
+  author: AuthorHit | null;
   filter: TagFilter;
   known: readonly string[];
   /** 내보내려고 골랐는지 */
@@ -241,8 +276,37 @@ function deleteQuestion(paper: Paper): string {
   return `"${paper.title}" 논문을 지울까요?\n\n${records}이 모두 지워지며 되돌릴 수 없습니다.`;
 }
 
-function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
+/**
+ * 첫 쪽 썸네일. 눌러도 논문이 열리지만 이름과 키보드 조작은 곁의 제목 단추가 맡으므로 화면 낭독기에서 숨긴다.
+ * 쪽을 그리지 못하면(암호·손상된 PDF) 아래의 문서 아이콘만 남는다. 끌 수 없게 둔다: 그림을 끌면 브라우저가
+ * 파일을 끄는 것으로 알려 PDF 받침이 뜬다.
+ */
+function PaperThumb({ versionId, onOpen }: Readonly<{ versionId: string; onOpen: () => void }>) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false); // 다 받은 뒤에 서서히 드러낸다(아이콘에서 그림으로 툭 바뀌지 않게)
+  return (
+    <span className="paper-thumb" aria-hidden="true" onClick={onOpen}>
+      <Icon name="fileText" size={18} />
+      {!failed && (
+        <img
+          className={loaded ? "is-loaded" : undefined}
+          src={firstPageThumbnailUrl(versionId)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </span>
+  );
+}
+
+function PaperRow({ paper, title, author, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
   const version = paper.current_version;
+  const status = statusLabel(version);
+  const reason = version.status_reason ? (REASON_LABELS[version.status_reason] ?? version.status_reason) : null;
   const filtered = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
   return (
     <tr data-paper-id={paper.paper_id}>
@@ -252,14 +316,36 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
         </td>
       )}
       <td className="shelf-title-cell">
-        <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
-          {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
-        </button>
+        <div className="paper-main">
+          <PaperThumb versionId={version.version_id} onOpen={() => onOpen(paper)} />
+          <div className="paper-text">
+            <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
+              <span className="paper-title">
+                {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
+              </span>
+            </button>
+            {author ? (
+              // 찾은 저자가 첫 저자가 아닐 수 있다: 줄인 저자 목록 대신 그 저자를 보이고 나머지는 수로 센다
+              <p className="paper-meta">
+                {author.name.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>))}
+                {author.others > 0 && ` 외 ${author.others}명`} · {paperFacts(paper)}
+              </p>
+            ) : (
+              <p className="paper-meta">{paperMeta(paper)}</p>
+            )}
+          </div>
+        </div>
       </td>
-      <td data-status={version.status}>
+      {/* 이유는 둘째 줄에 두 줄까지 보인다(전체는 title). 칸의 글은 "상태 · 이유" 그대로다 */}
+      <td data-status={version.status} title={reason ? `${status} · ${reason}` : undefined}>
         <span className={`tag ${STATUS_TONES[version.status]}`}>
-          {statusLabel(version)}
-          {version.status_reason && ` · ${REASON_LABELS[version.status_reason] ?? version.status_reason}`}
+          {status}
+          {reason && (
+            <>
+              <span className="status-sep"> · </span>
+              <span className="status-reason">{reason}</span>
+            </>
+          )}
         </span>
         {(version.status === "FAILED" || version.status === "PARTIAL") && (
           <button type="button" className="link-button retry-parse" onClick={() => onRetry(paper)}>
@@ -267,8 +353,8 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
           </button>
         )}
       </td>
-      <td className="num">{paper.annotation_count || "—"}</td>
-      <td className="num">{paper.conversation_count || "—"}</td>
+      <td className={paper.annotation_count ? "num" : "num is-empty"}>{paper.annotation_count || "—"}</td>
+      <td className={paper.conversation_count ? "num" : "num is-empty"}>{paper.conversation_count || "—"}</td>
       <td>
         <div className="tag-cell">
           {paper.tags.map((tag) => (
@@ -279,7 +365,16 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
           <TagEditor title={paper.title} tags={paper.tags} known={known} onChange={(tags) => onSetTags(paper, tags)} />
         </div>
       </td>
-      <td className="num muted">{paper.last_opened_at ? new Date(paper.last_opened_at).toLocaleDateString("ko-KR") : "—"}</td>
+      {/* 답변·주석 목록과 같은 짧은 시각(방금 · 3시간 전 · 어제 · 11월 19일). 정확한 시각은 title */}
+      <td className={paper.last_opened_at ? "num muted" : "num muted is-empty"}>
+        {paper.last_opened_at ? (
+          <time dateTime={paper.last_opened_at} title={formatTime(paper.last_opened_at)}>
+            {relativeTime(paper.last_opened_at)}
+          </time>
+        ) : (
+          "—"
+        )}
+      </td>
       <td className="row-actions">
         <button
           type="button"
