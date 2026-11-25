@@ -18,3 +18,7 @@ docs/
 tests/e2e_papers/
 # Windows 압축본 빌드 결과 (ops/bundle/build.py)
 dist/
+# 디자인 도구(impeccable)의 로컬 기록: 저장소에 두지 않는다
+.impeccable/
+/DESIGN.md
+/PRODUCT.md

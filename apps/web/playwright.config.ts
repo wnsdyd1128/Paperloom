@@ -19,6 +19,12 @@ export default defineConfig({
     viewport: { width: 1280, height: 900 },
     // 없는 요소를 기다리며 테스트 제한(10분)까지 멈추지 않게 한다.
     actionTimeout: 15_000,
+    // 서재 표는 페이지로 나뉜다(features/library/pagination.ts). E2E 데이터 폴더에는 논문이 쌓이므로, 시험이 찾는 줄이
+    // 다음 페이지로 밀리지 않게 페이지당 가장 많은 편 수로 시작한다. 페이지 나누기 시험은 화면에서 편 수를 바꾼다.
+    storageState: {
+      cookies: [],
+      origins: [{ origin: "http://127.0.0.1:8791", localStorage: [{ name: "paperloom.library.pageSize", value: "100" }] }],
+    },
   },
   // PLAN A03: devicePixelRatio 3종
   projects: [1, 2, 3].map((dpr) => ({ name: `dpr-${dpr}`, use: { deviceScaleFactor: dpr } })),
