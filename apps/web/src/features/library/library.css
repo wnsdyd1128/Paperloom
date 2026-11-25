@@ -102,6 +102,32 @@
   flex: none;
 }
 
+/*
+ * 검색 대상(제목·저자): 검색 칸 안의 테두리 없는 선택 칸. 오른쪽 가는 선으로 입력 칸과 가른다.
+ * 펼친 목록과 꺾쇠는 다른 선택 칸(select.input, components.css)과 같은 모양을 쓴다.
+ */
+.title-search .search-field {
+  flex: none;
+  gap: 4px;
+  width: auto;
+  min-height: 0;
+  height: 20px;
+  padding: 0 8px 0 0;
+  border: 0;
+  border-right: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  background: none;
+  color: var(--color-neutral-800);
+  font-size: var(--text-sm);
+}
+
+.title-search .search-field:focus-visible {
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 .title-search input {
   flex: 1;
   min-width: 0;
@@ -360,7 +386,8 @@
   text-underline-offset: 3px;
 }
 
-.paper-open mark {
+.paper-open mark,
+.paper-meta mark {
   border-radius: var(--radius-sm);
   color: inherit;
   background: color-mix(in srgb, var(--color-accent) 25%, transparent);
@@ -523,6 +550,80 @@
 .paper-delete:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-danger) 12%, transparent);
   color: var(--color-danger);
+}
+
+/* — 페이지 이동: 왼쪽에 페이지당 편 수, 오른쪽에 지금 범위와 페이지 단추 — */
+.shelf-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 28px;
+  padding: var(--space-3) 10px 0;
+  color: var(--color-neutral-700);
+  font-size: var(--text-xs);
+}
+
+.pager-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pager-size select.input {
+  width: auto;
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+}
+
+.pager-range {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pager-pages .btn-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--color-neutral-700);
+}
+
+.pager-page {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-neutral-700);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.pager-page:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+}
+
+.pager-page[aria-current="page"] {
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.pager-gap {
+  min-width: 20px;
+  color: var(--color-neutral-500);
+  text-align: center;
 }
 
 .shelf-empty {

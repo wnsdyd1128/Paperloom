@@ -15,6 +15,8 @@ const ICONS = {
   search: [{ circle: [11, 11, 8] }, "m21 21-4.3-4.3"],
   chevronDown: ["m6 9 6 6 6-6"],
   chevronUp: ["m18 15-6-6-6 6"],
+  chevronLeft: ["m15 18-6-6 6-6"],
+  chevronRight: ["m9 18 6-6-6-6"],
   minus: ["M5 12h14"],
   plus: ["M5 12h14", "M12 5v14"],
   region: [
