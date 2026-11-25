@@ -156,6 +156,11 @@ export async function uploadPaper(file: File): Promise<Paper> {
   return parseJson<Paper>(response);
 }
 
+/** 서재 표의 첫 쪽 썸네일. 쪽의 영역 이미지(reading/routes.py)로 첫 쪽 전체를 가장 작은 배율(0.5)로 그린다. */
+export function firstPageThumbnailUrl(versionId: string): string {
+  return `/api/v1/versions/${encodeURIComponent(versionId)}/pages/0/image?box=${encodeURIComponent("0,0,1,1")}&scale=0.5`;
+}
+
 export function sourcePdfUrl(versionId: string): string {
   return `/api/v1/versions/${encodeURIComponent(versionId)}/pdf`;
 }

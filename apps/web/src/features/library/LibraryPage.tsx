@@ -1,5 +1,6 @@
 /**
  * 서재 표 (U6, 시안 Library): 고르기 · 제목 · 본문 추출 · 주석 · 대화 · 태그 · 마지막 열람 · 삭제. 최근에 연 논문이 먼저다(서버 차례).
+ * 제목 칸에는 첫 쪽 썸네일과 저자·연도·쪽 수 한 줄을 함께 두어 논문을 알아보게 한다(2026-11-25 사용자 결정).
  * 고른 논문은 머리의 "Wiki로 내보내기"로 한 번에 내보낸다(20편까지, 각 논문의 지금 판본).
  * 삭제(2026-10-05 사용자 요청)는 한 편씩, 확인 창에서 함께 지워지는 기록을 알린 뒤 바로 완전히 지운다.
  * 태그 칩을 누르면 그 태그로 거르고, 머리의 태그 메뉴로 여러 태그(하나라도/모두)나 태그 없음을 고른다.
@@ -8,9 +9,11 @@
 import { type ReactNode, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
+import { formatTime, relativeTime } from "../../shared/time";
 import { MAX_PAPERS } from "../export/draft";
 import type { SnippetPart } from "../search/api";
-import type { Paper, SourceVersion } from "./api";
+import { firstPageThumbnailUrl, type Paper, type SourceVersion } from "./api";
+import { paperMeta } from "./paperMeta";
 import { TagEditor, TagFilterMenu } from "./TagMenus";
 import { matchesTags, NO_TAG_FILTER, type TagFilter, tagCounts } from "./tagFilter";
 import type { Library } from "./useLibrary";
@@ -125,12 +128,14 @@ export function LibraryPage({ library, hits, wikiExport, exportProblem, dropZone
           <span className="muted">필터 · {filter.untagged ? "태그 없음" : filter.mode === "all" ? "모두 포함" : "하나라도"}</span>
           {filter.untagged ? (
             <button type="button" className="filter-chip" aria-label="태그 없음 거르기 빼기" onClick={() => setFilter({ ...filter, untagged: false })}>
-              태그 없음 ×
+              태그 없음
+              <Icon name="x" size={11} />
             </button>
           ) : (
             filter.tags.map((tag) => (
               <button key={tag} type="button" className="filter-chip" aria-label={`${tag} 거르기 빼기`} onClick={() => toggleTag(tag)}>
-                {tag} ×
+                {tag}
+                <Icon name="x" size={11} />
               </button>
             ))
           )}
@@ -241,8 +246,37 @@ function deleteQuestion(paper: Paper): string {
   return `"${paper.title}" 논문을 지울까요?\n\n${records}이 모두 지워지며 되돌릴 수 없습니다.`;
 }
 
+/**
+ * 첫 쪽 썸네일. 눌러도 논문이 열리지만 이름과 키보드 조작은 곁의 제목 단추가 맡으므로 화면 낭독기에서 숨긴다.
+ * 쪽을 그리지 못하면(암호·손상된 PDF) 아래의 문서 아이콘만 남는다. 끌 수 없게 둔다: 그림을 끌면 브라우저가
+ * 파일을 끄는 것으로 알려 PDF 받침이 뜬다.
+ */
+function PaperThumb({ versionId, onOpen }: Readonly<{ versionId: string; onOpen: () => void }>) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false); // 다 받은 뒤에 서서히 드러낸다(아이콘에서 그림으로 툭 바뀌지 않게)
+  return (
+    <span className="paper-thumb" aria-hidden="true" onClick={onOpen}>
+      <Icon name="fileText" size={18} />
+      {!failed && (
+        <img
+          className={loaded ? "is-loaded" : undefined}
+          src={firstPageThumbnailUrl(versionId)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </span>
+  );
+}
+
 function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRetry, onToggleTag, onSetTags, onDelete }: RowProps) {
   const version = paper.current_version;
+  const status = statusLabel(version);
+  const reason = version.status_reason ? (REASON_LABELS[version.status_reason] ?? version.status_reason) : null;
   const filtered = (name: string) => filter.tags.some((tag) => tag.toLowerCase() === name.toLowerCase());
   return (
     <tr data-paper-id={paper.paper_id}>
@@ -252,14 +286,28 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
         </td>
       )}
       <td className="shelf-title-cell">
-        <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
-          {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
-        </button>
+        <div className="paper-main">
+          <PaperThumb versionId={version.version_id} onOpen={() => onOpen(paper)} />
+          <div className="paper-text">
+            <button type="button" className="link-button paper-open" onClick={() => onOpen(paper)} title={paper.title}>
+              <span className="paper-title">
+                {title ? title.map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)) : paper.title}
+              </span>
+            </button>
+            <p className="paper-meta">{paperMeta(paper)}</p>
+          </div>
+        </div>
       </td>
-      <td data-status={version.status}>
+      {/* 이유는 둘째 줄에 두 줄까지 보인다(전체는 title). 칸의 글은 "상태 · 이유" 그대로다 */}
+      <td data-status={version.status} title={reason ? `${status} · ${reason}` : undefined}>
         <span className={`tag ${STATUS_TONES[version.status]}`}>
-          {statusLabel(version)}
-          {version.status_reason && ` · ${REASON_LABELS[version.status_reason] ?? version.status_reason}`}
+          {status}
+          {reason && (
+            <>
+              <span className="status-sep"> · </span>
+              <span className="status-reason">{reason}</span>
+            </>
+          )}
         </span>
         {(version.status === "FAILED" || version.status === "PARTIAL") && (
           <button type="button" className="link-button retry-parse" onClick={() => onRetry(paper)}>
@@ -267,8 +315,8 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
           </button>
         )}
       </td>
-      <td className="num">{paper.annotation_count || "—"}</td>
-      <td className="num">{paper.conversation_count || "—"}</td>
+      <td className={paper.annotation_count ? "num" : "num is-empty"}>{paper.annotation_count || "—"}</td>
+      <td className={paper.conversation_count ? "num" : "num is-empty"}>{paper.conversation_count || "—"}</td>
       <td>
         <div className="tag-cell">
           {paper.tags.map((tag) => (
@@ -279,7 +327,16 @@ function PaperRow({ paper, title, filter, known, chosen, onChoose, onOpen, onRet
           <TagEditor title={paper.title} tags={paper.tags} known={known} onChange={(tags) => onSetTags(paper, tags)} />
         </div>
       </td>
-      <td className="num muted">{paper.last_opened_at ? new Date(paper.last_opened_at).toLocaleDateString("ko-KR") : "—"}</td>
+      {/* 답변·주석 목록과 같은 짧은 시각(방금 · 3시간 전 · 어제 · 11월 19일). 정확한 시각은 title */}
+      <td className={paper.last_opened_at ? "num muted" : "num muted is-empty"}>
+        {paper.last_opened_at ? (
+          <time dateTime={paper.last_opened_at} title={formatTime(paper.last_opened_at)}>
+            {relativeTime(paper.last_opened_at)}
+          </time>
+        ) : (
+          "—"
+        )}
+      </td>
       <td className="row-actions">
         <button
           type="button"
