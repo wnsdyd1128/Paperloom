@@ -27,18 +27,21 @@
 
       /* 앱의 디자인 토큰(apps/web/src/shared/theme/tokens.css)과 같은 값 */
       :root {
-        --bg: #f3f2f2;
-        --surface: #eae9e9;
-        --text: #201e1d;
-        --muted: #605d5d;
+        --bg: #ffffff;
+        --surface: #f6f6f4;
+        --text: #1c1b19;
+        --muted: #5c5c57;
         --accent: #ec3013;
-        --accent-strong: #dd2b0f;
         --accent-soft: #ffe0d9;
-        --divider: color-mix(in srgb, #201e1d 40%, transparent);
-        --rule: color-mix(in srgb, #201e1d 16%, transparent);
-        --code-bg: #2d2b2b;
-        --code-text: #f8f4f4;
-        --shadow: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+        --divider: color-mix(in srgb, #1c1b19 12%, transparent);
+        /* 단추·칸처럼 테두리가 곧 모양인 곳 */
+        --border-strong: color-mix(in srgb, #1c1b19 22%, transparent);
+        --code-bg: #272725;
+        --code-text: #f6f6f4;
+        --radius-sm: 4px;
+        --radius: 6px;
+        --radius-lg: 10px;
+        --shadow: 0 2px 6px rgb(0 0 0 / 6%), 0 16px 40px rgb(0 0 0 / 14%);
         --font: "Wanted Sans Variable", "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
         --mono: ui-monospace, Menlo, Consolas, monospace;
         color-scheme: light;
@@ -46,18 +49,17 @@
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #1c1b1a;
-          --surface: #272524;
-          --text: #ecebea;
-          --muted: #b4b0b0;
+          --bg: #171716;
+          --surface: #1f1f1e;
+          --text: #ecece9;
+          --muted: #b0b0ab;
           --accent: #ff563c;
-          --accent-strong: #ff7a63;
           --accent-soft: #3b1b15;
-          --divider: color-mix(in srgb, #ecebea 32%, transparent);
-          --rule: color-mix(in srgb, #ecebea 14%, transparent);
-          --code-bg: #121110;
-          --code-text: #ecebea;
-          --shadow: 0 0 0 1px color-mix(in srgb, #ecebea 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
+          --divider: color-mix(in srgb, #ecece9 13%, transparent);
+          --border-strong: color-mix(in srgb, #ecece9 24%, transparent);
+          --code-bg: #0f0f0e;
+          --code-text: #ecece9;
+          --shadow: 0 0 0 1px color-mix(in srgb, #ecece9 14%, transparent), 0 14px 36px rgb(0 0 0 / 55%);
           color-scheme: dark;
         }
       }
@@ -113,6 +115,7 @@
 
       code {
         padding: 1px 5px;
+        border-radius: var(--radius-sm);
         background: var(--surface);
       }
 
@@ -120,8 +123,8 @@
         display: inline-block;
         min-width: 1.8em;
         padding: 1px 6px;
-        border: 1px solid var(--divider);
-        border-bottom-width: 2px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
         background: var(--bg);
         text-align: center;
         white-space: nowrap;
@@ -137,7 +140,7 @@
         position: sticky;
         top: 0;
         z-index: 10;
-        border-bottom: 2px solid var(--text);
+        border-bottom: 1px solid var(--divider);
         background: color-mix(in srgb, var(--bg) 92%, transparent);
         backdrop-filter: blur(8px);
       }
@@ -172,16 +175,19 @@
       }
 
       .top nav a {
+        color: var(--muted);
         text-decoration: none;
       }
 
       .top nav a:hover {
-        color: var(--accent);
+        color: var(--text);
       }
 
       .lang-switch {
         display: flex;
-        border: 1px solid var(--divider);
+        overflow: hidden; /* 고른 쪽의 채운 바탕이 둥근 모서리 밖으로 나가지 않게 */
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
       }
 
       .lang-switch button {
@@ -247,20 +253,22 @@
         align-items: center;
         gap: 8px;
         padding: 12px 20px;
-        border: 2px solid var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
         font-weight: 700;
         text-decoration: none;
       }
 
+      /* 앱의 주 단추처럼 잉크색이다. 주홍은 작은 표시에만 쓴다 */
       .button.primary {
-        border-color: var(--accent);
-        background: var(--accent);
-        color: #fff;
+        border-color: var(--text);
+        background: var(--text);
+        color: var(--bg);
       }
 
       .button.primary:hover {
-        border-color: var(--accent-strong);
-        background: var(--accent-strong);
+        border-color: transparent;
+        background: color-mix(in srgb, var(--text) 86%, var(--bg));
       }
 
       .button:not(.primary):hover {
@@ -292,7 +300,8 @@
         display: block;
         width: 100%;
         height: auto;
-        border: 2px solid var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
         box-shadow: var(--shadow);
       }
 
@@ -305,7 +314,7 @@
       /* 절 */
       section {
         padding: 72px 0;
-        border-top: 2px solid var(--text);
+        border-top: 1px solid var(--divider);
       }
 
       h2 {
@@ -350,10 +359,6 @@
         grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
       }
 
-      .points > div {
-        border-top: 4px solid var(--accent);
-      }
-
       .split {
         display: grid;
         grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
@@ -370,15 +375,16 @@
       th,
       td {
         padding: 12px 10px;
-        border-bottom: 1px solid var(--rule);
+        border-bottom: 1px solid var(--divider);
         text-align: left;
         vertical-align: top;
       }
 
       thead th {
-        border-bottom: 2px solid var(--text);
+        border-bottom: 1px solid var(--border-strong);
+        color: var(--muted);
         font-size: 13px;
-        font-weight: 700;
+        font-weight: 600;
       }
 
       td:first-child {
@@ -459,7 +465,8 @@
 
       .node {
         padding: 14px 16px;
-        border: 2px solid var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
         background: var(--bg);
         font-weight: 700;
       }
@@ -507,7 +514,8 @@
         width: 14px;
         height: 14px;
         margin-right: 6px;
-        border: 2px solid var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
         vertical-align: -2px;
       }
 
@@ -543,7 +551,7 @@
         grid-template-columns: 56px minmax(0, 1fr);
         gap: 20px;
         padding: 26px 0;
-        border-bottom: 1px solid var(--rule);
+        border-bottom: 1px solid var(--divider);
         counter-increment: step;
       }
 
@@ -553,6 +561,7 @@
         place-items: center;
         width: 48px;
         height: 48px;
+        border-radius: var(--radius);
         background: var(--text);
         color: var(--bg);
         font-size: 22px;
@@ -567,6 +576,7 @@
         margin: 12px 0 0;
         padding: 14px 16px;
         overflow-x: auto;
+        border-radius: var(--radius);
         background: var(--code-bg);
         color: var(--code-text);
         font-family: var(--mono);
@@ -582,7 +592,8 @@
       .note {
         margin-top: 28px;
         padding: 18px 20px;
-        border-left: 4px solid var(--accent);
+        border: 1px solid var(--divider);
+        border-radius: var(--radius-lg);
         background: var(--surface);
       }
 
@@ -596,7 +607,7 @@
 
       footer {
         padding: 36px 0 48px;
-        border-top: 2px solid var(--text);
+        border-top: 1px solid var(--divider);
         color: var(--muted);
         font-size: 14px;
       }
@@ -845,8 +856,8 @@
           <div class="grid">
             <div>
               <h3><span lang="ko">서재</span><span lang="en">Library</span></h3>
-              <p lang="ko">PDF 여러 개를 한꺼번에 끌어다 놓아 등록합니다(파일당 100 MiB, 300쪽까지). 논문은 제목으로 찾고 태그로 묶습니다.<br /> 본문을 다 읽어 들였는지도 목록에 표시됩니다.</p>
-              <p lang="en">Add PDFs by drag and drop (up to 100 MiB and 300 pages each), search titles, tag papers, and check text extraction.</p>
+              <p lang="ko">PDF 여러 개를 한꺼번에 끌어다 놓아 등록합니다(파일당 100 MiB, 300쪽까지).<br /> 목록에는 첫 쪽 썸네일과 저자, 연도가 함께 나와 논문을 바로 알아봅니다.<br /> 논문은 제목이나 저자로 찾고 태그로 묶으며, 많아지면 페이지로 나눠 봅니다.<br /> 본문을 다 읽어 들였는지도 목록에 표시됩니다.</p>
+              <p lang="en">Add PDFs by drag and drop (up to 100 MiB and 300 pages each).<br /> Each row shows a first-page thumbnail with the authors and year.<br /> Search by title or author, tag papers, page through long lists, and check text extraction.</p>
             </div>
             <div>
               <h3><span lang="ko">리더</span><span lang="en">Reader</span></h3>
