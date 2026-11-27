@@ -1,0 +1,239 @@
+<!doctype html>
+<!--
+  Paperloom API 문서 (GitHub Pages). 서버의 /docs와 같은 Swagger 화면을 서버 없이 읽게 한다.
+  이 폴더의 openapi.json, swagger-ui-bundle.js, swagger-ui.css, LICENSE.txt, NOTICE.txt는 저장소에 없고
+  배포할 때 넣는다(.github/workflows/pages.yml): 명세는 ops/site/export_openapi.py가 앱에서 꺼내고,
+  화면 파일은 서버의 /docs가 쓰는 apps/web의 swagger-ui-dist다. 그래서 여기서도 CDN을 부르지 않는다.
+-->
+<html lang="ko" data-lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paperloom API</title>
+    <meta name="description" content="Paperloom 서버의 로컬 REST API 명세" />
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <script>
+      // 머리와 안내 글은 소개 페이지에서 고른 언어를 따른다(같은 키). 고른 적이 없으면 브라우저 언어를 따른다. 명세는 한국어뿐이다.
+      (function () {
+        var lang = null;
+        try {
+          lang = localStorage.getItem("paperloom.site.lang");
+        } catch (error) {
+          // 저장소를 쓸 수 없으면 브라우저 언어를 따른다
+        }
+        if (lang !== "ko" && lang !== "en") lang = /^ko\b/i.test(navigator.language || "") ? "ko" : "en";
+        document.documentElement.dataset.lang = lang;
+
+        // Swagger 화면의 어두운 판은 html의 dark-mode class로 켠다. 소개 페이지처럼 시스템 설정을 따르게 한다.
+        var dark = window.matchMedia("(prefers-color-scheme: dark)");
+        function followSystem() {
+          document.documentElement.classList.toggle("dark-mode", dark.matches);
+        }
+        followSystem();
+        dark.addEventListener("change", followSystem);
+      })();
+    </script>
+    <link rel="stylesheet" href="swagger-ui.css" />
+    <style>
+      @font-face {
+        font-family: "Wanted Sans Variable";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 400 1000;
+        src: url("../assets/WantedSansVariable.woff2") format("woff2-variations");
+      }
+
+      /* 소개 페이지(../index.html)의 토큰 가운데 여기서 쓰는 것 */
+      :root {
+        --bg: #ffffff;
+        --surface: #f6f6f4;
+        --text: #1c1b19;
+        --muted: #5c5c57;
+        --divider: color-mix(in srgb, #1c1b19 12%, transparent);
+        --radius-sm: 4px;
+        --radius-lg: 10px;
+        --font: "Wanted Sans Variable", "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+        --mono: ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #171716;
+          --surface: #1f1f1e;
+          --text: #ecece9;
+          --muted: #b0b0ab;
+          --divider: color-mix(in srgb, #ecece9 13%, transparent);
+        }
+      }
+
+      html[data-lang="ko"] [lang="en"],
+      html[data-lang="en"] [lang="ko"] {
+        display: none !important;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+      }
+
+      /* Swagger 화면의 어두운 바탕을 머리와 같은 색으로 맞춘다 */
+      html.dark-mode,
+      html.dark-mode .swagger-ui {
+        background: var(--bg);
+      }
+
+      /*
+        글꼴과 색은 머리·안내·바닥에만 준다. body에 두면 Swagger 화면이 물려받아 서버의 /docs와 달라진다.
+        너비는 Swagger 화면의 .wrapper와 같다.
+      */
+      .top,
+      .notice,
+      .foot {
+        color: var(--text);
+        font-family: var(--font);
+        line-height: 1.65;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+
+      .wrap {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 1460px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      .top {
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .top .wrap {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        height: 60px;
+      }
+
+      .top a,
+      .foot a {
+        color: inherit;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 19px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .brand img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .top nav {
+        display: flex;
+        gap: 20px;
+        margin-left: auto;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .top nav a {
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .top nav a:hover {
+        color: var(--text);
+      }
+
+      .notice p {
+        margin: 24px 0 0;
+        padding: 14px 18px;
+        border: 1px solid var(--divider);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        font-size: 15px;
+        text-wrap: pretty;
+      }
+
+      .notice code {
+        padding: 1px 5px;
+        border-radius: var(--radius-sm);
+        background: var(--bg);
+        font-family: var(--mono);
+        font-size: 0.88em;
+      }
+
+      .foot {
+        margin-top: 48px;
+        padding: 28px 0 40px;
+        border-top: 1px solid var(--divider);
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../">
+          <img src="../assets/logo.svg" alt="" width="30" height="30" />
+          Paperloom
+          <small>API</small>
+        </a>
+        <nav aria-label="Paperloom">
+          <a href="../"><span lang="ko">소개</span><span lang="en">Home</span></a>
+          <a href="https://github.com/wnsdyd1128/Paperloom">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="notice wrap">
+        <p lang="ko">
+          <code>main</code> 브랜치의 명세를 서버 없이 읽는 사본이라 여기서는 요청을 보낼 수 없습니다.<br />
+          직접 불러 보려면 Paperloom을 켜고 <code>http://127.0.0.1:8000/docs</code>를 여세요. 아래의 Try it out 안내는 그 화면에 해당합니다.
+        </p>
+        <p lang="en">
+          A read-only copy of the spec on the <code>main</code> branch, so requests cannot be sent from this page.<br />
+          To call the API, start Paperloom and open <code>http://127.0.0.1:8000/docs</code>; the Try it out warning below applies there. The reference
+          itself is written in Korean.
+        </p>
+      </div>
+      <div id="swagger-ui"></div>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        MIT © 2026 Jun-Yong Park · Swagger UI (Apache-2.0: <a href="LICENSE.txt">LICENSE</a>, <a href="NOTICE.txt">NOTICE</a>) ·
+        <span lang="ko">글꼴</span><span lang="en">Font</span> Wanted Sans (<a href="../assets/OFL.txt">OFL</a>)
+      </div>
+    </footer>
+
+    <script src="swagger-ui-bundle.js"></script>
+    <script>
+      // 서버의 /docs(FastAPI 기본값)와 같은 설정에 두 가지만 다르다: 부를 서버가 없으므로 Try it out을 숨기고,
+      // 공개 주소에서는 명세 주소를 swagger.io 검사기로 보내는 배지가 켜지므로 끈다.
+      SwaggerUIBundle({
+        url: "openapi.json",
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        supportedSubmitMethods: [],
+        validatorUrl: null,
+      });
+    </script>
+  </body>
+</html>

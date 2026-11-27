@@ -302,7 +302,7 @@ cd apps\web; npm ci
 | 백엔드 시험 | `backend\.venv\Scripts\python.exe -m pytest -q` | |
 | 웹 시험 | `apps\web`에서 `npm run typecheck`, `npx vitest run` | |
 | 브라우저 시험 | `apps\web`에서 `npx playwright test` | 8791·8794 포트에 서버와 가짜 Claude CLI를 띄움(구독 사용량 없음) |
-| API 문서 | 서버를 켜고 <http://127.0.0.1:8000/docs> | Swagger 화면, 명세는 `/openapi.json`. 화면 파일이 웹 빌드에 있어 `npm run build` 뒤 서버에서 열림. **Try it out은 실제 서재를 바꿈** |
+| API 문서 | 서버를 켜고 <http://127.0.0.1:8000/docs> | Swagger 화면, 명세는 `/openapi.json`. 화면 파일이 웹 빌드에 있어 `npm run build` 뒤 서버에서 열림. **Try it out은 실제 서재를 바꿈**. 서버 없이 읽는 사본은 <https://wnsdyd1128.github.io/Paperloom/api/> |
 | Windows 압축본 만들기 | `apps\web`에서 `npm run build` 뒤 `backend\.venv\Scripts\python.exe ops\bundle\build.py` | `dist\Paperloom-windows-x64.zip`. Visual Studio(MSVC 런타임을 넣는다)가 있어야 함. 시험은 `dist\Paperloom\python\python.exe ops\bundle\smoke.py` |
 
 ```text
